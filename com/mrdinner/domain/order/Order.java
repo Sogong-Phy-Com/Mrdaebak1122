@@ -34,10 +34,10 @@ public class Order {
         this.orderTime = LocalDateTime.now();
         this.status = OrderStatus.PENDING;
         this.orderItems = new ArrayList<>();
-        this.subtotal = Money.zero("USD");
-        this.tax = Money.zero("USD");
-        this.deliveryFee = Money.zero("USD");
-        this.totalAmount = Money.zero("USD");
+        this.subtotal = Money.zeroKRW();
+        this.tax = Money.zeroKRW();
+        this.deliveryFee = Money.zeroKRW();
+        this.totalAmount = Money.zeroKRW();
         this.notes = "";
     }
 
@@ -158,11 +158,71 @@ public class Order {
     private void recalculateTotals() {
         this.subtotal = orderItems.stream()
             .map(OrderItem::getTotalPrice)
-            .reduce(Money.zero("USD"), Money::add);
+            .reduce(Money.zeroKRW(), Money::add);
         
         this.totalAmount = subtotal.add(tax).add(deliveryFee);
     }
 
+    // 주문 후 음식 항목 추가/변경/삭제 기능
+    public void addMenuItemToOrder(com.mrdinner.domain.menu.MenuItem menuItem, int quantity) {
+        if (status.isFinal()) {
+            throw new IllegalStateException("Cannot modify order in final status: " + status);
+        }
+        
+        // 이미 같은 메뉴 아이템이 있는지 확인
+        OrderItem existingItem = orderItems.stream()
+            .filter(item -> item.getMenuItem().equals(menuItem))
+            .findFirst()
+            .orElse(null);
+            
+        if (existingItem != null) {
+            // 기존 아이템의 수량 변경
+            existingItem.updateQuantity(existingItem.getQuantity() + quantity);
+        } else {
+            // 새로운 주문 아이템 추가
+            OrderItem newOrderItem = new OrderItem(menuItem, quantity);
+            addOrderItem(newOrderItem);
+        }
+        
+        recalculateTotals();
+    }
+
+    public void removeMenuItemFromOrder(com.mrdinner.domain.menu.MenuItem menuItem) {
+        if (status.isFinal()) {
+            throw new IllegalStateException("Cannot modify order in final status: " + status);
+        }
+        
+        OrderItem itemToRemove = orderItems.stream()
+            .filter(item -> item.getMenuItem().equals(menuItem))
+            .findFirst()
+            .orElse(null);
+            
+        if (itemToRemove != null) {
+            removeOrderItem(itemToRemove);
+        }
+    }
+
+    public void updateMenuItemQuantity(com.mrdinner.domain.menu.MenuItem menuItem, int newQuantity) {
+        if (status.isFinal()) {
+            throw new IllegalStateException("Cannot modify order in final status: " + status);
+        }
+        
+        OrderItem existingItem = orderItems.stream()
+            .filter(item -> item.getMenuItem().equals(menuItem))
+            .findFirst()
+            .orElse(null);
+            
+        if (existingItem != null) {
+            if (newQuantity <= 0) {
+                removeOrderItem(existingItem);
+            } else {
+                existingItem.updateQuantity(newQuantity);
+                recalculateTotals();
+            }
+        }
+    }
+
+    // 주문 확정 시 고객의 주문 횟수 증가
     public void confirm() {
         if (status != OrderStatus.PENDING) {
             throw new IllegalStateException("Only pending orders can be confirmed");
@@ -171,6 +231,9 @@ public class Order {
             throw new IllegalStateException("Cannot confirm order without items");
         }
         setStatus(OrderStatus.CONFIRMED);
+        
+        // 고객의 주문 횟수 증가 (단골 고객 할인용)
+        customer.incrementOrderCount();
     }
 
     public void cancel() {

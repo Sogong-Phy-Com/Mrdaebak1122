@@ -13,9 +13,9 @@ import java.util.List;
  */
 public class PricingService {
     private static final BigDecimal DEFAULT_TAX_RATE = new BigDecimal("0.08"); // 8% tax
-    private static final Money MINIMUM_ORDER_AMOUNT = Money.of(15.00, "USD");
-    private static final Money FREE_DELIVERY_THRESHOLD = Money.of(50.00, "USD");
-    private static final Money STANDARD_DELIVERY_FEE = Money.of(4.99, "USD");
+    private static final Money MINIMUM_ORDER_AMOUNT = Money.ofKRW(15000);
+    private static final Money FREE_DELIVERY_THRESHOLD = Money.ofKRW(50000);
+    private static final Money STANDARD_DELIVERY_FEE = Money.ofKRW(5000);
 
     /**
      * Calculate the total price for an order including tax and delivery fees
@@ -39,7 +39,7 @@ public class PricingService {
     public Money calculateSubtotal(Order order) {
         return order.getOrderItems().stream()
             .map(OrderItem::getTotalPrice)
-            .reduce(Money.zero("USD"), Money::add);
+            .reduce(Money.zeroKRW(), Money::add);
     }
 
     /**
@@ -62,7 +62,7 @@ public class PricingService {
 
         // Free delivery for orders above threshold
         if (orderAmount.getAmount().compareTo(FREE_DELIVERY_THRESHOLD.getAmount()) >= 0) {
-            return Money.zero("USD");
+            return Money.zeroKRW();
         }
 
         return STANDARD_DELIVERY_FEE;

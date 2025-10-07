@@ -82,6 +82,11 @@ public class OrderItem {
         this.totalPrice = unitPrice.multiply(this.quantity);
     }
 
+    public void updateQuantity(int newQuantity) {
+        this.quantity = validateQuantity(newQuantity);
+        this.totalPrice = unitPrice.multiply(this.quantity);
+    }
+
     public Money getUnitPrice() {
         return unitPrice;
     }

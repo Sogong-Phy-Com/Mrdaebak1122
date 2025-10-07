@@ -150,7 +150,7 @@ public class Main {
         
         Address customerAddress = new Address("123 Main St", "Downtown", "CC", "12345", "USA");
         Customer customer = new Customer("Alice Johnson", "alice.johnson@email.com", 
-                                       "5551234567", customerAddress);
+                                       "5551234567", customerAddress, "password123");
         
         System.out.println("Customer created: " + customer.getName());
         return customer;
@@ -173,7 +173,8 @@ public class Main {
         ValentineDinner valentineDinner = new ValentineDinner(
             "Romantic Valentine Dinner", 
             "Special romantic dinner for two with candlelight", 
-            Money.of(45.99, "USD")
+            Money.ofKRW(85000),
+            ServingStyle.GRAND
         );
         
         orderService.addDinnerToOrder(order, valentineDinner, 1);
@@ -182,18 +183,19 @@ public class Main {
         FrenchDinner frenchDinner = new FrenchDinner(
             "Classic French Dinner",
             "Traditional French cuisine with wine pairing",
-            Money.of(52.99, "USD")
+            Money.ofKRW(95000),
+            ServingStyle.DELUXE
         );
         
         orderService.addDinnerToOrder(order, frenchDinner, 1);
         
         // Add individual menu items
         MenuItem wine = new MenuItem("House Wine", "Premium red wine", 
-                                   Money.of(18.99, "USD"), ItemType.BEVERAGE);
+                                   Money.ofKRW(19000), ItemType.BEVERAGE);
         wine.setPreparationTimeMinutes(2);
         
         MenuItem bread = new MenuItem("Artisan Bread", "Fresh baked artisan bread", 
-                                    Money.of(4.99, "USD"), ItemType.BREAD);
+                                    Money.ofKRW(5000), ItemType.BREAD);
         bread.setPreparationTimeMinutes(3);
         
         orderService.addMenuItemToOrder(order, wine, 2);

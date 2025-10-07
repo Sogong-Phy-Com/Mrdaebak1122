@@ -89,5 +89,18 @@ public class Money {
     public static Money of(double amount, String currency) {
         return new Money(amount, currency);
     }
+
+    // 원화 관련 편의 메서드
+    public static Money zeroKRW() {
+        return new Money(BigDecimal.ZERO, "KRW");
+    }
+
+    public static Money ofKRW(double amount) {
+        return new Money(amount, "KRW");
+    }
+
+    public static Money ofKRW(int amount) {
+        return new Money(BigDecimal.valueOf(amount), "KRW");
+    }
 }
 

@@ -43,13 +43,13 @@ public class MainGUI extends JFrame {
         // Add sample data
         createSampleData();
         
-        logMessage("Services initialized successfully!");
+        logMessage("서비스가 성공적으로 초기화되었습니다!");
     }
     
     private void initializeGUI() {
-        setTitle("Mr. Dinner Service - Management System");
+        setTitle("미스터 대박 디너 서비스 - 관리 시스템");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(1000, 700);
+        setSize(1200, 800);
         setLocationRelativeTo(null);
         
         // Create main layout
@@ -64,12 +64,12 @@ public class MainGUI extends JFrame {
         tabbedPane.setBorder(new EmptyBorder(10, 10, 10, 10));
         
         // Add tabs
-        tabbedPane.addTab("Dashboard", createDashboardPanel());
-        tabbedPane.addTab("Orders", createOrdersPanel());
-        tabbedPane.addTab("Menu", createMenuPanel());
-        tabbedPane.addTab("Customers", createCustomersPanel());
-        tabbedPane.addTab("Inventory", createInventoryPanel());
-        tabbedPane.addTab("Delivery", createDeliveryPanel());
+        tabbedPane.addTab("대시보드", createDashboardPanel());
+        tabbedPane.addTab("주문 관리", createOrdersPanel());
+        tabbedPane.addTab("메뉴 관리", createMenuPanel());
+        tabbedPane.addTab("고객 관리", createCustomersPanel());
+        tabbedPane.addTab("재고 관리", createInventoryPanel());
+        tabbedPane.addTab("배달 관리", createDeliveryPanel());
         
         add(tabbedPane, BorderLayout.CENTER);
         
@@ -83,12 +83,12 @@ public class MainGUI extends JFrame {
         panel.setBackground(new Color(41, 128, 185));
         panel.setBorder(new EmptyBorder(15, 20, 15, 20));
         
-        JLabel titleLabel = new JLabel("Mr. Dinner Service");
-        titleLabel.setFont(new Font("Arial", Font.BOLD, 24));
+        JLabel titleLabel = new JLabel("미스터 대박 디너 서비스");
+        titleLabel.setFont(new Font("맑은 고딕", Font.BOLD, 24));
         titleLabel.setForeground(Color.WHITE);
         
-        JLabel subtitleLabel = new JLabel("Premium Dinner Delivery Management System");
-        subtitleLabel.setFont(new Font("Arial", Font.PLAIN, 14));
+        JLabel subtitleLabel = new JLabel("특별한 날을 위한 프리미엄 디너 배달 관리 시스템");
+        subtitleLabel.setFont(new Font("맑은 고딕", Font.PLAIN, 14));
         subtitleLabel.setForeground(new Color(200, 200, 200));
         
         panel.setLayout(new BorderLayout());
@@ -107,12 +107,12 @@ public class MainGUI extends JFrame {
         statsPanel.setBorder(new EmptyBorder(0, 0, 20, 0));
         
         // Add stat cards
-        statsPanel.add(createStatCard("Total Orders", "12", "Orders processed today"));
-        statsPanel.add(createStatCard("Revenue", "$2,450", "Today's earnings"));
-        statsPanel.add(createStatCard("Deliveries", "8", "Completed deliveries"));
-        statsPanel.add(createStatCard("Customers", "156", "Active customers"));
-        statsPanel.add(createStatCard("Menu Items", "24", "Available items"));
-        statsPanel.add(createStatCard("Inventory", "95%", "Stock level"));
+        statsPanel.add(createStatCard("총 주문", "12", "오늘 처리된 주문"));
+        statsPanel.add(createStatCard("매출", "₩2,450,000", "오늘의 수익"));
+        statsPanel.add(createStatCard("배달", "8", "완료된 배달"));
+        statsPanel.add(createStatCard("고객", "156", "활성 고객"));
+        statsPanel.add(createStatCard("메뉴 항목", "24", "사용 가능한 항목"));
+        statsPanel.add(createStatCard("재고", "95%", "재고 수준"));
         
         panel.add(statsPanel, BorderLayout.NORTH);
         
@@ -155,9 +155,9 @@ public class MainGUI extends JFrame {
         panel.setBorder(new EmptyBorder(20, 0, 0, 0));
         
         // Quick action buttons
-        JButton newOrderBtn = createActionButton("New Order", "Create a new customer order", new Color(46, 204, 113));
-        JButton viewMenuBtn = createActionButton("View Menu", "Browse available menu items", new Color(155, 89, 182));
-        JButton manageInventoryBtn = createActionButton("Manage Inventory", "Update stock levels", new Color(230, 126, 34));
+        JButton newOrderBtn = createActionButton("새 주문", "새로운 고객 주문 생성", new Color(46, 204, 113));
+        JButton viewMenuBtn = createActionButton("메뉴 보기", "사용 가능한 메뉴 항목 둘러보기", new Color(155, 89, 182));
+        JButton manageInventoryBtn = createActionButton("재고 관리", "재고 수준 업데이트", new Color(230, 126, 34));
         
         panel.add(newOrderBtn);
         panel.add(viewMenuBtn);
@@ -176,11 +176,11 @@ public class MainGUI extends JFrame {
         button.setFocusPainted(false);
         
         button.addActionListener(e -> {
-            if (text.contains("New Order")) {
+            if (text.contains("새 주문")) {
                 tabbedPane.setSelectedIndex(1); // Switch to Orders tab
-            } else if (text.contains("View Menu")) {
+            } else if (text.contains("메뉴 보기")) {
                 tabbedPane.setSelectedIndex(2); // Switch to Menu tab
-            } else if (text.contains("Manage Inventory")) {
+            } else if (text.contains("재고 관리")) {
                 tabbedPane.setSelectedIndex(4); // Switch to Inventory tab
             }
         });
@@ -205,7 +205,7 @@ public class MainGUI extends JFrame {
     
     private JPanel createOrderForm() {
         JPanel panel = new JPanel(new GridBagLayout());
-        panel.setBorder(BorderFactory.createTitledBorder("Create New Order"));
+        panel.setBorder(BorderFactory.createTitledBorder("새 주문 생성"));
         panel.setBackground(Color.WHITE);
         
         GridBagConstraints gbc = new GridBagConstraints();
@@ -213,49 +213,58 @@ public class MainGUI extends JFrame {
         
         // Customer info
         gbc.gridx = 0; gbc.gridy = 0;
-        panel.add(new JLabel("Customer Name:"), gbc);
+        panel.add(new JLabel("고객명:"), gbc);
         gbc.gridx = 1;
         JTextField customerNameField = new JTextField(20);
         panel.add(customerNameField, gbc);
         
         gbc.gridx = 0; gbc.gridy = 1;
-        panel.add(new JLabel("Phone:"), gbc);
+        panel.add(new JLabel("전화번호:"), gbc);
         gbc.gridx = 1;
         JTextField phoneField = new JTextField(20);
         panel.add(phoneField, gbc);
         
         gbc.gridx = 0; gbc.gridy = 2;
-        panel.add(new JLabel("Address:"), gbc);
+        panel.add(new JLabel("주소:"), gbc);
         gbc.gridx = 1;
         JTextField addressField = new JTextField(20);
         panel.add(addressField, gbc);
         
         // Menu selection
         gbc.gridx = 0; gbc.gridy = 3;
-        panel.add(new JLabel("Menu Item:"), gbc);
+        panel.add(new JLabel("디너 메뉴:"), gbc);
         gbc.gridx = 1;
-        String[] menuItems = {"Valentine Dinner", "French Dinner", "English Dinner", "Champagne Feast", "House Wine", "Artisan Bread"};
+        String[] menuItems = {"발렌타인 디너", "프렌치 디너", "잉글리시 디너", "샴페인 축제 디너"};
         JComboBox<String> menuCombo = new JComboBox<>(menuItems);
         panel.add(menuCombo, gbc);
         
+        // Serving style selection
         gbc.gridx = 0; gbc.gridy = 4;
-        panel.add(new JLabel("Quantity:"), gbc);
+        panel.add(new JLabel("서빙 스타일:"), gbc);
+        gbc.gridx = 1;
+        String[] servingStyles = {"심플", "그랜드", "디럭스"};
+        JComboBox<String> servingStyleCombo = new JComboBox<>(servingStyles);
+        panel.add(servingStyleCombo, gbc);
+        
+        gbc.gridx = 0; gbc.gridy = 5;
+        panel.add(new JLabel("수량:"), gbc);
         gbc.gridx = 1;
         JSpinner quantitySpinner = new JSpinner(new SpinnerNumberModel(1, 1, 10, 1));
         panel.add(quantitySpinner, gbc);
         
         // Create order button
-        gbc.gridx = 0; gbc.gridy = 5; gbc.gridwidth = 2;
-        JButton createOrderBtn = new JButton("Create Order");
+        gbc.gridx = 0; gbc.gridy = 6; gbc.gridwidth = 2;
+        JButton createOrderBtn = new JButton("주문 생성");
         createOrderBtn.setBackground(new Color(46, 204, 113));
         createOrderBtn.setForeground(Color.WHITE);
-        createOrderBtn.setFont(new Font("Arial", Font.BOLD, 12));
+        createOrderBtn.setFont(new Font("맑은 고딕", Font.BOLD, 12));
         panel.add(createOrderBtn, gbc);
         
         // Add action listener
         createOrderBtn.addActionListener(e -> createNewOrder(customerNameField.getText(), 
             phoneField.getText(), addressField.getText(), 
             (String) menuCombo.getSelectedItem(), 
+            (String) servingStyleCombo.getSelectedItem(),
             (Integer) quantitySpinner.getValue()));
         
         return panel;
@@ -263,14 +272,14 @@ public class MainGUI extends JFrame {
     
     private JPanel createOrdersList() {
         JPanel panel = new JPanel(new BorderLayout());
-        panel.setBorder(BorderFactory.createTitledBorder("Recent Orders"));
+        panel.setBorder(BorderFactory.createTitledBorder("최근 주문"));
         panel.setBackground(Color.WHITE);
         
-        String[] columns = {"Order ID", "Customer", "Items", "Total", "Status"};
+        String[] columns = {"주문 ID", "고객", "메뉴", "총액", "상태"};
         String[][] data = {
-            {"ORD-001", "Alice Johnson", "Valentine Dinner", "$45.99", "Confirmed"},
-            {"ORD-002", "Bob Smith", "French Dinner", "$52.50", "Ready"},
-            {"ORD-003", "Carol Davis", "English Dinner", "$38.75", "Delivered"}
+            {"ORD-001", "김철수", "발렌타인 디너", "₩85,000", "확인됨"},
+            {"ORD-002", "이영희", "프렌치 디너", "₩95,000", "준비됨"},
+            {"ORD-003", "박민수", "잉글리시 디너", "₩75,000", "배달완료"}
         };
         
         JTable ordersTable = new JTable(data, columns);
@@ -288,20 +297,18 @@ public class MainGUI extends JFrame {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setBorder(new EmptyBorder(20, 20, 20, 20));
         
-        JLabel titleLabel = new JLabel("Our Premium Menu");
-        titleLabel.setFont(new Font("Arial", Font.BOLD, 18));
+        JLabel titleLabel = new JLabel("미스터 대박 프리미엄 메뉴");
+        titleLabel.setFont(new Font("맑은 고딕", Font.BOLD, 18));
         titleLabel.setBorder(new EmptyBorder(0, 0, 20, 0));
         panel.add(titleLabel, BorderLayout.NORTH);
         
         // Create menu items grid
-        JPanel menuGrid = new JPanel(new GridLayout(2, 3, 15, 15));
+        JPanel menuGrid = new JPanel(new GridLayout(2, 2, 15, 15));
         
-        menuGrid.add(createMenuItemCard("Valentine Dinner", "$45.99", "Romantic dinner for two with wine"));
-        menuGrid.add(createMenuItemCard("French Dinner", "$52.50", "Authentic French cuisine"));
-        menuGrid.add(createMenuItemCard("English Dinner", "$38.75", "Traditional English tea service"));
-        menuGrid.add(createMenuItemCard("Champagne Feast", "$99.99", "Luxury dinner with champagne"));
-        menuGrid.add(createMenuItemCard("House Wine", "$15.99", "Premium wine selection"));
-        menuGrid.add(createMenuItemCard("Artisan Bread", "$8.50", "Fresh baked artisan bread"));
+        menuGrid.add(createMenuItemCard("발렌타인 디너", "₩85,000", "하트 모양과 큐피드 장식된 접시에 와인과 스테이크"));
+        menuGrid.add(createMenuItemCard("프렌치 디너", "₩95,000", "커피, 와인, 샐러드, 스테이크 제공"));
+        menuGrid.add(createMenuItemCard("잉글리시 디너", "₩75,000", "에그 스크램블, 베이컨, 빵, 스테이크"));
+        menuGrid.add(createMenuItemCard("샴페인 축제 디너", "₩195,000", "2인분, 샴페인 1병, 바게트빵 4개, 커피포트, 와인, 스테이크"));
         
         panel.add(menuGrid, BorderLayout.CENTER);
         
@@ -338,16 +345,16 @@ public class MainGUI extends JFrame {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setBorder(new EmptyBorder(20, 20, 20, 20));
         
-        JLabel titleLabel = new JLabel("Customer Management");
-        titleLabel.setFont(new Font("Arial", Font.BOLD, 18));
+        JLabel titleLabel = new JLabel("고객 관리");
+        titleLabel.setFont(new Font("맑은 고딕", Font.BOLD, 18));
         panel.add(titleLabel, BorderLayout.NORTH);
         
         // Customer table
-        String[] columns = {"Name", "Email", "Phone", "Address", "Orders"};
+        String[] columns = {"이름", "이메일", "전화번호", "주소", "주문횟수"};
         String[][] data = {
-            {"Alice Johnson", "alice@email.com", "555-1234", "123 Main St", "3"},
-            {"Bob Smith", "bob@email.com", "555-5678", "456 Oak Ave", "2"},
-            {"Carol Davis", "carol@email.com", "555-9012", "789 Pine St", "1"}
+            {"김철수", "kim@email.com", "010-1234-5678", "서울시 강남구", "3"},
+            {"이영희", "lee@email.com", "010-2345-6789", "서울시 서초구", "2"},
+            {"박민수", "park@email.com", "010-3456-7890", "서울시 송파구", "1"}
         };
         
         JTable customersTable = new JTable(data, columns);
@@ -364,17 +371,17 @@ public class MainGUI extends JFrame {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setBorder(new EmptyBorder(20, 20, 20, 20));
         
-        JLabel titleLabel = new JLabel("Inventory Management");
-        titleLabel.setFont(new Font("Arial", Font.BOLD, 18));
+        JLabel titleLabel = new JLabel("재고 관리");
+        titleLabel.setFont(new Font("맑은 고딕", Font.BOLD, 18));
         panel.add(titleLabel, BorderLayout.NORTH);
         
         // Inventory table
-        String[] columns = {"Item", "Current Stock", "Min Level", "Status"};
+        String[] columns = {"재료", "현재 재고", "최소 수준", "상태"};
         String[][] data = {
-            {"Chicken Breast", "25", "10", "Good"},
-            {"Tomatoes", "15", "5", "Good"},
-            {"Olive Oil", "8", "3", "Low"},
-            {"Champagne", "12", "5", "Good"}
+            {"소고기 스테이크", "25", "10", "양호"},
+            {"프리미엄 와인", "15", "5", "양호"},
+            {"샴페인", "8", "3", "부족"},
+            {"신선한 채소", "12", "5", "양호"}
         };
         
         JTable inventoryTable = new JTable(data, columns);
@@ -391,16 +398,16 @@ public class MainGUI extends JFrame {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setBorder(new EmptyBorder(20, 20, 20, 20));
         
-        JLabel titleLabel = new JLabel("Delivery Management");
-        titleLabel.setFont(new Font("Arial", Font.BOLD, 18));
+        JLabel titleLabel = new JLabel("배달 관리");
+        titleLabel.setFont(new Font("맑은 고딕", Font.BOLD, 18));
         panel.add(titleLabel, BorderLayout.NORTH);
         
         // Delivery table
-        String[] columns = {"Order ID", "Customer", "Address", "Status", "Courier"};
+        String[] columns = {"주문 ID", "고객", "주소", "상태", "배달원"};
         String[][] data = {
-            {"ORD-001", "Alice Johnson", "123 Main St", "In Transit", "Mike Driver"},
-            {"ORD-002", "Bob Smith", "456 Oak Ave", "Ready", "Sarah Cyclist"},
-            {"ORD-003", "Carol Davis", "789 Pine St", "Delivered", "Mike Driver"}
+            {"ORD-001", "김철수", "서울시 강남구", "배달중", "김배달"},
+            {"ORD-002", "이영희", "서울시 서초구", "준비완료", "이배달"},
+            {"ORD-003", "박민수", "서울시 송파구", "배달완료", "김배달"}
         };
         
         JTable deliveryTable = new JTable(data, columns);
@@ -415,7 +422,7 @@ public class MainGUI extends JFrame {
     
     private JPanel createLogPanel() {
         JPanel panel = new JPanel(new BorderLayout());
-        panel.setBorder(BorderFactory.createTitledBorder("System Log"));
+        panel.setBorder(BorderFactory.createTitledBorder("시스템 로그"));
         panel.setPreferredSize(new Dimension(0, 150));
         
         logArea = new JTextArea();
@@ -439,24 +446,24 @@ public class MainGUI extends JFrame {
     }
     
     private void createNewOrder(String customerName, String phone, String address, 
-                               String menuItem, int quantity) {
+                               String menuItem, String servingStyle, int quantity) {
         try {
             // Create customer
-            Address customerAddress = new Address(address, "Downtown", "CC", "12345", "USA");
-            Customer customer = new Customer(customerName, "customer@email.com", phone, customerAddress);
+            Address customerAddress = new Address(address, "서울", "서울시", "12345", "대한민국");
+            Customer customer = new Customer(customerName, "customer@email.com", phone, customerAddress, "password123");
             
             // Create order
             Order order = orderService.createOrder(customer, customerAddress);
             
             // Add menu item to order
             // This is simplified - in real implementation, you'd get the actual menu item
-            logMessage("New order created for " + customerName + " - " + quantity + "x " + menuItem);
+            logMessage("새 주문 생성: " + customerName + " - " + quantity + "개 " + menuItem + " (" + servingStyle + " 스타일)");
             
             // Clear form
             // You would clear the form fields here
             
         } catch (Exception e) {
-            logMessage("Error creating order: " + e.getMessage());
+            logMessage("주문 생성 오류: " + e.getMessage());
         }
     }
     

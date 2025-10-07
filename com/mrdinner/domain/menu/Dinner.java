@@ -118,6 +118,11 @@ public abstract class Dinner {
         for (MenuItem item : menuItems) {
             total = total.add(item.getPrice());
         }
+        
+        // 서빙 스타일에 따른 추가 가격 적용
+        Money stylePrice = servingStyle.calculateStylePrice(total);
+        total = total.add(stylePrice);
+        
         return applyDiscounts(total);
     }
 
