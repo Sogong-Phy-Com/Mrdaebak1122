@@ -1,0 +1,347 @@
+@startuml
+!theme plain
+skinparam classAttributeIconSize 0
+
+' ==========================================
+' Model Classes (Entity)
+' ==========================================
+class User {
+  - Long id
+  - String email
+  - String password
+  - String name
+  - String address
+  - String phone
+  - String role
+  - LocalDateTime createdAt
+  + onCreate()
+}
+
+class Order {
+  - Long id
+  - Long userId
+  - Long dinnerTypeId
+  - String servingStyle
+  - String deliveryTime
+  - String deliveryAddress
+  - Integer totalPrice
+  - String status
+  - String paymentStatus
+  - String paymentMethod
+  - LocalDateTime createdAt
+  + onCreate()
+}
+
+class OrderItem {
+  - Long id
+  - Long orderId
+  - Long menuItemId
+  - Integer quantity
+}
+
+class DinnerType {
+  - Long id
+  - String name
+  - String nameEn
+  - Integer basePrice
+  - String description
+}
+
+class MenuItem {
+  - Long id
+  - String name
+  - String nameEn
+  - Integer price
+  - String category
+}
+
+class DinnerMenuItem {
+  - Long id
+  - Long dinnerTypeId
+  - Long menuItemId
+  - Integer quantity
+}
+
+' ==========================================
+' DTO Classes
+' ==========================================
+class AuthRequest {
+  - String email
+  - String password
+  - String name
+  - String address
+  - String phone
+  - String role
+}
+
+class AuthResponse {
+  - String message
+  - String token
+  - UserDto user
+}
+
+class UserDto {
+  - Long id
+  - String email
+  - String name
+  - String address
+  - String phone
+  - String role
+}
+
+class OrderRequest {
+  - Long dinnerTypeId
+  - String servingStyle
+  - String deliveryTime
+  - String deliveryAddress
+  - List<OrderItemDto> items
+  - String paymentMethod
+}
+
+class OrderItemDto {
+  - Long menuItemId
+  - Integer quantity
+}
+
+' ==========================================
+' Repository Interfaces
+' ==========================================
+interface UserRepository {
+  + Optional<User> findByEmail(String email)
+  + boolean existsByEmail(String email)
+}
+
+interface OrderRepository {
+  + List<Order> findByUserIdOrderByCreatedAtDesc(Long userId)
+  + Optional<Order> findByIdAndUserId(Long id, Long userId)
+  + List<Order> findByStatus(String status)
+}
+
+interface OrderItemRepository {
+  + List<OrderItem> findByOrderId(Long orderId)
+  + void deleteByOrderId(Long orderId)
+}
+
+interface DinnerTypeRepository {
+}
+
+interface MenuItemRepository {
+}
+
+interface DinnerMenuItemRepository {
+  + List<DinnerMenuItem> findByDinnerTypeId(Long dinnerTypeId)
+}
+
+' ==========================================
+' Service Classes
+' ==========================================
+class AuthService {
+  - UserRepository userRepository
+  - PasswordEncoder passwordEncoder
+  - JwtService jwtService
+  + AuthResponse register(AuthRequest request)
+  + AuthResponse login(AuthRequest request)
+}
+
+class OrderService {
+  - OrderRepository orderRepository
+  - OrderItemRepository orderItemRepository
+  - DinnerTypeRepository dinnerTypeRepository
+  - MenuItemRepository menuItemRepository
+  - UserRepository userRepository
+  + Order createOrder(Long userId, OrderRequest request)
+  + List<Order> getUserOrders(Long userId)
+  + Order getOrder(Long orderId, Long userId)
+}
+
+class JwtService {
+  - String secretKey
+  - Long expiration
+  - SecretKey getSigningKey()
+  + String extractUserId(String token)
+  + String extractRole(String token)
+  + Boolean isTokenValid(String token)
+  + String generateToken(Long userId, String email, String role)
+  - String createToken(Map<String, Object> claims, String subject)
+  - Boolean isTokenExpired(String token)
+  - Date extractExpiration(String token)
+}
+
+' ==========================================
+' Controller Classes
+' ==========================================
+class AuthController {
+  - AuthService authService
+  + ResponseEntity<?> register(AuthRequest request)
+  + ResponseEntity<?> login(AuthRequest request)
+}
+
+class OrderController {
+  - OrderService orderService
+  - OrderItemRepository orderItemRepository
+  - MenuItemRepository menuItemRepository
+  + ResponseEntity<List<Map<String, Object>>> getUserOrders(Authentication authentication)
+  + ResponseEntity<?> createOrder(OrderRequest request, Authentication authentication)
+}
+
+class MenuController {
+  - DinnerTypeRepository dinnerTypeRepository
+  - MenuItemRepository menuItemRepository
+  - DinnerMenuItemRepository dinnerMenuItemRepository
+  + List<Map<String, Object>> getDinners()
+  + List<MenuItem> getMenuItems()
+  + List<Map<String, Object>> getServingStyles()
+}
+
+class AdminController {
+  - UserRepository userRepository
+  - PasswordEncoder passwordEncoder
+  - JwtService jwtService
+  + ResponseEntity<?> createEmployee(AuthRequest request, Authentication authentication)
+  + ResponseEntity<?> getAllUsers()
+  + ResponseEntity<?> getEmployees()
+  + ResponseEntity<?> getCustomers()
+}
+
+class EmployeeController {
+  - OrderRepository orderRepository
+  - OrderItemRepository orderItemRepository
+  - UserRepository userRepository
+  - DinnerTypeRepository dinnerTypeRepository
+  - MenuItemRepository menuItemRepository
+  + ResponseEntity<List<Map<String, Object>>> getOrders(String status)
+  + ResponseEntity<?> updateOrderStatus(Long id, Map<String, String> request)
+}
+
+class HealthController {
+  + ResponseEntity<Map<String, String>> health()
+}
+
+class PaymentController {
+  - OrderRepository orderRepository
+  + ResponseEntity<?> processPayment(Long orderId, Map<String, String> request)
+}
+
+' ==========================================
+' Configuration Classes
+' ==========================================
+class SecurityConfig {
+  - JwtAuthenticationFilter jwtAuthenticationFilter
+  + SecurityFilterChain securityFilterChain(HttpSecurity http)
+  + PasswordEncoder passwordEncoder()
+  + CorsConfigurationSource corsConfigurationSource()
+}
+
+class JwtAuthenticationFilter {
+  - JwtService jwtService
+  + void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+}
+
+class DataInitializer {
+  - DinnerTypeRepository dinnerTypeRepository
+  - MenuItemRepository menuItemRepository
+  - DinnerMenuItemRepository dinnerMenuItemRepository
+  - UserRepository userRepository
+  - PasswordEncoder passwordEncoder
+  + void run(String... args)
+  - void createEmployeeAccount(String email, String password, String name, String address, String phone, String role)
+}
+
+' ==========================================
+' Relationships
+' ==========================================
+
+' Model Relationships
+Order "1" --> "*" OrderItem : contains
+OrderItem "1" --> "1" MenuItem : references
+Order "1" --> "1" User : belongs to
+Order "1" --> "1" DinnerType : references
+DinnerMenuItem "1" --> "1" DinnerType : belongs to
+DinnerMenuItem "1" --> "1" MenuItem : references
+
+' DTO Relationships
+AuthResponse "1" --> "1" UserDto : contains
+OrderRequest "1" --> "*" OrderItemDto : contains
+
+' Controller -> Service
+AuthController --> AuthService : uses
+OrderController --> OrderService : uses
+AdminController --> JwtService : uses
+
+' Service -> Repository
+AuthService --> UserRepository : uses
+AuthService --> JwtService : uses
+OrderService --> OrderRepository : uses
+OrderService --> OrderItemRepository : uses
+OrderService --> DinnerTypeRepository : uses
+OrderService --> MenuItemRepository : uses
+OrderService --> UserRepository : uses
+
+' Controller -> Repository
+OrderController --> OrderItemRepository : uses
+OrderController --> MenuItemRepository : uses
+MenuController --> DinnerTypeRepository : uses
+MenuController --> MenuItemRepository : uses
+MenuController --> DinnerMenuItemRepository : uses
+AdminController --> UserRepository : uses
+EmployeeController --> OrderRepository : uses
+EmployeeController --> OrderItemRepository : uses
+EmployeeController --> UserRepository : uses
+EmployeeController --> DinnerTypeRepository : uses
+EmployeeController --> MenuItemRepository : uses
+PaymentController --> OrderRepository : uses
+
+' Config -> Repository/Service
+SecurityConfig --> JwtAuthenticationFilter : uses
+JwtAuthenticationFilter --> JwtService : uses
+DataInitializer --> DinnerTypeRepository : uses
+DataInitializer --> MenuItemRepository : uses
+DataInitializer --> DinnerMenuItemRepository : uses
+DataInitializer --> UserRepository : uses
+
+' Repository -> Model
+UserRepository ..> User : manages
+OrderRepository ..> Order : manages
+OrderItemRepository ..> OrderItem : manages
+DinnerTypeRepository ..> DinnerType : manages
+MenuItemRepository ..> MenuItem : manages
+DinnerMenuItemRepository ..> DinnerMenuItem : manages
+
+' Service -> DTO
+AuthService ..> AuthRequest : uses
+AuthService ..> AuthResponse : uses
+AuthService ..> UserDto : uses
+OrderService ..> OrderRequest : uses
+OrderService ..> OrderItemDto : uses
+
+' Controller -> DTO
+AuthController ..> AuthRequest : uses
+AuthController ..> AuthResponse : uses
+OrderController ..> OrderRequest : uses
+AdminController ..> AuthRequest : uses
+AdminController ..> AuthResponse : uses
+AdminController ..> UserDto : uses
+
+' Service -> Model
+AuthService ..> User : uses
+OrderService ..> Order : uses
+OrderService ..> OrderItem : uses
+OrderService ..> DinnerType : uses
+OrderService ..> MenuItem : uses
+
+' Controller -> Model
+OrderController ..> Order : uses
+OrderController ..> OrderItem : uses
+OrderController ..> MenuItem : uses
+MenuController ..> DinnerType : uses
+MenuController ..> MenuItem : uses
+MenuController ..> DinnerMenuItem : uses
+EmployeeController ..> Order : uses
+EmployeeController ..> OrderItem : uses
+EmployeeController ..> User : uses
+EmployeeController ..> DinnerType : uses
+EmployeeController ..> MenuItem : uses
+AdminController ..> User : uses
+
+@enduml
+
