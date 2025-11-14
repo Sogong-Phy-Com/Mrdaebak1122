@@ -1,0 +1,543 @@
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import { useAuth } from '../contexts/AuthContext';
+import BottomNav from '../components/BottomNav';
+import './Profile.css';
+
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+
+interface OrderStats {
+  totalOrders: number;
+  deliveredOrders: number;
+  pendingOrders: number;
+}
+
+interface ReservedOrder {
+  id: number;
+  dinner_name: string;
+  delivery_time: string;
+  delivery_address: string;
+  total_price: number;
+  status: string;
+}
+
+const Profile: React.FC = () => {
+  const { user, logout, updateUser } = useAuth();
+  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState<'info' | 'orders' | 'settings'>('info');
+  const [stats, setStats] = useState<OrderStats>({ totalOrders: 0, deliveredOrders: 0, pendingOrders: 0 });
+  const [reservedOrders, setReservedOrders] = useState<ReservedOrder[]>([]);
+  const [orders, setOrders] = useState<any[]>([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+  const [ordersError, setOrdersError] = useState('');
+  const [loading, setLoading] = useState(false);
+  
+  // 비밀번호 변경 모달
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  
+  // 주소 관리 모달
+  const [showAddressModal, setShowAddressModal] = useState(false);
+  const [newAddress, setNewAddress] = useState(user?.address || '');
+  const [addressError, setAddressError] = useState('');
+
+  useEffect(() => {
+    if (activeTab === 'info') {
+      fetchStats();
+      fetchReservedOrders();
+    } else if (activeTab === 'orders') {
+      fetchAllOrders();
+    }
+  }, [activeTab]);
+
+  const fetchStats = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      const response = await axios.get(`${API_URL}/orders/stats`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      setStats(response.data);
+    } catch (err) {
+      console.error('통계 조회 실패:', err);
+    }
+  };
+
+  const fetchReservedOrders = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      const response = await axios.get(`${API_URL}/orders`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      // 예약 주문 = 배달 시간이 미래인 주문
+      const now = new Date();
+      const reserved = response.data.filter((order: any) => {
+        const deliveryTime = new Date(order.delivery_time);
+        return deliveryTime > now && order.status !== 'delivered' && order.status !== 'cancelled';
+      });
+      setReservedOrders(reserved);
+    } catch (err) {
+      console.error('예약 주문 조회 실패:', err);
+    }
+  };
+
+  const fetchAllOrders = async () => {
+    setOrdersLoading(true);
+    setOrdersError('');
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setOrdersError('로그인이 필요합니다.');
+        setOrdersLoading(false);
+        return;
+      }
+
+      const response = await axios.get(`${API_URL}/orders`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (!Array.isArray(response.data)) {
+        setOrdersError('서버 응답 형식이 올바르지 않습니다.');
+        setOrdersLoading(false);
+        return;
+      }
+
+      // dinner_name이 없으면 추가
+      const ordersWithDinnerName = await Promise.all(response.data.map(async (order: any) => {
+        if (order.dinner_name) {
+          return order;
+        }
+        try {
+          const dinnerResponse = await axios.get(`${API_URL}/menu/dinners`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          const dinner = dinnerResponse.data.find((d: any) => d.id === order.dinner_type_id);
+          return {
+            ...order,
+            dinner_name: dinner?.name || '알 수 없음'
+          };
+        } catch {
+          return {
+            ...order,
+            dinner_name: '알 수 없음'
+          };
+        }
+      }));
+
+      setOrders(ordersWithDinnerName);
+    } catch (err: any) {
+      console.error('주문 목록 조회 실패:', err);
+      if (err.response) {
+        setOrdersError(`주문 목록을 불러오는데 실패했습니다. (상태: ${err.response.status})`);
+      } else {
+        setOrdersError('주문 목록을 불러오는데 실패했습니다.');
+      }
+    } finally {
+      setOrdersLoading(false);
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    const labels: { [key: string]: string } = {
+      pending: '주문 접수',
+      cooking: '조리 중',
+      ready: '준비 완료',
+      out_for_delivery: '배달 중',
+      delivered: '배달 완료',
+      cancelled: '취소됨'
+    };
+    return labels[status] || status;
+  };
+
+  const handlePasswordChange = async () => {
+    setPasswordError('');
+    
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setPasswordError('모든 필드를 입력해주세요.');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setPasswordError('새 비밀번호가 일치하지 않습니다.');
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      setPasswordError('비밀번호는 최소 6자 이상이어야 합니다.');
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      await axios.post(`${API_URL}/auth/change-password`, {
+        currentPassword,
+        newPassword
+      }, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      alert('비밀번호가 변경되었습니다.');
+      setShowPasswordModal(false);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err: any) {
+      setPasswordError(err.response?.data?.error || '비밀번호 변경에 실패했습니다.');
+    }
+  };
+
+  const handleAddressUpdate = async () => {
+    setAddressError('');
+    
+    if (!newAddress.trim()) {
+      setAddressError('주소를 입력해주세요.');
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.put(`${API_URL}/auth/update-address`, {
+        address: newAddress
+      }, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      updateUser({ ...user, address: newAddress });
+      alert('주소가 변경되었습니다.');
+      setShowAddressModal(false);
+    } catch (err: any) {
+      setAddressError(err.response?.data?.error || '주소 변경에 실패했습니다.');
+    }
+  };
+
+  const showCustomerService = () => {
+    alert('고객센터\n\n전화: 1588-0000\n이메일: support@mrdabak.com\n운영시간: 평일 09:00 - 18:00');
+  };
+
+  const showTerms = () => {
+    alert('이용약관\n\n제1조 (목적)\n본 약관은 미스터 대박이 제공하는 서비스의 이용과 관련하여 회사와 이용자 간의 권리, 의무 및 책임사항을 규정함을 목적으로 합니다.\n\n제2조 (정의)\n1. "서비스"란 회사가 제공하는 디너 배달 서비스를 의미합니다.\n2. "이용자"란 본 약관에 동의하고 서비스를 이용하는 회원 및 비회원을 의미합니다.\n\n제3조 (약관의 효력 및 변경)\n1. 본 약관은 서비스 화면에 게시하거나 기타의 방법으로 이용자에게 공지함으로써 효력이 발생합니다.\n2. 회사는 필요한 경우 관련 법령을 위배하지 않는 범위에서 본 약관을 변경할 수 있습니다.');
+  };
+
+  return (
+    <div className="profile-page">
+      <nav className="navbar">
+        <div className="nav-container">
+          <h1 className="logo" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>미스터 대박</h1>
+        </div>
+      </nav>
+
+      <div className="page-content">
+        <div className="container">
+          {/* 프로필 헤더 */}
+          <div className="profile-header">
+            <div className="profile-avatar">
+              <span className="avatar-icon">👤</span>
+            </div>
+            <div className="profile-info">
+              <h2>{user?.name || '사용자'}</h2>
+              <p className="profile-email">{user?.email}</p>
+              <span className="profile-badge">일반 회원</span>
+            </div>
+          </div>
+
+          {/* 탭 메뉴 */}
+          <div className="profile-tabs">
+            <button
+              className={`tab-button ${activeTab === 'info' ? 'active' : ''}`}
+              onClick={() => setActiveTab('info')}
+            >
+              내 정보
+            </button>
+            <button
+              className={`tab-button ${activeTab === 'orders' ? 'active' : ''}`}
+              onClick={() => setActiveTab('orders')}
+            >
+              주문 내역
+            </button>
+            <button
+              className={`tab-button ${activeTab === 'settings' ? 'active' : ''}`}
+              onClick={() => setActiveTab('settings')}
+            >
+              설정
+            </button>
+          </div>
+
+          {/* 탭 컨텐츠 */}
+          <div className="tab-content">
+            {activeTab === 'info' && (
+              <div className="info-section">
+                <div className="card">
+                  <h3 className="card-title">기본 정보</h3>
+                  <div className="info-item">
+                    <span className="info-label">이름</span>
+                    <span className="info-value">{user?.name || '-'}</span>
+                  </div>
+                  <div className="info-item">
+                    <span className="info-label">이메일</span>
+                    <span className="info-value">{user?.email || '-'}</span>
+                  </div>
+                  <div className="info-item">
+                    <span className="info-label">전화번호</span>
+                    <span className="info-value">{user?.phone || '-'}</span>
+                  </div>
+                  <div className="info-item">
+                    <span className="info-label">주소</span>
+                    <span className="info-value">{user?.address || '-'}</span>
+                  </div>
+                </div>
+
+                <div className="card">
+                  <h3 className="card-title">주문 통계</h3>
+                  <div className="stats-grid">
+                    <div className="stat-item">
+                      <div className="stat-value">{stats.totalOrders}</div>
+                      <div className="stat-label">총 주문</div>
+                    </div>
+                    <div className="stat-item">
+                      <div className="stat-value">{stats.deliveredOrders}</div>
+                      <div className="stat-label">배달 완료</div>
+                    </div>
+                    <div className="stat-item">
+                      <div className="stat-value">{reservedOrders.length}</div>
+                      <div className="stat-label">예약 주문</div>
+                    </div>
+                  </div>
+                </div>
+
+                {reservedOrders.length > 0 && (
+                  <div className="card">
+                    <h3 className="card-title">예약 주문</h3>
+                    <div className="reserved-orders-list">
+                      {reservedOrders.map(order => (
+                        <div key={order.id} className="reserved-order-item">
+                          <div className="reserved-order-header">
+                            <span className="reserved-order-name">{order.dinner_name}</span>
+                            <span className="reserved-order-status">{order.status}</span>
+                          </div>
+                          <div className="reserved-order-details">
+                            <div>배달 시간: {new Date(order.delivery_time).toLocaleString('ko-KR')}</div>
+                            <div>배달 주소: {order.delivery_address}</div>
+                            <div>총 금액: {order.total_price.toLocaleString()}원</div>
+                          </div>
+                          <button
+                            className="btn btn-primary"
+                            style={{ width: '100%', marginTop: '8px' }}
+                            onClick={() => navigate(`/delivery/${order.id}`)}
+                          >
+                            배달 현황 보기
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === 'orders' && (
+              <div className="orders-section">
+                {ordersLoading ? (
+                  <div className="loading">로딩 중...</div>
+                ) : ordersError ? (
+                  <div className="error">{ordersError}</div>
+                ) : orders.length === 0 ? (
+                  <div className="no-orders">
+                    <div className="no-orders-icon">📦</div>
+                    <h3>주문 내역이 없습니다</h3>
+                    <p>첫 주문을 시작해보세요!</p>
+                    <button onClick={() => navigate('/order')} className="btn btn-primary">
+                      🛒 주문하기
+                    </button>
+                  </div>
+                ) : (
+                  <div className="orders-list">
+                    {orders.map(order => (
+                      <div key={order.id} className="order-card-modern" onClick={() => navigate(`/delivery/${order.id}`)}>
+                        <div className="order-card-header">
+                          <div className="order-card-title">
+                            <h3>{order.dinner_name}</h3>
+                            <span className="order-date">
+                              {new Date(order.created_at).toLocaleDateString('ko-KR')}
+                            </span>
+                          </div>
+                          <span className={`status-badge-modern status-${order.status}`}>
+                            {getStatusLabel(order.status)}
+                          </span>
+                        </div>
+
+                        <div className="order-card-body">
+                          <div className="order-info-row">
+                            <span className="info-icon">📍</span>
+                            <span className="info-text">{order.delivery_address}</span>
+                          </div>
+                          <div className="order-info-row">
+                            <span className="info-icon">⏰</span>
+                            <span className="info-text">
+                              {new Date(order.delivery_time).toLocaleString('ko-KR')}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="order-card-footer">
+                          <div className="order-total-modern">
+                            {order.total_price.toLocaleString()}원
+                          </div>
+                        </div>
+
+                        {order.status !== 'delivered' && order.status !== 'cancelled' && (
+                          <div className="order-action">
+                            <button
+                              className="btn btn-primary"
+                              style={{ width: '100%', marginTop: '12px' }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(`/delivery/${order.id}`);
+                              }}
+                            >
+                              배달 현황 보기
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === 'settings' && (
+              <div className="settings-section">
+                <div className="card">
+                  <h3 className="card-title">계정 설정</h3>
+                  <button
+                    className="btn btn-secondary"
+                    style={{ width: '100%', marginBottom: '12px' }}
+                    onClick={() => setShowPasswordModal(true)}
+                  >
+                    비밀번호 변경
+                  </button>
+                  <button
+                    className="btn btn-secondary"
+                    style={{ width: '100%' }}
+                    onClick={() => {
+                      setNewAddress(user?.address || '');
+                      setShowAddressModal(true);
+                    }}
+                  >
+                    주소 관리
+                  </button>
+                </div>
+
+                <div className="card">
+                  <h3 className="card-title">기타</h3>
+                  <button
+                    className="btn btn-secondary"
+                    style={{ width: '100%', marginBottom: '12px' }}
+                    onClick={showCustomerService}
+                  >
+                    고객센터
+                  </button>
+                  <button
+                    className="btn btn-secondary"
+                    style={{ width: '100%', marginBottom: '12px' }}
+                    onClick={showTerms}
+                  >
+                    이용약관
+                  </button>
+                  <button
+                    className="btn btn-secondary"
+                    style={{ width: '100%', color: 'var(--error)' }}
+                    onClick={logout}
+                  >
+                    로그아웃
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* 비밀번호 변경 모달 */}
+      {showPasswordModal && (
+        <div className="modal-overlay" onClick={() => setShowPasswordModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h3>비밀번호 변경</h3>
+            <div className="form-group">
+              <label>현재 비밀번호</label>
+              <input
+                type="password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+              />
+            </div>
+            <div className="form-group">
+              <label>새 비밀번호</label>
+              <input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+              />
+            </div>
+            <div className="form-group">
+              <label>새 비밀번호 확인</label>
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+              />
+            </div>
+            {passwordError && <div className="error">{passwordError}</div>}
+            <div style={{ display: 'flex', gap: '12px', marginTop: '20px' }}>
+              <button className="btn btn-secondary" onClick={() => setShowPasswordModal(false)}>
+                취소
+              </button>
+              <button className="btn btn-primary" onClick={handlePasswordChange}>
+                변경
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 주소 관리 모달 */}
+      {showAddressModal && (
+        <div className="modal-overlay" onClick={() => setShowAddressModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h3>주소 관리</h3>
+            <div className="form-group">
+              <label>배달 주소</label>
+              <textarea
+                value={newAddress}
+                onChange={(e) => setNewAddress(e.target.value)}
+                rows={3}
+                placeholder="배달 주소를 입력하세요"
+              />
+            </div>
+            {addressError && <div className="error">{addressError}</div>}
+            <div style={{ display: 'flex', gap: '12px', marginTop: '20px' }}>
+              <button className="btn btn-secondary" onClick={() => setShowAddressModal(false)}>
+                취소
+              </button>
+              <button className="btn btn-primary" onClick={handleAddressUpdate}>
+                저장
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <BottomNav />
+    </div>
+  );
+};
+
+export default Profile;

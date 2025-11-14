@@ -39,6 +39,7 @@ const EmployeeDashboard: React.FC = () => {
 
   useEffect(() => {
     fetchOrders();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterStatus]);
 
   const fetchOrders = async () => {
@@ -125,6 +126,55 @@ const EmployeeDashboard: React.FC = () => {
     }
   };
 
+  const exportToExcel = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setError('로그인이 필요합니다.');
+        return;
+      }
+
+      const url = filterStatus
+        ? `${API_URL}/employee/orders/export?status=${filterStatus}`
+        : `${API_URL}/employee/orders/export`;
+
+      const response = await axios.get(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        responseType: 'blob'
+      });
+
+      // Create download link
+      const url_blob = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url_blob;
+      
+      // Get filename from Content-Disposition header or use default
+      const contentDisposition = response.headers['content-disposition'];
+      let filename = 'orders.xlsx';
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="?(.+)"?/);
+        if (filenameMatch) {
+          filename = filenameMatch[1];
+        }
+      }
+      
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url_blob);
+    } catch (err: any) {
+      console.error('[EmployeeDashboard] 엑셀 다운로드 실패:', err);
+      if (err.response) {
+        setError(`엑셀 다운로드에 실패했습니다. (상태: ${err.response.status})`);
+      } else {
+        setError('엑셀 다운로드에 실패했습니다.');
+      }
+    }
+  };
+
   const getStatusLabel = (status: string) => {
     const labels: { [key: string]: string } = {
       pending: '대기 중',
@@ -167,10 +217,10 @@ const EmployeeDashboard: React.FC = () => {
     <div className="employee-dashboard">
       <nav className="navbar">
         <div className="nav-container">
-          <h1 className="logo">직원 대시보드</h1>
-          <button onClick={() => navigate('/')} className="btn btn-secondary">
-            홈으로
+          <button onClick={() => navigate('/')} className="back-button">
+            ←
           </button>
+          <h1 className="logo">직원 대시보드</h1>
         </div>
       </nav>
 
@@ -178,19 +228,28 @@ const EmployeeDashboard: React.FC = () => {
         <h2>주문 관리</h2>
 
         <div className="filter-section">
-          <label>상태 필터:</label>
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            className="filter-select"
-          >
-            <option value="">전체</option>
-            <option value="pending">대기 중</option>
-            <option value="cooking">조리 중</option>
-            <option value="ready">준비 완료</option>
-            <option value="out_for_delivery">배달 중</option>
-            <option value="delivered">배달 완료</option>
-          </select>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <label>상태 필터:</label>
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="filter-select"
+            >
+              <option value="">전체</option>
+              <option value="pending">대기 중</option>
+              <option value="cooking">조리 중</option>
+              <option value="ready">준비 완료</option>
+              <option value="out_for_delivery">배달 중</option>
+              <option value="delivered">배달 완료</option>
+            </select>
+            <button
+              onClick={exportToExcel}
+              className="btn btn-primary"
+              style={{ marginLeft: '10px' }}
+            >
+              📊 엑셀 다운로드
+            </button>
+          </div>
         </div>
 
         {error && <div className="error">{error}</div>}

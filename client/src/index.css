@@ -10,7 +10,8 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #f5f5f5;
+  background-color: #1a1a1a;
+  color: #f5f5f5;
 }
 
 code {
@@ -18,3 +19,23 @@ code {
     monospace;
 }
 
+/* 골드 & 블랙 스타일 컬러 */
+:root {
+  --primary-color: #D4AF37;
+  --primary-hover: #E5C158;
+  --primary-light: #2a2418;
+  --primary-dark: #B8941F;
+  --secondary-color: #8B7355;
+  --text-primary: #f5f5f5;
+  --text-secondary: #b0b0b0;
+  --text-light: #808080;
+  --border-color: #333333;
+  --background: #1a1a1a;
+  --background-light: #242424;
+  --white: #2a2a2a;
+  --success: #D4AF37;
+  --warning: #E5C158;
+  --error: #D32F2F;
+  --gold: #D4AF37;
+  --black: #1a1a1a;
+}

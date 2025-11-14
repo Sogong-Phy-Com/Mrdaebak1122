@@ -11,3 +11,4 @@ public interface DinnerMenuItemRepository extends JpaRepository<DinnerMenuItem, 
     List<DinnerMenuItem> findByDinnerTypeId(Long dinnerTypeId);
 }
 
+

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
+import BottomNav from '../components/BottomNav';
 import './Orders.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
@@ -37,123 +38,52 @@ const Orders: React.FC = () => {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    // Redirect staff to their home
     if (user && (user.role === 'admin' || user.role === 'employee')) {
       navigate('/');
       return;
     }
     fetchOrders();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, navigate]);
 
   const fetchOrders = async () => {
-    console.log('[주문 목록 조회] 시작');
-    
     try {
-      // 1단계: 토큰 확인
       const token = localStorage.getItem('token');
-      console.log('[1단계] 토큰 확인:', token ? '토큰 존재 (길이: ' + token.length + ')' : '토큰 없음');
-      
       if (!token) {
-        console.error('[에러] 토큰이 없습니다.');
-        setError('[에러 1] 로그인이 필요합니다. (토큰 없음)');
+        setError('로그인이 필요합니다.');
         setLoading(false);
         navigate('/login');
         return;
       }
 
-      // 2단계: 사용자 정보 확인
-      const userStr = localStorage.getItem('user');
-      const user = userStr ? JSON.parse(userStr) : null;
-      console.log('[2단계] 사용자 정보:', user ? `ID: ${user.id}, 이메일: ${user.email}, 역할: ${user.role}` : '사용자 정보 없음');
-
-      // 3단계: API 요청 준비
-      const apiUrl = `${API_URL}/orders`;
-      console.log('[3단계] API 요청 URL:', apiUrl);
-      console.log('[3단계] 요청 헤더:', { 'Authorization': `Bearer ${token.substring(0, 20)}...` });
-
-      // 4단계: API 요청 실행
-      console.log('[4단계] API 요청 시작...');
-      const response = await axios.get(apiUrl, {
+      const response = await axios.get(`${API_URL}/orders`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       });
-      
-      console.log('[5단계] API 응답 성공');
-      console.log('[5단계] 응답 상태 코드:', response.status);
-      console.log('[5단계] 응답 데이터 타입:', typeof response.data);
-      console.log('[5단계] 응답 데이터:', response.data);
-      console.log('[5단계] 주문 개수:', Array.isArray(response.data) ? response.data.length : '배열이 아님');
 
       if (!Array.isArray(response.data)) {
-        console.error('[에러] 응답 데이터가 배열이 아닙니다:', response.data);
-        setError('[에러 2] 서버 응답 형식이 올바르지 않습니다. (배열이 아님)');
+        setError('서버 응답 형식이 올바르지 않습니다.');
         setLoading(false);
         return;
       }
 
       setOrders(response.data);
-      console.log('[성공] 주문 목록 로드 완료:', response.data.length, '개');
     } catch (err: any) {
-      console.error('========== [주문 목록 조회 실패] ==========');
-      console.error('[에러] 에러 객체:', err);
-      console.error('[에러] 에러 타입:', err?.constructor?.name || typeof err);
-      console.error('[에러] 에러 메시지:', err?.message || '알 수 없는 오류');
-      console.error('[에러] 전체 에러:', JSON.stringify(err, null, 2));
-      
-      let errorMessage = '주문 목록을 불러오는데 실패했습니다.';
-      
-      if (err?.response) {
-        // HTTP 응답이 있는 경우
-        const status = err.response.status;
-        const errorData = err.response.data;
-        
-        console.error('[에러] HTTP 상태 코드:', status);
-        console.error('[에러] HTTP 상태 텍스트:', err.response.statusText);
-        console.error('[에러] 응답 데이터:', errorData);
-        console.error('[에러] 응답 헤더:', err.response.headers);
-
-        if (status === 401) {
-          errorMessage = `[인증 실패] 로그인이 필요하거나 토큰이 만료되었습니다. (상태: 401)\n상세: ${JSON.stringify(errorData)}`;
-          console.error('[에러 3] 상세: 인증 토큰이 유효하지 않거나 만료되었습니다.');
-          navigate('/login');
-        } else if (status === 403) {
-          errorMessage = `[권한 없음] 이 기능에 접근할 권한이 없습니다. (상태: 403)\n상세: ${JSON.stringify(errorData)}`;
-          console.error('[에러 4] 상세: 접근 권한이 없습니다.');
-        } else if (status === 404) {
-          errorMessage = `[엔드포인트 없음] API를 찾을 수 없습니다. (상태: 404)\n상세: ${JSON.stringify(errorData)}`;
-          console.error('[에러 5] 상세: API 엔드포인트를 찾을 수 없습니다.');
-        } else if (status === 500) {
-          errorMessage = `[서버 오류] 서버에서 오류가 발생했습니다. (상태: 500)\n상세: ${JSON.stringify(errorData)}`;
-          console.error('[에러 6] 상세: 서버 내부 오류입니다.');
-        } else {
-          errorMessage = `[HTTP 오류] 상태 코드: ${status}\n상세: ${JSON.stringify(errorData || err.message)}`;
-          console.error(`[에러 7] 상세: HTTP ${status} 오류가 발생했습니다.`);
-        }
-      } else if (err?.request) {
-        // 요청은 보냈지만 응답을 받지 못한 경우
-        console.error('[에러] 요청은 보냈지만 응답을 받지 못함');
-        console.error('[에러] 요청 정보:', err.request);
-        errorMessage = '[네트워크 오류] 서버에 연결할 수 없습니다.\n서버가 실행 중인지 확인하세요. (http://localhost:5000)';
-        console.error('[에러 8] 상세: 서버가 실행 중인지 확인하세요.');
+      console.error('주문 목록 조회 실패:', err);
+      if (err.response) {
+        setError(`주문 목록을 불러오는데 실패했습니다. (상태: ${err.response.status})`);
       } else {
-        // 요청 설정 중 오류가 발생한 경우
-        console.error('[에러] 요청 설정 중 오류');
-        errorMessage = `[요청 설정 오류] ${err?.message || '알 수 없는 오류'}\n전체 에러: ${JSON.stringify(err)}`;
-        console.error('[에러 9] 상세: 요청을 구성하는 중 오류가 발생했습니다.');
+        setError('주문 목록을 불러오는데 실패했습니다.');
       }
-      
-      console.error('==========================================');
-      setError(errorMessage);
     } finally {
       setLoading(false);
-      console.log('[주문 목록 조회] 완료');
     }
   };
 
   const getStatusLabel = (status: string) => {
     const labels: { [key: string]: string } = {
-      pending: '대기 중',
+      pending: '주문 접수',
       cooking: '조리 중',
       ready: '준비 완료',
       out_for_delivery: '배달 중',
@@ -185,106 +115,112 @@ const Orders: React.FC = () => {
   };
 
   if (loading) {
-    return <div className="loading">로딩 중...</div>;
+    return (
+      <div className="orders-page">
+        <div className="loading">로딩 중...</div>
+        <BottomNav />
+      </div>
+    );
   }
 
   return (
     <div className="orders-page">
       <nav className="navbar">
         <div className="nav-container">
-          <h1 className="logo">미스터 대박</h1>
-          <button onClick={() => navigate('/')} className="btn btn-secondary">
-            홈으로
-          </button>
+          <h1 className="logo" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>미스터 대박</h1>
         </div>
       </nav>
 
-      <div className="container">
-        <h2>주문 내역</h2>
-        {error && (
-          <div className="error" style={{ 
-            whiteSpace: 'pre-line', 
-            padding: '15px', 
-            marginBottom: '20px',
-            backgroundColor: '#ffebee',
-            border: '1px solid #f44336',
-            borderRadius: '4px',
-            color: '#c62828',
-            fontSize: '14px',
-            lineHeight: '1.6'
-          }}>
-            <strong>오류 발생:</strong><br />
-            {error}
-            <br /><br />
-            <small style={{ color: '#666' }}>
-              브라우저 개발자 도구(F12)의 Console 탭에서 더 자세한 정보를 확인할 수 있습니다.
-            </small>
-          </div>
-        )}
+      <div className="page-content">
+        <div className="container">
+          {error && (
+            <div className="error">
+              {error}
+            </div>
+          )}
 
-        {orders.length === 0 ? (
-          <div className="no-orders">
-            <p>주문 내역이 없습니다.</p>
-            <button onClick={() => navigate('/order')} className="btn btn-primary">
-              주문하기
-            </button>
-          </div>
-        ) : (
-          <div className="orders-list">
-            {orders.map(order => (
-              <div key={order.id} className="order-card">
-                <div className="order-header">
-                  <h3>{order.dinner_name}</h3>
-                  <span className={`status-badge ${getStatusClass(order.status)}`}>
-                    {getStatusLabel(order.status)}
-                  </span>
-                </div>
+          {orders.length === 0 ? (
+            <div className="no-orders">
+              <div className="no-orders-icon">📦</div>
+              <h3>주문 내역이 없습니다</h3>
+              <p>첫 주문을 시작해보세요!</p>
+              <button onClick={() => navigate('/order')} className="btn btn-primary">
+                🛒 주문하기
+              </button>
+            </div>
+          ) : (
+            <div className="orders-list">
+              {orders.map(order => (
+                <div key={order.id} className="order-card-modern" onClick={() => navigate(`/delivery/${order.id}`)}>
+                  <div className="order-card-header">
+                    <div className="order-card-title">
+                      <h3>{order.dinner_name}</h3>
+                      <span className="order-date">
+                        {new Date(order.created_at).toLocaleDateString('ko-KR')}
+                      </span>
+                    </div>
+                    <span className={`status-badge-modern ${getStatusClass(order.status)}`}>
+                      {getStatusLabel(order.status)}
+                    </span>
+                  </div>
 
-                <div className="order-details">
-                  <div className="detail-row">
-                    <span className="label">서빙 스타일:</span>
-                    <span>{getStyleLabel(order.serving_style)}</span>
+                  <div className="order-card-body">
+                    <div className="order-info-row">
+                      <span className="info-icon">📍</span>
+                      <span className="info-text">{order.delivery_address}</span>
+                    </div>
+                    <div className="order-info-row">
+                      <span className="info-icon">⏰</span>
+                      <span className="info-text">
+                        {new Date(order.delivery_time).toLocaleString('ko-KR')}
+                      </span>
+                    </div>
+                    <div className="order-info-row">
+                      <span className="info-icon">🎨</span>
+                      <span className="info-text">{getStyleLabel(order.serving_style)} 스타일</span>
+                    </div>
                   </div>
-                  <div className="detail-row">
-                    <span className="label">주문 시간:</span>
-                    <span>{new Date(order.created_at).toLocaleString('ko-KR')}</span>
-                  </div>
-                  <div className="detail-row">
-                    <span className="label">배달 시간:</span>
-                    <span>{new Date(order.delivery_time).toLocaleString('ko-KR')}</span>
-                  </div>
-                  <div className="detail-row">
-                    <span className="label">배달 주소:</span>
-                    <span>{order.delivery_address}</span>
-                  </div>
-                  <div className="detail-row">
-                    <span className="label">결제 상태:</span>
-                    <span>{order.payment_status === 'paid' ? '결제 완료' : '결제 대기'}</span>
-                  </div>
-                </div>
 
-                <div className="order-items-section">
-                  <h4>주문 항목:</h4>
-                  <ul>
-                    {order.items.map(item => (
-                      <li key={item.id}>
-                        {item.name} x{item.quantity} - {(item.price * item.quantity).toLocaleString()}원
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+                  <div className="order-card-footer">
+                    <div className="order-items-preview">
+                      {order.items.slice(0, 2).map(item => (
+                        <span key={item.id} className="item-tag">
+                          {item.name} x{item.quantity}
+                        </span>
+                      ))}
+                      {order.items.length > 2 && (
+                        <span className="item-tag">+{order.items.length - 2}개</span>
+                      )}
+                    </div>
+                    <div className="order-total-modern">
+                      {order.total_price.toLocaleString()}원
+                    </div>
+                  </div>
 
-                <div className="order-total">
-                  <strong>총 가격: {order.total_price.toLocaleString()}원</strong>
+                  {order.status !== 'delivered' && order.status !== 'cancelled' && (
+                    <div className="order-action">
+                      <button
+                        className="btn btn-primary"
+                        style={{ width: '100%', marginTop: '12px' }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/delivery/${order.id}`);
+                        }}
+                      >
+                        배달 현황 보기
+                      </button>
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
+        </div>
       </div>
+
+      <BottomNav />
     </div>
   );
 };
 
 export default Orders;
-

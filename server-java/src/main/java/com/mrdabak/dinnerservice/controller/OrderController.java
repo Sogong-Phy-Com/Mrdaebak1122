@@ -112,6 +112,35 @@ public class OrderController {
         }
     }
 
+    @GetMapping("/stats")
+    public ResponseEntity<Map<String, Object>> getOrderStats(Authentication authentication) {
+        try {
+            if (authentication == null || authentication.getName() == null || authentication.getName().isEmpty()) {
+                return ResponseEntity.status(401).body(Map.of("error", "Authentication required"));
+            }
+
+            Long userId = Long.parseLong(authentication.getName());
+            List<Order> orders = orderService.getUserOrders(userId);
+            
+            long totalOrders = orders.size();
+            long deliveredOrders = orders.stream().filter(o -> "delivered".equals(o.getStatus())).count();
+            long pendingOrders = orders.stream().filter(o -> 
+                "pending".equals(o.getStatus()) || 
+                "cooking".equals(o.getStatus()) || 
+                "ready".equals(o.getStatus()) || 
+                "out_for_delivery".equals(o.getStatus())
+            ).count();
+            
+            return ResponseEntity.ok(Map.of(
+                "totalOrders", totalOrders,
+                "deliveredOrders", deliveredOrders,
+                "pendingOrders", pendingOrders
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
+    }
+
     @PostMapping
     public ResponseEntity<?> createOrder(@Valid @RequestBody OrderRequest request, Authentication authentication) {
         System.out.println("========== [주문 생성 API] 요청 시작 ==========");

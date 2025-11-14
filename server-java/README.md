@@ -69,3 +69,4 @@ mvn clean package
 
 빌드된 JAR 파일은 `target/dinner-service-1.0.0.jar`에 생성됩니다.
 
+

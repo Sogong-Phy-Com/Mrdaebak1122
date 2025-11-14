@@ -1,6 +1,7 @@
 .admin-dashboard {
   min-height: 100vh;
-  background-color: #f5f5f5;
+  background-color: var(--background);
+  padding-bottom: 20px;
 }
 
 .stats-section {
@@ -11,15 +12,16 @@
 }
 
 .stat-card {
-  background: white;
+  background: var(--white);
   padding: 24px;
   border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   text-align: center;
+  border: 1px solid var(--border-color);
 }
 
 .stat-card h3 {
-  color: #666;
+  color: var(--text-secondary);
   font-size: 14px;
   margin-bottom: 12px;
   font-weight: normal;
@@ -28,16 +30,17 @@
 .stat-number {
   font-size: 32px;
   font-weight: bold;
-  color: #d32f2f;
+  color: var(--primary-color);
   margin: 0;
 }
 
 .users-table {
-  background: white;
+  background: var(--white);
   border-radius: 12px;
   padding: 24px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   overflow-x: auto;
+  border: 1px solid var(--border-color);
 }
 
 .users-table table {
@@ -46,21 +49,22 @@
 }
 
 .users-table th {
-  background-color: #f5f5f5;
+  background-color: var(--background-light);
   padding: 12px;
   text-align: left;
   font-weight: 600;
-  color: #333;
-  border-bottom: 2px solid #ddd;
+  color: var(--text-primary);
+  border-bottom: 2px solid var(--border-color);
 }
 
 .users-table td {
   padding: 12px;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-primary);
 }
 
 .users-table tr:hover {
-  background-color: #f9f9f9;
+  background-color: var(--background-light);
 }
 
 .role-badge {
@@ -72,23 +76,52 @@
 }
 
 .role-customer {
-  background-color: #e3f2fd;
-  color: #1976d2;
+  background-color: var(--primary-light);
+  color: var(--primary-color);
+  border: 1px solid var(--primary-color);
 }
 
 .role-employee {
-  background-color: #fff3e0;
-  color: #f57c00;
+  background-color: var(--primary-light);
+  color: var(--primary-color);
+  border: 1px solid var(--primary-color);
 }
 
 .role-admin {
-  background-color: #f3e5f5;
-  color: #7b1fa2;
+  background-color: var(--primary-light);
+  color: var(--primary-color);
+  border: 1px solid var(--primary-color);
 }
 
 .loading {
   text-align: center;
   padding: 40px;
   font-size: 18px;
+  color: var(--text-secondary);
 }
 
+.error {
+  color: var(--error);
+  padding: 12px;
+  background: rgba(211, 47, 47, 0.1);
+  border-radius: 8px;
+  margin-bottom: 20px;
+  border-left: 4px solid var(--error);
+}
+
+.back-button {
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  font-size: 20px;
+  cursor: pointer;
+  padding: 8px 12px;
+  margin-right: 12px;
+  transition: all 0.3s ease;
+  border-radius: 8px;
+}
+
+.back-button:hover {
+  background: var(--background-light);
+  color: var(--primary-color);
+}

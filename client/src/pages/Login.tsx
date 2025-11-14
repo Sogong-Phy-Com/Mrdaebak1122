@@ -7,7 +7,7 @@ const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const { login, user } = useAuth();
+  const { login } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -15,7 +15,7 @@ const Login: React.FC = () => {
     setError('');
 
     try {
-      const response = await login(email, password);
+      await login(email, password);
       // Check user role after login
       const loggedInUser = JSON.parse(localStorage.getItem('user') || '{}');
       if (loggedInUser.role === 'admin') {

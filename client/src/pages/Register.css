@@ -3,34 +3,36 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, var(--black) 0%, var(--background) 100%);
   padding: 20px;
 }
 
 .register-container {
-  background: white;
+  background: var(--white);
   padding: 40px;
   border-radius: 16px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
   width: 100%;
   max-width: 500px;
+  border: 1px solid var(--border-color);
 }
 
 .register-container h1 {
   text-align: center;
-  color: #d32f2f;
+  color: var(--primary-color);
   font-size: 28px;
   margin-bottom: 32px;
+  font-weight: 700;
 }
 
 .login-link {
   text-align: center;
   margin-top: 20px;
-  color: #666;
+  color: var(--text-secondary);
 }
 
 .login-link a {
-  color: #d32f2f;
+  color: var(--primary-color);
   text-decoration: none;
   font-weight: 600;
 }
@@ -42,16 +44,45 @@
 .form-group select {
   width: 100%;
   padding: 12px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   font-size: 16px;
-  background-color: white;
+  background-color: var(--background);
+  color: var(--text-primary);
   cursor: pointer;
   transition: border-color 0.3s;
 }
 
 .form-group select:focus {
   outline: none;
-  border-color: #d32f2f;
+  border-color: var(--primary-color);
 }
 
+.register-container .form-group label {
+  color: var(--text-primary);
+}
+
+.register-container .form-group input {
+  background: var(--background);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+}
+
+.register-container .form-group input:focus {
+  border-color: var(--primary-color);
+}
+
+.register-container .error {
+  background: rgba(211, 47, 47, 0.1);
+  color: var(--error);
+  border-left: 4px solid var(--error);
+}
+
+.register-container .btn-primary {
+  background: var(--primary-color);
+  color: var(--black);
+}
+
+.register-container .btn-primary:hover {
+  background: var(--primary-hover);
+}

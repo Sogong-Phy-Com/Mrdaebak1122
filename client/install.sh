@@ -7,3 +7,4 @@ if [ $? -ne 0 ]; then
 fi
 echo "설치 완료!"
 
+

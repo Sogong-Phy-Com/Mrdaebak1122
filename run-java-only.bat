@@ -1,6 +1,6 @@
 @echo off
 echo ====================================
-echo 미스터 대박 백엔드 서버 시작
+echo Mr. DaeBak Backend Server Starting
 echo ====================================
 echo.
 
@@ -9,4 +9,3 @@ if not exist "data" mkdir data
 mvn spring-boot:run
 
 pause
-

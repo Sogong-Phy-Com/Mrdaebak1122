@@ -29,6 +29,9 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        System.out.println("[SecurityConfig] Configuring SecurityFilterChain");
+        System.out.println("[SecurityConfig] JWT Filter instance: " + (jwtAuthenticationFilter != null ? "EXISTS" : "NULL"));
+        
         http
             .csrf(csrf -> csrf.disable())
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
@@ -42,14 +45,14 @@ public class SecurityConfig {
             )
             .exceptionHandling(exceptions -> exceptions
                 .authenticationEntryPoint((request, response, authException) -> {
-                    System.out.println("========== [Security] 인증 실패 ==========");
-                    System.out.println("[Security] 요청 경로: " + request.getRequestURI());
-                    System.out.println("[Security] 요청 메서드: " + request.getMethod());
-                    System.out.println("[Security] Authorization 헤더: " + request.getHeader("Authorization"));
-                    System.out.println("[Security] 예외 타입: " + authException.getClass().getName());
-                    System.out.println("[Security] 예외 메시지: " + authException.getMessage());
-                    System.out.println("[Security] SecurityContext 인증 상태: " + 
-                        (org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication() != null ? "인증됨" : "인증 안됨"));
+                    System.out.println("========== [Security] Authentication Failed ==========");
+                    System.out.println("[Security] Request Path: " + request.getRequestURI());
+                    System.out.println("[Security] Request Method: " + request.getMethod());
+                    System.out.println("[Security] Authorization Header: " + request.getHeader("Authorization"));
+                    System.out.println("[Security] Exception Type: " + authException.getClass().getName());
+                    System.out.println("[Security] Exception Message: " + authException.getMessage());
+                    System.out.println("[Security] SecurityContext Auth Status: " + 
+                        (org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication() != null ? "AUTHENTICATED" : "NOT AUTHENTICATED"));
                     System.out.println("==========================================");
                     
                     response.setStatus(401);
@@ -58,9 +61,9 @@ public class SecurityConfig {
                     response.getWriter().write("{\"error\":\"Authentication required\"}");
                 })
                 .accessDeniedHandler((request, response, accessDeniedException) -> {
-                    System.out.println("========== [Security] 권한 없음 ==========");
-                    System.out.println("[Security] 요청 경로: " + request.getRequestURI());
-                    System.out.println("[Security] 예외: " + accessDeniedException.getMessage());
+                    System.out.println("========== [Security] Access Denied ==========");
+                    System.out.println("[Security] Request Path: " + request.getRequestURI());
+                    System.out.println("[Security] Exception: " + accessDeniedException.getMessage());
                     System.out.println("==========================================");
                     
                     response.setStatus(403);
@@ -71,6 +74,7 @@ public class SecurityConfig {
             )
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
+        System.out.println("[SecurityConfig] SecurityFilterChain configured with JWT Filter");
         return http.build();
     }
 

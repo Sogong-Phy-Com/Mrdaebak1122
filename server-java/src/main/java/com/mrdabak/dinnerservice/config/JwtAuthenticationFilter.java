@@ -24,6 +24,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     public JwtAuthenticationFilter(JwtService jwtService) {
         this.jwtService = jwtService;
+        System.out.println("[JWT Filter] JwtAuthenticationFilter initialized");
     }
 
     @Override
@@ -35,24 +36,24 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         final String authHeader = request.getHeader("Authorization");
         final String requestPath = request.getRequestURI();
         
-        System.out.println("========== [JWT Filter] 요청 처리 시작 ==========");
-        System.out.println("[JWT Filter] 요청 경로: " + requestPath);
-        System.out.println("[JWT Filter] 요청 메서드: " + request.getMethod());
-        System.out.println("[JWT Filter] Authorization 헤더: " + (authHeader != null ? "존재 (길이: " + authHeader.length() + ")" : "없음"));
+        System.out.println("========== [JWT Filter] Request Processing Start ==========");
+        System.out.println("[JWT Filter] Request Path: " + requestPath);
+        System.out.println("[JWT Filter] Request Method: " + request.getMethod());
+        System.out.println("[JWT Filter] Authorization Header: " + (authHeader != null ? "EXISTS (length: " + authHeader.length() + ")" : "MISSING"));
         if (authHeader != null) {
-            System.out.println("[JWT Filter] Authorization 헤더 앞부분: " + (authHeader.length() > 30 ? authHeader.substring(0, 30) + "..." : authHeader));
+            System.out.println("[JWT Filter] Authorization Header Prefix: " + (authHeader.length() > 30 ? authHeader.substring(0, 30) + "..." : authHeader));
         }
         
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            System.out.println("[JWT Filter] Authorization 헤더가 없거나 Bearer 형식이 아닙니다.");
-            System.out.println("[JWT Filter] 요청 경로: " + requestPath);
+            System.out.println("[JWT Filter] WARNING: Authorization header is missing or not in Bearer format");
+            System.out.println("[JWT Filter] Request Path: " + requestPath);
             
-            // 인증이 필요한 경로인 경우 로그만 남기고 계속 진행 (Spring Security가 401 반환)
+            // Check if this is a protected path
             if (requestPath.startsWith("/api/") && 
                 !requestPath.startsWith("/api/auth/") && 
                 !requestPath.startsWith("/api/health") && 
                 !requestPath.startsWith("/api/menu/")) {
-                System.out.println("[JWT Filter] 경고: 인증이 필요한 경로인데 토큰이 없습니다.");
+                System.out.println("[JWT Filter] WARNING: Protected path but no token provided");
             }
             
             filterChain.doFilter(request, response);
@@ -61,53 +62,61 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         try {
             final String jwt = authHeader.substring(7);
-            System.out.println("[JWT Filter] 토큰 추출 완료 (길이: " + jwt.length() + ")");
-            System.out.println("[JWT Filter] 토큰 앞부분: " + (jwt.length() > 20 ? jwt.substring(0, 20) + "..." : jwt));
+            System.out.println("[JWT Filter] Token extracted (length: " + jwt.length() + ")");
+            System.out.println("[JWT Filter] Token prefix: " + (jwt.length() > 20 ? jwt.substring(0, 20) + "..." : jwt));
             
-            // 먼저 토큰 유효성 검사
-            boolean isValid = false;
-            try {
-                isValid = jwtService.isTokenValid(jwt);
-                System.out.println("[JWT Filter] 토큰 유효성 검사 결과: " + isValid);
-            } catch (Exception e) {
-                System.out.println("[JWT Filter] 토큰 유효성 검사 중 오류: " + e.getMessage());
-                e.printStackTrace();
-            }
-            
-            if (!isValid) {
-                System.out.println("[JWT Filter] 경고: 토큰이 유효하지 않습니다. (만료되었거나 서명이 잘못됨)");
-                filterChain.doFilter(request, response);
-                return;
-            }
-            
-            // 토큰이 유효하면 사용자 정보 추출
+            // Extract user info first (before validation to see what's in the token)
             String userId = null;
             String role = null;
             try {
                 userId = jwtService.extractUserId(jwt);
                 role = jwtService.extractRole(jwt);
-                System.out.println("[JWT Filter] 사용자 ID 추출: " + userId);
-                System.out.println("[JWT Filter] 역할 추출: " + role);
+                System.out.println("[JWT Filter] Extracted user ID: " + userId);
+                System.out.println("[JWT Filter] Extracted role: " + role);
             } catch (Exception e) {
-                System.out.println("[JWT Filter] 사용자 정보 추출 중 오류: " + e.getMessage());
+                System.out.println("[JWT Filter] ERROR: Failed to extract user info from token");
+                System.out.println("[JWT Filter] Exception type: " + e.getClass().getName());
+                System.out.println("[JWT Filter] Exception message: " + e.getMessage());
                 e.printStackTrace();
                 filterChain.doFilter(request, response);
                 return;
             }
 
             if (userId == null || userId.isEmpty()) {
-                System.out.println("[JWT Filter] 에러: 사용자 ID가 null이거나 비어있습니다.");
+                System.out.println("[JWT Filter] ERROR: User ID is null or empty");
+                filterChain.doFilter(request, response);
+                return;
+            }
+            
+            // Validate token after extraction
+            boolean isValid = false;
+            try {
+                isValid = jwtService.isTokenValid(jwt);
+                System.out.println("[JWT Filter] Token validation result: " + isValid);
+            } catch (Exception e) {
+                System.out.println("[JWT Filter] ERROR: Token validation failed");
+                System.out.println("[JWT Filter] Exception type: " + e.getClass().getName());
+                System.out.println("[JWT Filter] Exception message: " + e.getMessage());
+                e.printStackTrace();
+                filterChain.doFilter(request, response);
+                return;
+            }
+            
+            if (!isValid) {
+                System.out.println("[JWT Filter] WARNING: Token is invalid (expired or signature invalid)");
+                System.out.println("[JWT Filter] User ID from token: " + userId);
+                System.out.println("[JWT Filter] Role from token: " + role);
                 filterChain.doFilter(request, response);
                 return;
             }
 
-            // SecurityContext에 인증 설정
+            // Set authentication in SecurityContext
             if (SecurityContextHolder.getContext().getAuthentication() == null) {
-                // role이 null이거나 빈 문자열인 경우 기본값 설정
+                // Set default role if null or empty
                 String userRole = (role != null && !role.isEmpty()) ? role.toUpperCase() : "CUSTOMER";
                 String authority = "ROLE_" + userRole;
                 
-                System.out.println("[JWT Filter] 설정할 권한: " + authority);
+                System.out.println("[JWT Filter] Setting authority: " + authority);
                 
                 UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                         userId,
@@ -116,43 +125,48 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 );
                 authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authToken);
-                System.out.println("[JWT Filter] 인증 성공 - SecurityContext에 설정됨");
-                System.out.println("[JWT Filter] 인증된 사용자 ID: " + userId);
-                System.out.println("[JWT Filter] 인증된 권한: " + authority);
+                System.out.println("[JWT Filter] SUCCESS: Authentication set in SecurityContext");
+                System.out.println("[JWT Filter] Authenticated User ID: " + userId);
+                System.out.println("[JWT Filter] Authenticated Authority: " + authority);
             } else {
-                System.out.println("[JWT Filter] 정보: 이미 인증된 상태입니다.");
+                System.out.println("[JWT Filter] INFO: Already authenticated");
                 Authentication existingAuth = SecurityContextHolder.getContext().getAuthentication();
-                System.out.println("[JWT Filter] 기존 인증 사용자: " + existingAuth.getName());
-                System.out.println("[JWT Filter] 기존 인증 권한: " + existingAuth.getAuthorities());
+                System.out.println("[JWT Filter] Existing Auth User: " + existingAuth.getName());
+                System.out.println("[JWT Filter] Existing Auth Authorities: " + existingAuth.getAuthorities());
             }
         } catch (Exception e) {
-            System.out.println("[JWT Filter] 에러: 토큰 처리 중 예외 발생");
-            System.out.println("[JWT Filter] 요청 경로: " + request.getRequestURI());
-            System.out.println("[JWT Filter] 예외 타입: " + e.getClass().getName());
-            System.out.println("[JWT Filter] 예외 메시지: " + e.getMessage());
-            System.out.println("[JWT Filter] 예외 스택 트레이스:");
+            System.out.println("[JWT Filter] ERROR: Exception during token processing");
+            System.out.println("[JWT Filter] Request Path: " + request.getRequestURI());
+            System.out.println("[JWT Filter] Exception Type: " + e.getClass().getName());
+            System.out.println("[JWT Filter] Exception Message: " + e.getMessage());
+            System.out.println("[JWT Filter] Exception Stack Trace:");
             e.printStackTrace();
             
-            // 인증이 필요한 경로인지 확인
+            // Check if this is a protected path
             String path = request.getRequestURI();
             if (path.startsWith("/api/") && 
                 !path.startsWith("/api/auth/") && 
                 !path.startsWith("/api/health") && 
                 !path.startsWith("/api/menu/")) {
-                System.out.println("[JWT Filter] 경고: 인증이 필요한 경로인데 토큰 처리 실패");
-                System.out.println("[JWT Filter] 경고: 이 요청은 401 Unauthorized로 응답될 수 있습니다.");
+                System.out.println("[JWT Filter] WARNING: Protected path but token processing failed");
+                System.out.println("[JWT Filter] WARNING: This request may return 401 Unauthorized");
             }
             // Token is invalid, continue without authentication
         }
 
-        System.out.println("[JWT Filter] FilterChain.doFilter 호출 전");
-        System.out.println("[JWT Filter] SecurityContext 인증 상태: " + 
-            (SecurityContextHolder.getContext().getAuthentication() != null ? "인증됨" : "인증 안됨"));
+        System.out.println("[JWT Filter] Before FilterChain.doFilter");
+        System.out.println("[JWT Filter] SecurityContext Auth Status: " + 
+            (SecurityContextHolder.getContext().getAuthentication() != null ? "AUTHENTICATED" : "NOT AUTHENTICATED"));
+        if (SecurityContextHolder.getContext().getAuthentication() != null) {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            System.out.println("[JWT Filter] SecurityContext User: " + auth.getName());
+            System.out.println("[JWT Filter] SecurityContext Authorities: " + auth.getAuthorities());
+        }
         
         filterChain.doFilter(request, response);
         
-        System.out.println("[JWT Filter] FilterChain.doFilter 호출 후");
-        System.out.println("========== [JWT Filter] 요청 처리 완료 ==========");
+        System.out.println("[JWT Filter] After FilterChain.doFilter");
+        System.out.println("========== [JWT Filter] Request Processing Complete ==========");
     }
 }
 

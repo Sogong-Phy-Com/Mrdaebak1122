@@ -33,3 +33,4 @@ NODE_ENV=development
 SQLite 데이터베이스는 `data/mrdabak.db`에 자동으로 생성됩니다.
 초기 데이터(디너 타입, 메뉴 항목)는 자동으로 시드됩니다.
 
+

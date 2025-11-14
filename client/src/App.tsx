@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import PrivateRoute from './components/PrivateRoute';
 import Login from './pages/Login';
@@ -8,6 +8,8 @@ import CustomerHome from './pages/CustomerHome';
 import StaffHome from './pages/StaffHome';
 import Order from './pages/Order';
 import Orders from './pages/Orders';
+import Profile from './pages/Profile';
+import DeliveryStatus from './pages/DeliveryStatus';
 import EmployeeDashboard from './pages/EmployeeDashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import { useAuth } from './contexts/AuthContext';
@@ -50,6 +52,22 @@ function App() {
             element={
               <PrivateRoute>
                 <Orders />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <PrivateRoute>
+                <Profile />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/delivery/:orderId"
+            element={
+              <PrivateRoute>
+                <DeliveryStatus />
               </PrivateRoute>
             }
           />

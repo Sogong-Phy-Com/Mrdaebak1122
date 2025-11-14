@@ -9,3 +9,4 @@ cd server-java
 mkdir -p data
 mvn spring-boot:run
 
+

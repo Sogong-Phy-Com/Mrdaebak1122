@@ -1,58 +1,60 @@
 .staff-home {
   min-height: 100vh;
-  background-color: #f5f5f5;
+  background-color: var(--background);
 }
 
 .staff-welcome {
   text-align: center;
   padding: 40px 20px;
-  background: white;
-  border-radius: 12px;
-  margin-bottom: 30px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin-bottom: 40px;
 }
 
 .staff-welcome h2 {
-  color: #d32f2f;
+  font-size: 32px;
+  color: var(--text-primary);
   margin-bottom: 12px;
+  font-weight: 700;
 }
 
 .staff-welcome p {
-  color: #666;
-  font-size: 16px;
+  font-size: 18px;
+  color: var(--text-secondary);
 }
 
 .staff-actions {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: 24px;
+  margin-top: 40px;
 }
 
 .action-card {
-  background: white;
-  padding: 30px;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  background: var(--white);
+  padding: 32px;
+  border-radius: 16px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
   cursor: pointer;
   transition: all 0.3s ease;
-  border: 2px solid transparent;
+  border: 1px solid var(--border-color);
 }
 
 .action-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
-  border-color: #d32f2f;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  border-color: var(--primary-color);
 }
 
 .action-card h3 {
-  color: #d32f2f;
-  margin-bottom: 12px;
+  color: var(--primary-color);
   font-size: 24px;
+  margin-bottom: 12px;
+  font-weight: 700;
 }
 
 .action-card p {
-  color: #666;
-  margin-bottom: 16px;
+  color: var(--text-secondary);
+  margin-bottom: 20px;
+  font-size: 14px;
   line-height: 1.6;
 }
 
@@ -63,19 +65,19 @@
 }
 
 .action-card li {
+  color: var(--text-primary);
   padding: 8px 0;
-  color: #333;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 14px;
 }
 
 .action-card li:last-child {
   border-bottom: none;
 }
 
-.action-card li:before {
-  content: "✓ ";
-  color: #388e3c;
-  font-weight: bold;
+.action-card li::before {
+  content: '✓ ';
+  color: var(--primary-color);
+  font-weight: 700;
   margin-right: 8px;
 }
-

@@ -2,10 +2,15 @@ package com.mrdabak.dinnerservice.controller;
 
 import com.mrdabak.dinnerservice.model.*;
 import com.mrdabak.dinnerservice.repository.*;
+import com.mrdabak.dinnerservice.service.ExcelExportService;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -21,15 +26,17 @@ public class EmployeeController {
     private final UserRepository userRepository;
     private final DinnerTypeRepository dinnerTypeRepository;
     private final MenuItemRepository menuItemRepository;
+    private final ExcelExportService excelExportService;
 
     public EmployeeController(OrderRepository orderRepository, OrderItemRepository orderItemRepository,
                              UserRepository userRepository, DinnerTypeRepository dinnerTypeRepository,
-                             MenuItemRepository menuItemRepository) {
+                             MenuItemRepository menuItemRepository, ExcelExportService excelExportService) {
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
         this.userRepository = userRepository;
         this.dinnerTypeRepository = dinnerTypeRepository;
         this.menuItemRepository = menuItemRepository;
+        this.excelExportService = excelExportService;
     }
 
     @GetMapping("/orders")
@@ -103,6 +110,26 @@ public class EmployeeController {
         orderRepository.save(order);
 
         return ResponseEntity.ok(Map.of("message", "Order status updated successfully"));
+    }
+
+    @GetMapping("/orders/export")
+    public ResponseEntity<byte[]> exportOrdersToExcel(@RequestParam(required = false) String status) {
+        try {
+            byte[] excelData = excelExportService.exportOrdersToExcel(status);
+            
+            String filename = "orders_" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")) + ".xlsx";
+            
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+            headers.setContentDispositionFormData("attachment", filename);
+            headers.setContentLength(excelData.length);
+            
+            return ResponseEntity.ok()
+                    .headers(headers)
+                    .body(excelData);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().build();
+        }
     }
 }
 

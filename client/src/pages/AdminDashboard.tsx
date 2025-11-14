@@ -76,10 +76,10 @@ const AdminDashboard: React.FC = () => {
     <div className="admin-dashboard">
       <nav className="navbar">
         <div className="nav-container">
-          <h1 className="logo">관리자 대시보드</h1>
-          <button onClick={() => navigate('/')} className="btn btn-secondary">
-            홈으로
+          <button onClick={() => navigate('/')} className="back-button">
+            ←
           </button>
+          <h1 className="logo">관리자 대시보드</h1>
         </div>
       </nav>
 
@@ -164,4 +164,5 @@ const AdminDashboard: React.FC = () => {
 };
 
 export default AdminDashboard;
+
 
