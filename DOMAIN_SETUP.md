@@ -158,3 +158,4 @@ DANGEROUSLY_DISABLE_HOST_CHECK=true
 - **로컬 테스트**: 옵션 1 (hosts 파일)
 - **실제 서비스**: 옵션 2 (도메인 구매) 또는 옵션 4 (클라우드 배포)
 
+

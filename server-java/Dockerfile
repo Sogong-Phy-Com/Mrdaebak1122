@@ -26,3 +26,4 @@ EXPOSE 5000
 # Run application
 ENTRYPOINT ["java", "-jar", "app.jar"]
 
+

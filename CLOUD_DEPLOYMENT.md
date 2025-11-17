@@ -214,3 +214,4 @@ SQLite → PostgreSQL 권장:
 2. **무료 배포**: Render 사용
 3. **장기 운영**: Oracle Cloud 또는 AWS
 
+

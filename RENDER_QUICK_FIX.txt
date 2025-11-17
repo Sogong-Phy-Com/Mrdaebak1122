@@ -1,0 +1,35 @@
+==========================================
+🚨 Render 배포 오류 빠른 해결
+==========================================
+
+문제: Render가 Node.js로 인식함
+해결: Render 대시보드에서 수동 설정
+
+1️⃣ Render 대시보드 접속
+   https://dashboard.render.com
+
+2️⃣ 서비스 → Settings 클릭
+
+3️⃣ 다음 설정 변경:
+
+   Runtime: Node → Java 변경
+   
+   Build Command:
+   cd server-java && mvn clean package -DskipTests
+   
+   Start Command:
+   cd server-java && java -jar target/dinner-service-1.0.0.jar
+
+4️⃣ Environment Variables 추가:
+   SPRING_PROFILES_ACTIVE = production
+   JWT_SECRET = your-strong-secret-key
+
+5️⃣ Health Check Path:
+   /api/health
+
+6️⃣ Save Changes → Manual Deploy
+
+==========================================
+자세한 내용: RENDER_FIX_GUIDE.md
+==========================================
+
