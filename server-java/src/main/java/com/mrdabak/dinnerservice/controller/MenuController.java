@@ -15,7 +15,6 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/menu")
-@CrossOrigin(origins = "http://localhost:3000")
 public class MenuController {
 
     private final DinnerTypeRepository dinnerTypeRepository;

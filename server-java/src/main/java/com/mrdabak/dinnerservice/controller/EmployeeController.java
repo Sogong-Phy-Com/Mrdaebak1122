@@ -17,7 +17,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/employee")
-@CrossOrigin(origins = "http://localhost:3000")
 @PreAuthorize("hasAnyRole('ADMIN', 'EMPLOYEE')")
 public class EmployeeController {
 
