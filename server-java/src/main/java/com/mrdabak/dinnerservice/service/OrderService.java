@@ -30,8 +30,42 @@ public class OrderService {
         this.userRepository = userRepository;
     }
 
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public Order createOrder(Long userId, OrderRequest request) {
+        int maxRetries = 5;
+        int retryCount = 0;
+        
+        while (retryCount < maxRetries) {
+            try {
+                return createOrderInternal(userId, request);
+            } catch (Exception e) {
+                String errorMessage = e.getMessage() != null ? e.getMessage() : "";
+                String causeMessage = e.getCause() != null && e.getCause().getMessage() != null 
+                    ? e.getCause().getMessage() : "";
+                
+                boolean isLocked = errorMessage.contains("database is locked") 
+                    || errorMessage.contains("SQLITE_BUSY")
+                    || causeMessage.contains("database is locked")
+                    || causeMessage.contains("SQLITE_BUSY");
+                
+                if (isLocked && retryCount < maxRetries - 1) {
+                    retryCount++;
+                    System.out.println("[OrderService] Database locked, retrying... (" + retryCount + "/" + maxRetries + ")");
+                    try {
+                        Thread.sleep(200 * retryCount); // Exponential backoff
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        throw new RuntimeException("Order creation interrupted", ie);
+                    }
+                } else {
+                    throw e;
+                }
+            }
+        }
+        throw new RuntimeException("Failed to create order after " + maxRetries + " retries");
+    }
+    
+    private Order createOrderInternal(Long userId, OrderRequest request) {
         DinnerType dinner = dinnerTypeRepository.findById(request.getDinnerTypeId())
                 .orElseThrow(() -> new RuntimeException("Invalid dinner type"));
 
