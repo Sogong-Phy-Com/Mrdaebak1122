@@ -4,6 +4,9 @@ import com.mrdabak.dinnerservice.dto.OrderItemDto;
 import com.mrdabak.dinnerservice.dto.OrderRequest;
 import com.mrdabak.dinnerservice.model.*;
 import com.mrdabak.dinnerservice.repository.*;
+import com.mrdabak.dinnerservice.repository.order.OrderRepository;
+import com.mrdabak.dinnerservice.repository.order.OrderItemRepository;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,7 +33,7 @@ public class OrderService {
         this.userRepository = userRepository;
     }
 
-    @Transactional(rollbackFor = Exception.class)
+    @Transactional(transactionManager = "orderTransactionManager", rollbackFor = Exception.class)
     public Order createOrder(Long userId, OrderRequest request) {
         int maxRetries = 5;
         int retryCount = 0;
@@ -66,6 +69,7 @@ public class OrderService {
     }
     
     private Order createOrderInternal(Long userId, OrderRequest request) {
+        // Read from main database (menu, dinner types)
         DinnerType dinner = dinnerTypeRepository.findById(request.getDinnerTypeId())
                 .orElseThrow(() -> new RuntimeException("Invalid dinner type"));
 
@@ -98,7 +102,7 @@ public class OrderService {
 
         double totalPrice = basePrice + itemsPrice;
 
-        // Apply loyalty discount (10% for returning customers)
+        // Apply loyalty discount (10% for returning customers) - read from order database
         long orderCount = orderRepository.findByUserIdOrderByCreatedAtDesc(userId).stream()
                 .filter(o -> "paid".equals(o.getPaymentStatus()))
                 .count();
@@ -106,7 +110,7 @@ public class OrderService {
             totalPrice = totalPrice * 0.9;
         }
 
-        // Create order
+        // Create order - save to order database
         Order order = new Order();
         order.setUserId(userId);
         order.setDinnerTypeId(request.getDinnerTypeId());
@@ -119,7 +123,7 @@ public class OrderService {
 
         Order savedOrder = orderRepository.save(order);
 
-        // Add order items
+        // Add order items - save to order database
         for (OrderItemDto item : request.getItems()) {
             OrderItem orderItem = new OrderItem();
             orderItem.setOrderId(savedOrder.getId());

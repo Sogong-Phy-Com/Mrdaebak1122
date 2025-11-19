@@ -5,7 +5,7 @@ import com.mrdabak.dinnerservice.model.MenuItem;
 import com.mrdabak.dinnerservice.model.Order;
 import com.mrdabak.dinnerservice.model.OrderItem;
 import com.mrdabak.dinnerservice.repository.MenuItemRepository;
-import com.mrdabak.dinnerservice.repository.OrderItemRepository;
+import com.mrdabak.dinnerservice.repository.order.OrderItemRepository;
 import com.mrdabak.dinnerservice.service.OrderService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;

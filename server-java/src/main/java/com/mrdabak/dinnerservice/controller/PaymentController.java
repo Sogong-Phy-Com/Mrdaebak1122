@@ -1,7 +1,7 @@
 package com.mrdabak.dinnerservice.controller;
 
 import com.mrdabak.dinnerservice.model.Order;
-import com.mrdabak.dinnerservice.repository.OrderRepository;
+import com.mrdabak.dinnerservice.repository.order.OrderRepository;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
