@@ -24,8 +24,7 @@ import java.util.Map;
 @EnableJpaRepositories(
     basePackages = "com.mrdabak.dinnerservice.repository.order",
     entityManagerFactoryRef = "orderEntityManagerFactory",
-    transactionManagerRef = "orderTransactionManager",
-    considerNestedRepositories = true
+    transactionManagerRef = "orderTransactionManager"
 )
 public class OrderDatabaseConfig {
 
