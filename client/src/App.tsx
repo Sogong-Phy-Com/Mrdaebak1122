@@ -6,21 +6,40 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import CustomerHome from './pages/CustomerHome';
 import StaffHome from './pages/StaffHome';
+import AdminHome from './pages/AdminHome';
+import PendingApproval from './pages/PendingApproval';
 import Order from './pages/Order';
 import Orders from './pages/Orders';
 import Profile from './pages/Profile';
 import DeliveryStatus from './pages/DeliveryStatus';
 import EmployeeDashboard from './pages/EmployeeDashboard';
 import AdminDashboard from './pages/AdminDashboard';
+import AdminOrderManagement from './pages/AdminOrderManagement';
+import AdminInventoryManagement from './pages/AdminInventoryManagement';
+import AdminAccountManagement from './pages/AdminAccountManagement';
+import AdminApprovalManagement from './pages/AdminApprovalManagement';
+import EmployeeOrderManagement from './pages/EmployeeOrderManagement';
+import EmployeeInventoryManagement from './pages/EmployeeInventoryManagement';
+import ScheduleCalendar from './pages/ScheduleCalendar';
 import { useAuth } from './contexts/AuthContext';
 import './App.css';
 
 function HomeRouter() {
   const { user } = useAuth();
   
-  if (user?.role === 'admin' || user?.role === 'employee') {
+  // 승인 대기 상태의 직원/관리자는 승인 대기 화면으로
+  if (user?.approvalStatus === 'pending') {
+    return <PendingApproval />;
+  }
+  
+  if (user?.role === 'admin') {
+    return <AdminHome />;
+  }
+  
+  if (user?.role === 'employee') {
     return <StaffHome />;
   }
+  
   return <CustomerHome />;
 }
 
@@ -71,11 +90,70 @@ function App() {
               </PrivateRoute>
             }
           />
+          {/* 관리자 페이지 */}
+          <Route
+            path="/admin/orders"
+            element={
+              <PrivateRoute requireRole="admin">
+                <AdminOrderManagement />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/admin/inventory"
+            element={
+              <PrivateRoute requireRole="admin">
+                <AdminInventoryManagement />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/admin/accounts"
+            element={
+              <PrivateRoute requireRole="admin">
+                <AdminAccountManagement />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/admin/approvals"
+            element={
+              <PrivateRoute requireRole="admin">
+                <AdminApprovalManagement />
+              </PrivateRoute>
+            }
+          />
+          {/* 직원 페이지 */}
+          <Route
+            path="/employee/orders"
+            element={
+              <PrivateRoute requireRole="employee">
+                <EmployeeOrderManagement />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/employee/inventory"
+            element={
+              <PrivateRoute requireRole="employee">
+                <EmployeeInventoryManagement />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/schedule"
+            element={
+              <PrivateRoute requireRole="employee">
+                <ScheduleCalendar />
+              </PrivateRoute>
+            }
+          />
+          {/* 기존 라우트 (하위 호환성) */}
           <Route
             path="/employee"
             element={
               <PrivateRoute requireRole="employee">
-                <EmployeeDashboard />
+                <EmployeeOrderManagement />
               </PrivateRoute>
             }
           />
@@ -83,7 +161,7 @@ function App() {
             path="/admin"
             element={
               <PrivateRoute requireRole="admin">
-                <AdminDashboard />
+                <AdminOrderManagement />
               </PrivateRoute>
             }
           />

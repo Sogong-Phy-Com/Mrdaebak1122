@@ -1,0 +1,75 @@
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import TopLogo from '../components/TopLogo';
+import './AdminHome.css';
+
+const AdminHome: React.FC = () => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+
+  const handleOrderManagement = () => {
+    navigate('/admin/orders');
+  };
+
+  const handleInventory = () => {
+    navigate('/admin/inventory');
+  };
+
+  const handleAccountManagement = () => {
+    navigate('/admin/accounts');
+  };
+
+  const handleAccountApproval = () => {
+    navigate('/admin/approvals');
+  };
+
+  return (
+    <div className="admin-home">
+      <TopLogo />
+      <div className="home-content">
+        <div className="home-grid admin-grid">
+          <div className="grid-item grid-item-1">
+            <div className="grid-item-content">
+              <h2>미스터 대박 서비스</h2>
+              <p>관리자 페이지입니다</p>
+            </div>
+          </div>
+          <div className="grid-item grid-item-2" onClick={handleOrderManagement}>
+            <div className="grid-item-content">
+              <div className="grid-icon">📋</div>
+              <h3>주문관리</h3>
+            </div>
+          </div>
+          <div className="grid-item grid-item-3" onClick={handleInventory}>
+            <div className="grid-item-content">
+              <div className="grid-icon">📦</div>
+              <h3>재고관리</h3>
+            </div>
+          </div>
+          <div className="grid-item grid-item-4" onClick={handleAccountManagement}>
+            <div className="grid-item-content">
+              <div className="grid-icon">👥</div>
+              <h3>계정 관리</h3>
+            </div>
+          </div>
+          <div className="grid-item grid-item-5" onClick={handleAccountApproval}>
+            <div className="grid-item-content">
+              <div className="grid-icon">✅</div>
+              <h3>계정 승인 페이지</h3>
+            </div>
+          </div>
+          <div className="grid-item grid-item-6" onClick={() => navigate('/profile')}>
+            <div className="grid-item-content">
+              <div className="grid-icon">👤</div>
+              <h3>내정보</h3>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default AdminHome;
+

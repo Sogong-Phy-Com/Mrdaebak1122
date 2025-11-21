@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
-import BottomNav from '../components/BottomNav';
+import TopLogo from '../components/TopLogo';
 import './Orders.css';
 
 const API_URL = process.env.REACT_APP_API_URL || (window.location.protocol === 'https:' ? '/api' : 'http://localhost:5000/api');
@@ -38,10 +38,6 @@ const Orders: React.FC = () => {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (user && (user.role === 'admin' || user.role === 'employee')) {
-      navigate('/');
-      return;
-    }
     fetchOrders();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, navigate]);
@@ -118,21 +114,21 @@ const Orders: React.FC = () => {
     return (
       <div className="orders-page">
         <div className="loading">로딩 중...</div>
-        <BottomNav />
       </div>
     );
   }
 
   return (
     <div className="orders-page">
-      <nav className="navbar">
-        <div className="nav-container">
-          <h1 className="logo" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>미스터 대박</h1>
-        </div>
-      </nav>
+      <TopLogo />
 
       <div className="page-content">
         <div className="container">
+          <div style={{ marginBottom: '20px' }}>
+            <button onClick={() => navigate('/')} className="btn btn-secondary">
+              ← 홈으로
+            </button>
+          </div>
           {error && (
             <div className="error">
               {error}
@@ -217,8 +213,6 @@ const Orders: React.FC = () => {
           )}
         </div>
       </div>
-
-      <BottomNav />
     </div>
   );
 };

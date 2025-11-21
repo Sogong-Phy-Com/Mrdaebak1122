@@ -35,6 +35,9 @@ public class User {
     @Column(nullable = false)
     private String role = "customer";
 
+    @Column(name = "approval_status")
+    private String approvalStatus = "approved"; // pending, approved, rejected
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 

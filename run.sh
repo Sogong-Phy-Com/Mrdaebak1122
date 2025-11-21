@@ -21,11 +21,13 @@ fi
 echo "[1/2] 백엔드 서버 시작 중..."
 cd server-java
 mkdir -p data
-mvn spring-boot:run &
+echo "Building and starting Spring Boot application..."
+mvn clean spring-boot:run &
 BACKEND_PID=$!
 cd ..
 
-sleep 5
+echo "[INFO] Waiting for backend server initialization... (15 seconds)"
+sleep 15
 
 echo "[2/2] 프론트엔드 시작 중..."
 cd client

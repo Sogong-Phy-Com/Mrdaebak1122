@@ -44,6 +44,12 @@ public class Order {
     @Column(name = "payment_method")
     private String paymentMethod;
 
+    @Column(name = "cooking_employee_id")
+    private Long cookingEmployeeId;
+
+    @Column(name = "delivery_employee_id")
+    private Long deliveryEmployeeId;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 

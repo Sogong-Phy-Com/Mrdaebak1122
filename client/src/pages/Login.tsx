@@ -16,8 +16,15 @@ const Login: React.FC = () => {
 
     try {
       await login(email, password);
-      // Check user role after login
+      // Check user role and approval status after login
       const loggedInUser = JSON.parse(localStorage.getItem('user') || '{}');
+      
+      // 승인 대기 상태면 홈으로 이동 (승인 대기 화면 표시)
+      if (loggedInUser.approvalStatus === 'pending') {
+        navigate('/');
+        return;
+      }
+      
       if (loggedInUser.role === 'admin') {
         navigate('/admin');
       } else if (loggedInUser.role === 'employee') {

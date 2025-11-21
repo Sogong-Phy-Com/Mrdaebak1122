@@ -1,6 +1,7 @@
 .orders-page {
   min-height: 100vh;
   background-color: var(--background);
+  padding-top: 80px;
   padding-bottom: 80px;
 }
 

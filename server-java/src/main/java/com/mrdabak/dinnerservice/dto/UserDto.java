@@ -12,6 +12,17 @@ public class UserDto {
     private String address;
     private String phone;
     private String role;
+    private String approvalStatus;
+    
+    public UserDto(Long id, String email, String name, String address, String phone, String role) {
+        this.id = id;
+        this.email = email;
+        this.name = name;
+        this.address = address;
+        this.phone = phone;
+        this.role = role;
+        this.approvalStatus = "approved"; // 기본값
+    }
 }
 
 

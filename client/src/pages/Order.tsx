@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
-import BottomNav from '../components/BottomNav';
+import TopLogo from '../components/TopLogo';
 import './Order.css';
 
 const API_URL = process.env.REACT_APP_API_URL || (window.location.protocol === 'https:' ? '/api' : 'http://localhost:5000/api');
@@ -35,13 +35,6 @@ interface ServingStyle {
 const Order: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-
-  // Redirect staff to their home
-  useEffect(() => {
-    if (user && (user.role === 'admin' || user.role === 'employee')) {
-      navigate('/');
-    }
-  }, [user, navigate]);
   const [dinners, setDinners] = useState<Dinner[]>([]);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [servingStyles, setServingStyles] = useState<ServingStyle[]>([]);
@@ -54,6 +47,7 @@ const Order: React.FC = () => {
   const [error, setError] = useState('');
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
+  const [inventoryAvailable, setInventoryAvailable] = useState(true);
 
   useEffect(() => {
     fetchDinners();
@@ -73,6 +67,35 @@ const Order: React.FC = () => {
       }
     }
   }, [selectedDinner, dinners]);
+
+  // 재고 확인 (배달 시간이 선택되고 디너가 선택되었을 때)
+  useEffect(() => {
+    const checkInventory = async () => {
+      if (!selectedDinner || !deliveryTime || orderItems.length === 0) {
+        setInventoryAvailable(true);
+        return;
+      }
+
+      try {
+        const menuItemIds = orderItems.map(item => item.menu_item_id).join(',');
+        const response = await axios.get(`${API_URL}/inventory/check-availability`, {
+          params: {
+            menuItemIds: menuItemIds,
+            deliveryTime: deliveryTime
+          }
+        });
+
+        // 모든 메뉴 아이템이 재고가 있는지 확인
+        const allAvailable = orderItems.every(item => response.data[item.menu_item_id] === true);
+        setInventoryAvailable(allAvailable);
+      } catch (err) {
+        console.error('재고 확인 실패:', err);
+        setInventoryAvailable(false);
+      }
+    };
+
+    checkInventory();
+  }, [selectedDinner, deliveryTime, orderItems]);
 
   const fetchDinners = async () => {
     try {
@@ -226,7 +249,13 @@ const Order: React.FC = () => {
       return;
     }
 
+    // 중복 제출 방지
+    if (loading) {
+      return;
+    }
+
     setLoading(true);
+    setError(''); // 에러 초기화
 
     try {
       const token = localStorage.getItem('token');
@@ -251,10 +280,13 @@ const Order: React.FC = () => {
       });
 
       console.log('[주문 생성] 성공:', response.data);
-      const orderId = response.data.id || response.data.order?.id;
+      // 응답 형식에 따라 orderId 추출
+      const orderId = response.data.order_id || response.data.id || response.data.order?.id || response.data.order_id;
       if (orderId) {
         navigate(`/delivery/${orderId}`);
       } else {
+        // orderId가 없어도 주문은 성공했을 수 있으므로 주문 목록으로 이동
+        console.warn('[주문 생성] orderId를 찾을 수 없지만 주문은 성공했습니다:', response.data);
         navigate('/orders');
       }
     } catch (err: any) {
@@ -298,13 +330,14 @@ const Order: React.FC = () => {
 
   return (
     <div className="order-page">
-      <nav className="navbar">
-        <div className="nav-container">
-          <h1 className="logo" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>미스터 대박</h1>
-        </div>
-      </nav>
+      <TopLogo />
 
       <div className="container">
+        <div style={{ marginBottom: '20px' }}>
+          <button onClick={() => navigate('/')} className="btn btn-secondary">
+            ← 홈으로
+          </button>
+        </div>
         <h2>주문하기</h2>
 
         <div className="voice-section">
@@ -429,15 +462,24 @@ const Order: React.FC = () => {
               </div>
 
               {error && <div className="error">{error}</div>}
+              
+              {!inventoryAvailable && (
+                <div className="error" style={{ marginBottom: '10px' }}>
+                  재고가 부족하여 주문할 수 없습니다.
+                </div>
+              )}
 
-              <button type="submit" className="btn btn-primary submit-button" disabled={loading}>
+              <button 
+                type="submit" 
+                className="btn btn-primary submit-button" 
+                disabled={loading || !inventoryAvailable}
+              >
                 {loading ? '주문 처리 중...' : '주문하기'}
               </button>
             </>
           )}
         </form>
       </div>
-      <BottomNav />
     </div>
   );
 };

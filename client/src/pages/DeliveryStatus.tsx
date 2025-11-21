@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
-import BottomNav from '../components/BottomNav';
+import TopLogo from '../components/TopLogo';
 import './DeliveryStatus.css';
 
 const API_URL = process.env.REACT_APP_API_URL || (window.location.protocol === 'https:' ? '/api' : 'http://localhost:5000/api');
@@ -99,14 +99,7 @@ const DeliveryStatus: React.FC = () => {
 
   return (
     <div className="delivery-status-page">
-      <nav className="navbar">
-        <div className="nav-container">
-          <button onClick={() => navigate('/orders')} className="back-button">
-            ←
-          </button>
-          <h1 className="logo">배달 현황</h1>
-        </div>
-      </nav>
+      <TopLogo />
 
       <div className="page-content">
         <div className="container">
@@ -200,7 +193,6 @@ const DeliveryStatus: React.FC = () => {
         </div>
       </div>
 
-      <BottomNav />
     </div>
   );
 };

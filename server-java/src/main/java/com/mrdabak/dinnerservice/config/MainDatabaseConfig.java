@@ -15,20 +15,33 @@ import jakarta.persistence.EntityManagerFactory;
 import javax.sql.DataSource;
 import java.util.HashMap;
 import java.util.Map;
+import org.sqlite.SQLiteConfig;
+import org.sqlite.SQLiteDataSource;
 
 @Configuration
 @EnableTransactionManagement
 @EnableJpaRepositories(
-    basePackageClasses = {
-        com.mrdabak.dinnerservice.repository.UserRepository.class,
-        com.mrdabak.dinnerservice.repository.DinnerTypeRepository.class,
-        com.mrdabak.dinnerservice.repository.MenuItemRepository.class,
-        com.mrdabak.dinnerservice.repository.DinnerMenuItemRepository.class
-    },
+    basePackages = "com.mrdabak.dinnerservice.repository",
+    excludeFilters = @org.springframework.context.annotation.ComponentScan.Filter(
+        type = org.springframework.context.annotation.FilterType.REGEX,
+        pattern = ".*\\.order\\..*"
+    ),
     entityManagerFactoryRef = "entityManagerFactory",
     transactionManagerRef = "transactionManager"
 )
 public class MainDatabaseConfig {
+
+    @Bean(name = "dataSource")
+    @Primary
+    public DataSource dataSource() {
+        SQLiteConfig config = new SQLiteConfig();
+        config.setJournalMode(SQLiteConfig.JournalMode.WAL);
+        config.setBusyTimeout(30_000);
+        config.setSynchronous(SQLiteConfig.SynchronousMode.NORMAL);
+        SQLiteDataSource dataSource = new SQLiteDataSource(config);
+        dataSource.setUrl("jdbc:sqlite:data/mrdabak.db");
+        return dataSource;
+    }
 
     @Bean(name = "entityManagerFactory")
     @Primary
@@ -49,7 +62,10 @@ public class MainDatabaseConfig {
                 com.mrdabak.dinnerservice.model.User.class,
                 com.mrdabak.dinnerservice.model.DinnerType.class,
                 com.mrdabak.dinnerservice.model.MenuItem.class,
-                com.mrdabak.dinnerservice.model.DinnerMenuItem.class
+                com.mrdabak.dinnerservice.model.DinnerMenuItem.class,
+                com.mrdabak.dinnerservice.model.MenuInventory.class,
+                com.mrdabak.dinnerservice.model.InventoryReservation.class,
+                com.mrdabak.dinnerservice.model.DeliverySchedule.class
             )
             .persistenceUnit("default")
             .properties(properties)

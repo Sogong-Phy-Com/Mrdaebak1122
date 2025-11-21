@@ -47,6 +47,10 @@ const Register: React.FC = () => {
       }
     } catch (err: any) {
       setError(err.message);
+      // 승인 대기 메시지 표시
+      if (formData.role !== 'customer' && err.message && err.message.includes('승인')) {
+        // 승인 대기 메시지는 이미 error에 포함됨
+      }
     }
   };
 

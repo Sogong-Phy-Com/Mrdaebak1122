@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { useAuth } from '../contexts/AuthContext';
+import TopLogo from '../components/TopLogo';
 import './EmployeeDashboard.css';
 
 const API_URL = process.env.REACT_APP_API_URL || (window.location.protocol === 'https:' ? '/api' : 'http://localhost:5000/api');
@@ -27,20 +29,48 @@ interface Order {
   status: string;
   payment_status: string;
   created_at: string;
+  cooking_employee_id?: number;
+  delivery_employee_id?: number;
+  cooking_employee_name?: string;
+  delivery_employee_name?: string;
   items: OrderItem[];
+}
+
+interface InventoryItem {
+  menu_item_id: number;
+  menu_item_name: string;
+  menu_item_name_en: string;
+  category: string;
+  capacity_per_window: number;
+  reserved: number;
+  remaining: number;
+  window_start: string;
+  window_end: string;
+  notes: string | null;
 }
 
 const EmployeeDashboard: React.FC = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [filterStatus, setFilterStatus] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [activeTab, setActiveTab] = useState<'orders' | 'inventory'>('orders');
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [inventoryLoading, setInventoryLoading] = useState(false);
+  const [restockItemId, setRestockItemId] = useState<number | null>(null);
+  const [restockCapacity, setRestockCapacity] = useState<string>('');
+  const [restockNotes, setRestockNotes] = useState<string>('');
 
   useEffect(() => {
-    fetchOrders();
+    if (activeTab === 'orders') {
+      fetchOrders();
+    } else if (activeTab === 'inventory') {
+      fetchInventory();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterStatus]);
+  }, [filterStatus, activeTab]);
 
   const fetchOrders = async () => {
     console.log('[EmployeeDashboard] 주문 목록 조회 시작');
@@ -122,6 +152,73 @@ const EmployeeDashboard: React.FC = () => {
         setError(`주문 상태 업데이트에 실패했습니다. (상태: ${err.response.status})`);
       } else {
         setError('주문 상태 업데이트에 실패했습니다.');
+      }
+    }
+  };
+
+  const fetchInventory = async () => {
+    setInventoryLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setError('로그인이 필요합니다.');
+        setInventoryLoading(false);
+        return;
+      }
+
+      const response = await axios.get(`${API_URL}/inventory`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      setInventory(response.data);
+    } catch (err: any) {
+      console.error('[EmployeeDashboard] 재고 목록 조회 실패:', err);
+      if (err.response) {
+        setError(`재고 목록을 불러오는데 실패했습니다. (상태: ${err.response.status})`);
+      } else {
+        setError('재고 목록을 불러오는데 실패했습니다.');
+      }
+    } finally {
+      setInventoryLoading(false);
+    }
+  };
+
+  const handleRestock = async (menuItemId: number) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setError('로그인이 필요합니다.');
+        return;
+      }
+
+      const capacity = parseInt(restockCapacity);
+      if (isNaN(capacity) || capacity <= 0) {
+        setError('유효한 재고 용량을 입력해주세요.');
+        return;
+      }
+
+      await axios.post(`${API_URL}/inventory/${menuItemId}/restock`, {
+        capacity_per_window: capacity,
+        notes: restockNotes || null
+      }, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      setRestockItemId(null);
+      setRestockCapacity('');
+      setRestockNotes('');
+      fetchInventory();
+      setError('');
+    } catch (err: any) {
+      console.error('[EmployeeDashboard] 재고 보충 실패:', err);
+      if (err.response) {
+        setError(`재고 보충에 실패했습니다. (상태: ${err.response.status}): ${err.response.data?.error || '알 수 없는 오류'}`);
+      } else {
+        setError('재고 보충에 실패했습니다.');
       }
     }
   };
@@ -215,19 +312,52 @@ const EmployeeDashboard: React.FC = () => {
 
   return (
     <div className="employee-dashboard">
-      <nav className="navbar">
-        <div className="nav-container">
-          <button onClick={() => navigate('/')} className="back-button">
-            ←
-          </button>
-          <h1 className="logo">직원 대시보드</h1>
-        </div>
-      </nav>
+      <TopLogo />
 
       <div className="container">
-        <h2>주문 관리</h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <div style={{ display: 'flex', gap: '10px', borderBottom: '2px solid #d4af37' }}>
+            <button
+              onClick={() => setActiveTab('orders')}
+              style={{
+                padding: '10px 20px',
+                border: 'none',
+                background: activeTab === 'orders' ? '#d4af37' : 'transparent',
+                color: activeTab === 'orders' ? '#000' : '#d4af37',
+                cursor: 'pointer',
+                fontWeight: activeTab === 'orders' ? 'bold' : 'normal'
+              }}
+            >
+              주문 관리
+            </button>
+            <button
+              onClick={() => setActiveTab('inventory')}
+              style={{
+                padding: '10px 20px',
+                border: 'none',
+                background: activeTab === 'inventory' ? '#d4af37' : 'transparent',
+                color: activeTab === 'inventory' ? '#000' : '#d4af37',
+                cursor: 'pointer',
+                fontWeight: activeTab === 'inventory' ? 'bold' : 'normal'
+              }}
+            >
+              재고 관리
+            </button>
+          </div>
+          <button
+            onClick={() => navigate('/schedule')}
+            className="btn btn-primary"
+            style={{ padding: '8px 16px' }}
+          >
+            📅 스케줄 캘린더
+          </button>
+        </div>
 
-        <div className="filter-section">
+        {activeTab === 'orders' && (
+          <>
+            <h2>주문 관리</h2>
+
+            <div className="filter-section">
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
             <label>상태 필터:</label>
             <select
@@ -297,6 +427,18 @@ const EmployeeDashboard: React.FC = () => {
                       <span className="label">총 가격:</span>
                       <span><strong>{order.total_price.toLocaleString()}원</strong></span>
                     </div>
+                    {order.cooking_employee_name && (
+                      <div className="detail-row">
+                        <span className="label">조리 담당:</span>
+                        <span>{order.cooking_employee_name}</span>
+                      </div>
+                    )}
+                    {order.delivery_employee_name && (
+                      <div className="detail-row">
+                        <span className="label">배달 담당:</span>
+                        <span>{order.delivery_employee_name}</span>
+                      </div>
+                    )}
                   </div>
 
                   <div className="order-items-section">
@@ -312,12 +454,30 @@ const EmployeeDashboard: React.FC = () => {
 
                   {nextStatus && order.status !== 'delivered' && order.status !== 'cancelled' && (
                     <div className="order-actions">
-                      <button
-                        onClick={() => updateOrderStatus(order.id, nextStatus)}
-                        className="btn btn-success"
-                      >
-                        {getStatusLabel(nextStatus)}로 변경
-                      </button>
+                      {(() => {
+                        // 자신이 배당받은 작업인지 확인
+                        const isAssignedToMe = 
+                          (nextStatus === 'cooking' && order.cooking_employee_id === user?.id) ||
+                          (nextStatus === 'out_for_delivery' && order.delivery_employee_id === user?.id) ||
+                          (nextStatus === 'delivered' && order.delivery_employee_id === user?.id);
+                        
+                        const isDisabled = !isAssignedToMe;
+                        
+                        return (
+                          <button
+                            onClick={() => updateOrderStatus(order.id, nextStatus)}
+                            className="btn btn-success"
+                            disabled={isDisabled}
+                            title={isDisabled ? '자신이 배당받은 작업만 상태를 변경할 수 있습니다.' : ''}
+                            style={{
+                              opacity: isDisabled ? 0.5 : 1,
+                              cursor: isDisabled ? 'not-allowed' : 'pointer'
+                            }}
+                          >
+                            {getStatusLabel(nextStatus)}로 변경
+                          </button>
+                        );
+                      })()}
                     </div>
                   )}
                 </div>
@@ -325,6 +485,112 @@ const EmployeeDashboard: React.FC = () => {
             })
           )}
         </div>
+          </>
+        )}
+
+        {activeTab === 'inventory' && (
+          <>
+            <h2>재고 관리</h2>
+            {error && <div className="error">{error}</div>}
+            
+            {inventoryLoading ? (
+              <div className="loading">로딩 중...</div>
+            ) : (
+              <div className="inventory-list">
+                {inventory.length === 0 ? (
+                  <div className="no-orders">
+                    <p>재고 정보가 없습니다.</p>
+                  </div>
+                ) : (
+                  <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '20px' }}>
+                    <thead>
+                      <tr style={{ background: '#d4af37', color: '#000' }}>
+                        <th style={{ padding: '10px', border: '1px solid #000' }}>메뉴 항목</th>
+                        <th style={{ padding: '10px', border: '1px solid #000' }}>카테고리</th>
+                        <th style={{ padding: '10px', border: '1px solid #000' }}>창구당 용량</th>
+                        <th style={{ padding: '10px', border: '1px solid #000' }}>예약됨</th>
+                        <th style={{ padding: '10px', border: '1px solid #000' }}>남은 재고</th>
+                        <th style={{ padding: '10px', border: '1px solid #000' }}>시간대</th>
+                        <th style={{ padding: '10px', border: '1px solid #000' }}>비고</th>
+                        <th style={{ padding: '10px', border: '1px solid #000' }}>작업</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {inventory.map((item) => (
+                        <tr key={item.menu_item_id} style={{ background: item.remaining < 5 ? '#ffcccc' : 'transparent' }}>
+                          <td style={{ padding: '10px', border: '1px solid #d4af37' }}>
+                            {item.menu_item_name} ({item.menu_item_name_en})
+                          </td>
+                          <td style={{ padding: '10px', border: '1px solid #d4af37' }}>{item.category}</td>
+                          <td style={{ padding: '10px', border: '1px solid #d4af37' }}>{item.capacity_per_window}</td>
+                          <td style={{ padding: '10px', border: '1px solid #d4af37' }}>{item.reserved}</td>
+                          <td style={{ padding: '10px', border: '1px solid #d4af37', fontWeight: item.remaining < 5 ? 'bold' : 'normal' }}>
+                            {item.remaining}
+                          </td>
+                          <td style={{ padding: '10px', border: '1px solid #d4af37' }}>
+                            {new Date(item.window_start).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })} - {new Date(item.window_end).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
+                          </td>
+                          <td style={{ padding: '10px', border: '1px solid #d4af37' }}>{item.notes || '-'}</td>
+                          <td style={{ padding: '10px', border: '1px solid #d4af37' }}>
+                            {restockItemId === item.menu_item_id ? (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                                <input
+                                  type="number"
+                                  placeholder="용량"
+                                  value={restockCapacity}
+                                  onChange={(e) => setRestockCapacity(e.target.value)}
+                                  style={{ padding: '5px', width: '80px' }}
+                                />
+                                <input
+                                  type="text"
+                                  placeholder="비고 (선택)"
+                                  value={restockNotes}
+                                  onChange={(e) => setRestockNotes(e.target.value)}
+                                  style={{ padding: '5px', width: '150px' }}
+                                />
+                                <div style={{ display: 'flex', gap: '5px' }}>
+                                  <button
+                                    onClick={() => handleRestock(item.menu_item_id)}
+                                    className="btn btn-success"
+                                    style={{ padding: '5px 10px', fontSize: '12px' }}
+                                  >
+                                    확인
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setRestockItemId(null);
+                                      setRestockCapacity('');
+                                      setRestockNotes('');
+                                    }}
+                                    className="btn btn-secondary"
+                                    style={{ padding: '5px 10px', fontSize: '12px' }}
+                                  >
+                                    취소
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => {
+                                  setRestockItemId(item.menu_item_id);
+                                  setRestockCapacity(item.capacity_per_window.toString());
+                                }}
+                                className="btn btn-primary"
+                                style={{ padding: '5px 10px', fontSize: '12px' }}
+                              >
+                                보충
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            )}
+          </>
+        )}
       </div>
     </div>
   );

@@ -7,7 +7,8 @@ echo ""
 
 cd server-java
 mkdir -p data
-mvn spring-boot:run
+echo "Building and starting Spring Boot application..."
+mvn clean spring-boot:run
 
 
 

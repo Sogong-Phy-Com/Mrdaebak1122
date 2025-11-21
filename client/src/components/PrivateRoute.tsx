@@ -18,6 +18,11 @@ const PrivateRoute: React.FC<PrivateRouteProps> = ({ children, requireRole }) =>
     return <Navigate to="/login" />;
   }
 
+  // 승인 대기 상태의 직원/관리자는 승인 대기 화면으로 리다이렉트 (로그아웃 제외)
+  if (user.approvalStatus === 'pending' && requireRole) {
+    return <Navigate to="/" />;
+  }
+
   if (requireRole) {
     // Admin can access employee routes
     if (requireRole === 'employee' && (user.role === 'employee' || user.role === 'admin')) {

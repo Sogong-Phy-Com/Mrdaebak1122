@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
-import BottomNav from '../components/BottomNav';
+import TopLogo from '../components/TopLogo';
 import './Profile.css';
 
 const API_URL = process.env.REACT_APP_API_URL || (window.location.protocol === 'https:' ? '/api' : 'http://localhost:5000/api');
@@ -229,14 +229,15 @@ const Profile: React.FC = () => {
 
   return (
     <div className="profile-page">
-      <nav className="navbar">
-        <div className="nav-container">
-          <h1 className="logo" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>미스터 대박</h1>
-        </div>
-      </nav>
+      <TopLogo />
 
       <div className="page-content">
         <div className="container">
+          <div style={{ marginBottom: '20px' }}>
+            <button onClick={() => navigate('/')} className="btn btn-secondary">
+              ← 홈으로
+            </button>
+          </div>
           {/* 프로필 헤더 */}
           <div className="profile-header">
             <div className="profile-avatar">
@@ -245,7 +246,11 @@ const Profile: React.FC = () => {
             <div className="profile-info">
               <h2>{user?.name || '사용자'}</h2>
               <p className="profile-email">{user?.email}</p>
-              <span className="profile-badge">일반 회원</span>
+              <span className="profile-badge">
+                {user?.role === 'admin' ? '관리자 계정' : 
+                 user?.role === 'employee' ? '직원 계정' : 
+                 '고객 계정'}
+              </span>
             </div>
           </div>
 
@@ -536,7 +541,6 @@ const Profile: React.FC = () => {
         </div>
       )}
 
-      <BottomNav />
     </div>
   );
 };

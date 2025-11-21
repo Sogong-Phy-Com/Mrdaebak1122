@@ -3,8 +3,6 @@ package com.mrdabak.dinnerservice.config;
 import com.mrdabak.dinnerservice.model.Order;
 import com.mrdabak.dinnerservice.model.OrderItem;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.boot.jdbc.DataSourceBuilder;
 import org.springframework.boot.orm.jpa.EntityManagerFactoryBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -18,6 +16,8 @@ import jakarta.persistence.EntityManagerFactory;
 import javax.sql.DataSource;
 import java.util.HashMap;
 import java.util.Map;
+import org.sqlite.SQLiteConfig;
+import org.sqlite.SQLiteDataSource;
 
 @Configuration
 @EnableTransactionManagement
@@ -29,12 +29,14 @@ import java.util.Map;
 public class OrderDatabaseConfig {
 
     @Bean(name = "orderDataSource")
-    @ConfigurationProperties(prefix = "spring.datasource.order")
     public DataSource orderDataSource() {
-        return DataSourceBuilder.create()
-            .driverClassName("org.sqlite.JDBC")
-            .url("jdbc:sqlite:data/orders.db?journal_mode=WAL&busy_timeout=30000")
-            .build();
+        SQLiteConfig config = new SQLiteConfig();
+        config.setJournalMode(SQLiteConfig.JournalMode.WAL);
+        config.setBusyTimeout(30_000);
+        config.setSynchronous(SQLiteConfig.SynchronousMode.NORMAL);
+        SQLiteDataSource dataSource = new SQLiteDataSource(config);
+        dataSource.setUrl("jdbc:sqlite:data/orders.db");
+        return dataSource;
     }
 
     @Bean(name = "orderEntityManagerFactory")

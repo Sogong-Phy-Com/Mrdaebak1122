@@ -8,6 +8,7 @@ interface User {
   address: string;
   phone: string;
   role: string;
+  approvalStatus?: string;
 }
 
 interface AuthContextType {
@@ -51,13 +52,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string) => {
     try {
       const response = await axios.post(`${API_URL}/auth/login`, { email, password });
-      const { token: newToken, user: newUser } = response.data;
+      const { token: newToken, user: newUser, message } = response.data;
       
-      setToken(newToken);
-      setUser(newUser);
-      localStorage.setItem('token', newToken);
-      localStorage.setItem('user', JSON.stringify(newUser));
-      axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
+      // 승인 대기 상태면 토큰이 없을 수 있음
+      if (newToken) {
+        setToken(newToken);
+        setUser(newUser);
+        localStorage.setItem('token', newToken);
+        localStorage.setItem('user', JSON.stringify(newUser));
+        axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
+      } else {
+        // 승인 대기 상태
+        throw new Error(message || '회원가입이 완료되었습니다. 관리자 승인 후 로그인할 수 있습니다.');
+      }
       return response.data;
     } catch (error: any) {
       throw new Error(error.response?.data?.error || 'Login failed');

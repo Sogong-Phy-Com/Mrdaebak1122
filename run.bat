@@ -65,11 +65,12 @@ echo.
 echo [1/2] Starting backend server...
 cd server-java
 if not exist "data" mkdir data
-start "Mr. DaeBak Backend" cmd /k "mvn spring-boot:run"
+echo Starting Spring Boot application...
+start "Mr. DaeBak Backend" cmd /k "mvn clean spring-boot:run"
 cd ..
 
-echo [INFO] Waiting for backend server initialization... (10 seconds)
-timeout /t 10 /nobreak >nul
+echo [INFO] Waiting for backend server initialization... (15 seconds)
+timeout /t 15 /nobreak >nul
 
 echo [2/2] Starting frontend...
 cd client
@@ -84,6 +85,7 @@ if not exist "node_modules" (
         exit /b 1
     )
 )
+echo Starting React development server...
 start "Mr. DaeBak Frontend" cmd /k "npm start"
 cd ..
 

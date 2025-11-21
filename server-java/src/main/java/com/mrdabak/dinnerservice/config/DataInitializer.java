@@ -2,9 +2,17 @@ package com.mrdabak.dinnerservice.config;
 
 import com.mrdabak.dinnerservice.model.*;
 import com.mrdabak.dinnerservice.repository.*;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+import javax.sql.DataSource;
+import java.sql.Connection;
+import java.sql.DatabaseMetaData;
+import java.sql.ResultSet;
+import java.sql.Statement;
 
 @Component
 public class DataInitializer implements CommandLineRunner {
@@ -14,19 +22,65 @@ public class DataInitializer implements CommandLineRunner {
     private final DinnerMenuItemRepository dinnerMenuItemRepository;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final DataSource dataSource;
 
     public DataInitializer(DinnerTypeRepository dinnerTypeRepository, MenuItemRepository menuItemRepository,
                           DinnerMenuItemRepository dinnerMenuItemRepository, UserRepository userRepository,
-                          PasswordEncoder passwordEncoder) {
+                          PasswordEncoder passwordEncoder,
+                          @Qualifier("dataSource") DataSource dataSource) {
         this.dinnerTypeRepository = dinnerTypeRepository;
         this.menuItemRepository = menuItemRepository;
         this.dinnerMenuItemRepository = dinnerMenuItemRepository;
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.dataSource = dataSource;
     }
 
     @Override
+    @Transactional("transactionManager")
     public void run(String... args) {
+        // 데이터베이스 마이그레이션: inventory_reservations 테이블에 컬럼 추가
+        try (Connection connection = dataSource.getConnection()) {
+            DatabaseMetaData metaData = connection.getMetaData();
+            
+            // consumed 컬럼 확인 및 추가
+            boolean hasConsumed = false;
+            boolean hasExpiresAt = false;
+            try (ResultSet columns = metaData.getColumns(null, null, "inventory_reservations", null)) {
+                while (columns.next()) {
+                    String columnName = columns.getString("COLUMN_NAME");
+                    if ("consumed".equalsIgnoreCase(columnName)) {
+                        hasConsumed = true;
+                    }
+                    if ("expires_at".equalsIgnoreCase(columnName)) {
+                        hasExpiresAt = true;
+                    }
+                }
+            }
+            
+            try (Statement stmt = connection.createStatement()) {
+                if (!hasConsumed) {
+                    stmt.execute("ALTER TABLE inventory_reservations ADD COLUMN consumed INTEGER DEFAULT 0");
+                    System.out.println("[DataInitializer] Added 'consumed' column to inventory_reservations table");
+                }
+                if (!hasExpiresAt) {
+                    stmt.execute("ALTER TABLE inventory_reservations ADD COLUMN expires_at TEXT");
+                    System.out.println("[DataInitializer] Added 'expires_at' column to inventory_reservations table");
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("[DataInitializer] Database migration error: " + e.getMessage());
+            // 마이그레이션 실패해도 계속 진행 (테이블이 없을 수도 있음)
+        }
+        // Update existing users' approvalStatus if null
+        userRepository.findAll().forEach(user -> {
+            if (user.getApprovalStatus() == null || user.getApprovalStatus().isEmpty()) {
+                // 기존 사용자는 모두 승인된 것으로 간주
+                user.setApprovalStatus("approved");
+                userRepository.save(user);
+            }
+        });
+        
         // Delete and recreate admin account
         userRepository.findByEmail("admin@mrdabak.com").ifPresent(user -> userRepository.delete(user));
         createEmployeeAccount("admin@mrdabak.com", "admin123", "관리자", "서울시 강남구", "010-0000-0000", "admin");
@@ -107,7 +161,16 @@ public class DataInitializer implements CommandLineRunner {
             employee.setAddress(address);
             employee.setPhone(phone);
             employee.setRole(role);
+            employee.setApprovalStatus("approved"); // 관리자/직원 계정은 자동 승인
             userRepository.save(employee);
+        } else {
+            // 기존 사용자의 approvalStatus 업데이트 (null이면 approved로 설정)
+            userRepository.findByEmail(email).ifPresent(user -> {
+                if (user.getApprovalStatus() == null || user.getApprovalStatus().isEmpty()) {
+                    user.setApprovalStatus("approved");
+                    userRepository.save(user);
+                }
+            });
         }
     }
 }

@@ -42,15 +42,32 @@ public class AuthService {
         user.setAddress(request.getAddress());
         user.setPhone(request.getPhone());
         user.setRole(role);
+        
+        // Set approval status: customer is auto-approved, employee/admin need approval
+        if (role.equals("customer")) {
+            user.setApprovalStatus("approved");
+        } else {
+            user.setApprovalStatus("pending");
+        }
 
         User savedUser = userRepository.save(user);
-        String token = jwtService.generateToken(savedUser.getId(), savedUser.getEmail(), savedUser.getRole());
+        
+        // Only generate token if approved
+        String token = null;
+        if (savedUser.getApprovalStatus().equals("approved")) {
+            token = jwtService.generateToken(savedUser.getId(), savedUser.getEmail(), savedUser.getRole());
+        }
 
+        String message = "User registered successfully";
+        if (savedUser.getApprovalStatus().equals("pending")) {
+            message = "회원가입이 완료되었습니다. 관리자 승인 후 로그인할 수 있습니다.";
+        }
+        
         return new AuthResponse(
-                "User registered successfully",
+                message,
                 token,
                 new UserDto(savedUser.getId(), savedUser.getEmail(), savedUser.getName(),
-                        savedUser.getAddress(), savedUser.getPhone(), savedUser.getRole())
+                        savedUser.getAddress(), savedUser.getPhone(), savedUser.getRole(), savedUser.getApprovalStatus())
         );
     }
 
@@ -62,13 +79,24 @@ public class AuthService {
             throw new RuntimeException("Invalid credentials");
         }
 
+        // 승인 대기 상태의 직원/관리자도 토큰 발급 (프론트엔드에서 접근 제한)
+        // 거부된 경우만 로그인 차단
+        if (user.getApprovalStatus().equals("rejected")) {
+            throw new RuntimeException("회원가입이 거부되었습니다. 관리자에게 문의하세요.");
+        }
+
         String token = jwtService.generateToken(user.getId(), user.getEmail(), user.getRole());
+        
+        String message = "Login successful";
+        if (user.getApprovalStatus().equals("pending")) {
+            message = "승인 중입니다";
+        }
 
         return new AuthResponse(
-                "Login successful",
+                message,
                 token,
                 new UserDto(user.getId(), user.getEmail(), user.getName(),
-                        user.getAddress(), user.getPhone(), user.getRole())
+                        user.getAddress(), user.getPhone(), user.getRole(), user.getApprovalStatus())
         );
     }
 }
