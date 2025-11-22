@@ -103,20 +103,25 @@ public class DeliverySchedulingService {
 
         validateWithinShift(departure, returnTime);
 
-        // Check if schedule already exists
-        deliveryScheduleRepository.findByOrderId(orderId).ifPresent(schedule -> {
-            deliveryScheduleRepository.delete(schedule);
-        });
-
-        DeliverySchedule schedule = new DeliverySchedule();
-        schedule.setOrderId(orderId);
+        // Check if schedule already exists - update instead of delete/create
+        DeliverySchedule schedule = deliveryScheduleRepository.findByOrderId(orderId)
+            .orElse(new DeliverySchedule());
+        
+        // If it's a new schedule, set the order ID
+        if (schedule.getId() == null) {
+            schedule.setOrderId(orderId);
+        }
+        
+        // Update schedule fields
         schedule.setEmployeeId(employeeId);
         schedule.setDeliveryAddress(deliveryAddress);
         schedule.setDepartureTime(departure);
         schedule.setArrivalTime(deliveryTime);
         schedule.setReturnTime(returnTime);
         schedule.setOneWayMinutes(oneWayMinutes);
-        schedule.setStatus("SCHEDULED");
+        if (!"CANCELLED".equals(schedule.getStatus())) {
+            schedule.setStatus("SCHEDULED");
+        }
 
         return deliveryScheduleRepository.save(schedule);
     }
