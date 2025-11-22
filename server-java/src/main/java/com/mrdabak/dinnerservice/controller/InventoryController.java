@@ -37,6 +37,7 @@ public class InventoryController {
             map.put("capacity_per_window", snapshot.inventory().getCapacityPerWindow());
             map.put("reserved", snapshot.reserved());
             map.put("remaining", snapshot.remaining());
+            map.put("ordered_quantity", snapshot.inventory().getOrderedQuantity() != null ? snapshot.inventory().getOrderedQuantity() : 0);
             map.put("window_start", snapshot.windowStart());
             map.put("window_end", snapshot.windowEnd());
             map.put("notes", snapshot.inventory().getNotes());
@@ -45,6 +46,9 @@ public class InventoryController {
                 map.put("menu_item_name_en", menuItem.getNameEn());
                 map.put("category", menuItem.getCategory());
             }
+            // Calculate weekly reserved (sum of reservations for the week)
+            // For now, using reserved as weekly_reserved
+            map.put("weekly_reserved", snapshot.reserved());
             return map;
         }).toList();
         return ResponseEntity.ok(response);
@@ -107,6 +111,39 @@ public class InventoryController {
         } catch (Exception e) {
             return ResponseEntity.status(500)
                     .body(Map.of("error", "재고 확인 중 오류가 발생했습니다: " + e.getMessage()));
+        }
+    }
+
+    @PostMapping("/{menuItemId}/order")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> orderInventory(@PathVariable Long menuItemId,
+                                           @RequestBody Map<String, Integer> request) {
+        try {
+            if (menuItemId == null) {
+                return ResponseEntity.badRequest().body(Map.of("error", "메뉴 아이템 ID는 필수입니다."));
+            }
+            
+            Integer orderedQuantity = request.get("ordered_quantity");
+            if (orderedQuantity == null || orderedQuantity < 0) {
+                return ResponseEntity.badRequest().body(Map.of("error", "주문 수량은 0 이상이어야 합니다."));
+            }
+            
+            // Verify menu item exists
+            if (!menuItemRepository.existsById(menuItemId)) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("error", "메뉴 아이템을 찾을 수 없습니다: " + menuItemId));
+            }
+            
+            var inventory = inventoryService.setOrderedQuantity(menuItemId, orderedQuantity);
+            return ResponseEntity.ok(Map.of(
+                    "menu_item_id", inventory.getMenuItemId(),
+                    "ordered_quantity", inventory.getOrderedQuantity()
+            ));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(500)
+                    .body(Map.of("error", "주문 재고 저장 중 오류가 발생했습니다: " + e.getMessage()));
         }
     }
 }

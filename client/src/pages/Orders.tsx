@@ -110,6 +110,89 @@ const Orders: React.FC = () => {
     return labels[style] || style;
   };
 
+  const calculateDaysUntilDelivery = (deliveryTime: string): number => {
+    const delivery = new Date(deliveryTime);
+    const now = new Date();
+    const diffTime = delivery.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+  };
+
+  const calculateCancelFee = (order: Order): number => {
+    const daysUntil = calculateDaysUntilDelivery(order.delivery_time);
+    if (daysUntil >= 7) {
+      return 0; // Free
+    }
+    return 30000; // 30,000 won fee
+  };
+
+  const calculateModifyFee = (order: Order): number => {
+    const daysUntil = calculateDaysUntilDelivery(order.delivery_time);
+    if (daysUntil >= 7) {
+      return 0; // Free
+    }
+    if (daysUntil === 0) {
+      return 10000; // Same day: 10,000 won additional fee
+    }
+    return 0; // Less than 7 days but not same day: free
+  };
+
+  const handleCancelOrder = async (order: Order) => {
+    const daysUntil = calculateDaysUntilDelivery(order.delivery_time);
+    const fee = calculateCancelFee(order);
+    const refundAmount = order.total_price - fee;
+    
+    let message = '';
+    if (fee === 0) {
+      message = `주문 취소 시 수수료는 없습니다.\n환불 금액: ${refundAmount.toLocaleString()}원\n(배달일로부터 ${daysUntil}일 전)`;
+    } else {
+      message = `주문 취소 시 수수료 ${fee.toLocaleString()}원이 발생합니다.\n환불 금액: ${refundAmount.toLocaleString()}원\n(배달일로부터 ${daysUntil}일 전)\n\n취소하시겠습니까?`;
+    }
+    
+    if (!window.confirm(message)) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setError('로그인이 필요합니다.');
+        return;
+      }
+
+      await axios.post(`${API_URL}/orders/${order.id}/cancel`, {}, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      alert('주문이 취소되었습니다.');
+      await fetchOrders();
+    } catch (err: any) {
+      const errorMsg = err.response?.data?.error || err.message || '주문 취소에 실패했습니다.';
+      alert(errorMsg);
+    }
+  };
+
+  const handleModifyOrder = (order: Order) => {
+    const daysUntil = calculateDaysUntilDelivery(order.delivery_time);
+    const fee = calculateModifyFee(order);
+    
+    let message = '';
+    if (fee === 0) {
+      message = `주문 수정 시 수수료는 없습니다.\n(배달일로부터 ${daysUntil}일 전)\n\n수정하시겠습니까?`;
+    } else {
+      message = `주문 수정 시 추가 수수료 ${fee.toLocaleString()}원이 발생합니다.\n(당일 주문 수정)\n\n수정하시겠습니까?`;
+    }
+    
+    if (!window.confirm(message)) {
+      return;
+    }
+
+    // Navigate to order page with order data for modification
+    navigate(`/order?modify=${order.id}`);
+  };
+
   if (loading) {
     return (
       <div className="orders-page">
@@ -193,20 +276,42 @@ const Orders: React.FC = () => {
                     </div>
                   </div>
 
-                  {order.status !== 'delivered' && order.status !== 'cancelled' && (
-                    <div className="order-action">
-                      <button
-                        className="btn btn-primary"
-                        style={{ width: '100%', marginTop: '12px' }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/delivery/${order.id}`);
-                        }}
-                      >
-                        배달 현황 보기
-                      </button>
-                    </div>
-                  )}
+                  <div className="order-action" style={{ display: 'flex', gap: '10px', marginTop: '12px' }}>
+                    {order.status !== 'delivered' && order.status !== 'cancelled' && (
+                      <>
+                        <button
+                          className="btn btn-primary"
+                          style={{ flex: 1 }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/delivery/${order.id}`);
+                          }}
+                        >
+                          배달 현황 보기
+                        </button>
+                        <button
+                          className="btn btn-secondary"
+                          style={{ flex: 1 }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCancelOrder(order);
+                          }}
+                        >
+                          주문 취소
+                        </button>
+                        <button
+                          className="btn btn-secondary"
+                          style={{ flex: 1 }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleModifyOrder(order);
+                          }}
+                        >
+                          주문 수정
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

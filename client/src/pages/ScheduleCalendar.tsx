@@ -42,7 +42,11 @@ interface User {
   role: string;
 }
 
-const ScheduleCalendar: React.FC = () => {
+interface ScheduleCalendarProps {
+  type?: 'schedule' | 'orders';
+}
+
+const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({ type: propType }) => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
@@ -56,6 +60,13 @@ const ScheduleCalendar: React.FC = () => {
   const [selectedSchedules, setSelectedSchedules] = useState<DeliverySchedule[]>([]);
   const [selectedOrders, setSelectedOrders] = useState<Order[]>([]);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
+  
+  // Get calendar type from prop or URL parameter
+  const [searchParams] = React.useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('type') || 'schedule'; // default to 'schedule'
+  });
+  const calendarType = propType || (searchParams === 'orders' ? 'orders' : 'schedule');
 
   const isAdmin = user?.role === 'admin';
 
@@ -63,10 +74,13 @@ const ScheduleCalendar: React.FC = () => {
     if (isAdmin) {
       fetchEmployees();
     }
-    fetchSchedules();
-    fetchOrders();
+    if (calendarType === 'schedule') {
+      fetchSchedules();
+    } else {
+      fetchOrders();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentDate, selectedEmployeeId, isAdmin]);
+  }, [currentDate, selectedEmployeeId, isAdmin, calendarType]);
 
   const getAuthHeaders = () => {
     const token = localStorage.getItem('token');
@@ -264,16 +278,29 @@ const ScheduleCalendar: React.FC = () => {
 
   const hasMySchedule = (date: Date | null): boolean => {
     if (!date || !user) return false;
-    const dayOrders = getOrdersForDate(date);
-    return dayOrders.some(order => 
-      order.cooking_employee_id === user.id || 
-      order.delivery_employee_id === user.id
-    );
+    if (calendarType === 'schedule') {
+      // For schedule calendar, check if employee has assignments
+      const daySchedules = getSchedulesForDate(date);
+      const dayOrders = getOrdersForDate(date);
+      return daySchedules.some(schedule => schedule.employee_id === user.id) ||
+             dayOrders.some(order => 
+               order.cooking_employee_id === user.id || 
+               order.delivery_employee_id === user.id
+             );
+    } else {
+      // For orders calendar, check if there are any orders
+      const dayOrders = getOrdersForDate(date);
+      return dayOrders.length > 0;
+    }
   };
 
   const getOrderColor = (order: Order): 'red' | 'green' => {
     if (isAdmin) {
-      // 관리자: 끝난 주문(delivered, cancelled) = 초록색, 나머지 = 빨간색
+      // 관리자: 본인이 할당된 경우 빨간색, 끝난 주문(delivered, cancelled) = 초록색, 나머지 = 빨간색
+      const isMyOrder = order.cooking_employee_id === user?.id || order.delivery_employee_id === user?.id;
+      if (isMyOrder) {
+        return 'red';
+      }
       return (order.status === 'delivered' || order.status === 'cancelled') ? 'green' : 'red';
     } else {
       // 직원: 본인 할당 = 빨간색, 나머지 또는 끝난 주문 = 초록색
@@ -371,9 +398,33 @@ const ScheduleCalendar: React.FC = () => {
     }
   })();
 
+  // Don't show navigation if used as component
+  const showNavigation = !propType;
+
   return (
     <div className="schedule-calendar-page">
-      <TopLogo />
+      {showNavigation && <TopLogo />}
+      {showNavigation && (
+        <div style={{ marginBottom: '20px', paddingLeft: '20px', display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <button onClick={() => navigate('/employee/orders')} className="btn btn-secondary">
+            ← 스케줄 탭으로
+          </button>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button
+              className={`btn ${calendarType === 'schedule' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => navigate('/schedule?type=schedule')}
+            >
+              📅 스케줄 캘린더
+            </button>
+            <button
+              className={`btn ${calendarType === 'orders' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => navigate('/schedule?type=orders')}
+            >
+              📋 주문 캘린더
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="container">
         {error && <div className="error">{error}</div>}
@@ -431,41 +482,124 @@ const ScheduleCalendar: React.FC = () => {
                 const isCurrentMonth = date !== null;
 
                 const hasMySchedules = hasMySchedule(date);
-                const isClickable = date && (dayOrders.length > 0 || daySchedules.length > 0);
+                const isClickable = date && (calendarType === 'schedule' ? hasMySchedules : (dayOrders.length > 0 || daySchedules.length > 0));
+                
+                // For schedule calendar: red if employee has work, green if not
+                // For orders calendar: show order count
+                const getDayColor = () => {
+                  if (!date) return '';
+                  if (calendarType === 'schedule') {
+                    return hasMySchedules ? 'red' : 'green';
+                  } else {
+                    return dayOrders.length > 0 ? 'blue' : '';
+                  }
+                };
+                const dayColor = getDayColor();
 
                 return (
                   <div
                     key={index}
                     className={`calendar-day ${!isCurrentMonth ? 'other-month' : ''} ${isToday ? 'today' : ''} ${isClickable ? 'clickable' : ''} ${hasMySchedules ? 'has-my-schedule' : ''}`}
                     onClick={() => isClickable && handleDateClick(date)}
+                    style={{
+                      backgroundColor: dayColor === 'red' ? '#ff4444' : dayColor === 'green' ? '#4CAF50' : dayColor === 'blue' ? '#2196F3' : '',
+                      color: dayColor ? '#fff' : '',
+                      fontWeight: dayColor ? 'bold' : 'normal'
+                    }}
                   >
                     {date && (
                       <>
                         <div className="calendar-day-header">
                           <div className="calendar-day-number">{date.getDate()}</div>
-                          {hasMySchedules && <div className="my-schedule-indicator" title="내 배달 일정"></div>}
+                          {calendarType === 'orders' && dayOrders.length > 0 && (
+                            <div className="order-count-indicator" title={`${dayOrders.length}개 주문`} style={{
+                              fontSize: '10px',
+                              background: '#2196F3',
+                              color: '#fff',
+                              borderRadius: '50%',
+                              width: '18px',
+                              height: '18px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              marginTop: '2px'
+                            }}>
+                              {dayOrders.length}
+                            </div>
+                          )}
+                          {calendarType === 'schedule' && hasMySchedules && (
+                            <div className="my-schedule-indicator" title="내 작업 일정" style={{
+                              width: '8px',
+                              height: '8px',
+                              background: '#FFD700',
+                              borderRadius: '50%',
+                              marginTop: '2px'
+                            }}></div>
+                          )}
                         </div>
                         <div className="calendar-day-schedules">
-                          {dayOrders.slice(0, 2).map(order => {
-                            const orderColor = getOrderColor(order);
-                            return (
-                              <div
-                                key={order.id}
-                                className={`schedule-item order-item ${orderColor === 'red' ? 'my-schedule' : 'other-schedule'}`}
-                                style={{ borderLeftColor: orderColor === 'red' ? '#ff4444' : '#4CAF50' }}
-                                title={`주문 #${order.id} - ${order.delivery_address || '주소 없음'} (${formatTime(order.delivery_time || '')})`}
-                              >
-                                <div className="schedule-time">{formatTime(order.delivery_time)}</div>
-                                <div className="schedule-status" style={{ color: orderColor === 'red' ? '#ff4444' : '#4CAF50' }}>
-                                  주문 #{order.id}
+                          {calendarType === 'schedule' ? (
+                            // Schedule calendar: show assignments
+                            <>
+                              {daySchedules.slice(0, 2).map(schedule => (
+                                <div
+                                  key={schedule.id}
+                                  className="schedule-item"
+                                  style={{ borderLeftColor: '#FFD700' }}
+                                  title={`배달 일정 - ${schedule.delivery_address || '주소 없음'}`}
+                                >
+                                  <div className="schedule-time">{formatTime(schedule.departure_time)}</div>
+                                  <div className="schedule-status" style={{ color: '#FFD700' }}>
+                                    배달
+                                  </div>
                                 </div>
-                              </div>
-                            );
-                          })}
-                          {dayOrders.length > 2 && (
-                            <div className="schedule-more">
-                              +{dayOrders.length - 2}개 더
-                            </div>
+                              ))}
+                              {dayOrders.filter(order => 
+                                order.cooking_employee_id === user?.id || 
+                                order.delivery_employee_id === user?.id
+                              ).slice(0, 2 - daySchedules.length).map(order => {
+                                const isCooking = order.cooking_employee_id === user?.id;
+                                const isDelivery = order.delivery_employee_id === user?.id;
+                                return (
+                                  <div
+                                    key={order.id}
+                                    className="schedule-item"
+                                    style={{ borderLeftColor: '#FFD700' }}
+                                    title={`${isCooking ? '조리' : ''}${isCooking && isDelivery ? ' / ' : ''}${isDelivery ? '배달' : ''} - 주문 #${order.id}`}
+                                  >
+                                    <div className="schedule-time">{formatTime(order.delivery_time)}</div>
+                                    <div className="schedule-status" style={{ color: '#FFD700' }}>
+                                      {isCooking && isDelivery ? '조리/배달' : isCooking ? '조리' : '배달'}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </>
+                          ) : (
+                            // Orders calendar: show orders
+                            <>
+                              {dayOrders.slice(0, 2).map(order => {
+                                const orderColor = getOrderColor(order);
+                                return (
+                                  <div
+                                    key={order.id}
+                                    className={`schedule-item order-item ${orderColor === 'red' ? 'my-schedule' : 'other-schedule'}`}
+                                    style={{ borderLeftColor: orderColor === 'red' ? '#ff4444' : '#4CAF50' }}
+                                    title={`주문 #${order.id} - ${order.delivery_address || '주소 없음'} (${formatTime(order.delivery_time || '')})`}
+                                  >
+                                    <div className="schedule-time">{formatTime(order.delivery_time)}</div>
+                                    <div className="schedule-status" style={{ color: orderColor === 'red' ? '#ff4444' : '#4CAF50' }}>
+                                      주문 #{order.id}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                              {dayOrders.length > 2 && (
+                                <div className="schedule-more">
+                                  +{dayOrders.length - 2}개 더
+                                </div>
+                              )}
+                            </>
                           )}
                         </div>
                       </>
@@ -505,6 +639,8 @@ const ScheduleCalendar: React.FC = () => {
                     {selectedOrders.map(order => {
                       const orderColor = getOrderColor(order);
                       const isMyOrder = order.cooking_employee_id === user?.id || order.delivery_employee_id === user?.id;
+                      const isMyCooking = order.cooking_employee_id === user?.id;
+                      const isMyDelivery = order.delivery_employee_id === user?.id;
                       return (
                         <div 
                           key={order.id} 
@@ -516,10 +652,14 @@ const ScheduleCalendar: React.FC = () => {
                               <p className="employee-name">
                                 {order.customer_name && `고객: ${order.customer_name}`}
                                 {order.dinner_name && ` | ${order.dinner_name}`}
-                                {isMyOrder && (
-                                  <span className="my-badge">내 배당</span>
-                                )}
                               </p>
+                              {calendarType === 'schedule' && isMyOrder && (
+                                <p className="employee-name" style={{ fontSize: '14px', marginTop: '8px', color: '#FFD700', fontWeight: 'bold' }}>
+                                  {isMyCooking && isMyDelivery ? '🔧 조리 / 🚚 배달 담당' : 
+                                   isMyCooking ? '🔧 조리 담당' : 
+                                   isMyDelivery ? '🚚 배달 담당' : ''}
+                                </p>
+                              )}
                               {(order.cooking_employee_name || order.delivery_employee_name) && (
                                 <p className="employee-name" style={{ fontSize: '12px', marginTop: '4px' }}>
                                   {order.cooking_employee_name && `조리: ${order.cooking_employee_name}`}

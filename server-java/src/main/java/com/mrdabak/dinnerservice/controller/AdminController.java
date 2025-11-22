@@ -21,6 +21,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -85,8 +86,14 @@ public class AdminController {
     @GetMapping("/users")
     public ResponseEntity<?> getAllUsers() {
         return ResponseEntity.ok(userRepository.findAll().stream()
-                .map(user -> new UserDto(user.getId(), user.getEmail(), user.getName(),
-                        user.getAddress(), user.getPhone(), user.getRole(), user.getApprovalStatus()))
+                .map(user -> {
+                    UserDto dto = new UserDto(user.getId(), user.getEmail(), user.getName(),
+                            user.getAddress(), user.getPhone(), user.getRole(), user.getApprovalStatus());
+                    if (user.getEmployeeType() != null) {
+                        dto.setEmployeeType(user.getEmployeeType());
+                    }
+                    return dto;
+                })
                 .toList());
     }
 
@@ -94,9 +101,50 @@ public class AdminController {
     public ResponseEntity<?> getEmployees() {
         return ResponseEntity.ok(userRepository.findAll().stream()
                 .filter(user -> "employee".equals(user.getRole()))
-                .map(user -> new UserDto(user.getId(), user.getEmail(), user.getName(),
-                        user.getAddress(), user.getPhone(), user.getRole(), user.getApprovalStatus()))
+                .map(user -> {
+                    UserDto dto = new UserDto(user.getId(), user.getEmail(), user.getName(),
+                            user.getAddress(), user.getPhone(), user.getRole(), user.getApprovalStatus());
+                    if (user.getEmployeeType() != null) {
+                        dto.setEmployeeType(user.getEmployeeType());
+                    }
+                    return dto;
+                })
                 .toList());
+    }
+    
+    @PatchMapping("/employees/{employeeId}/type")
+    public ResponseEntity<?> updateEmployeeType(@PathVariable Long employeeId, @RequestBody Map<String, String> request) {
+        try {
+            User employee = userRepository.findById(employeeId)
+                    .orElseThrow(() -> new RuntimeException("Employee not found"));
+            
+            if (!"employee".equals(employee.getRole()) && !"admin".equals(employee.getRole())) {
+                return ResponseEntity.badRequest().body(Map.of("error", "User is not an employee or admin"));
+            }
+            
+            String employeeType = request.get("employeeType");
+            if (employeeType != null && !employeeType.isEmpty()) {
+                if (!"cooking".equals(employeeType) && !"delivery".equals(employeeType)) {
+                    return ResponseEntity.badRequest().body(Map.of("error", "Invalid employee type. Must be 'cooking' or 'delivery'"));
+                }
+                employee.setEmployeeType(employeeType);
+                userRepository.save(employee);
+            } else {
+                // Remove employee type if null or empty
+                employee.setEmployeeType(null);
+                userRepository.save(employee);
+            }
+            
+            UserDto dto = new UserDto(employee.getId(), employee.getEmail(), employee.getName(),
+                    employee.getAddress(), employee.getPhone(), employee.getRole(), employee.getApprovalStatus());
+            if (employee.getEmployeeType() != null) {
+                dto.setEmployeeType(employee.getEmployeeType());
+            }
+            
+            return ResponseEntity.ok(dto);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
     }
 
     @GetMapping("/customers")
@@ -316,6 +364,97 @@ public class AdminController {
             ));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PatchMapping("/users/{userId}/promote")
+    public ResponseEntity<?> promoteToAdmin(@PathVariable Long userId) {
+        try {
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+            
+            if (!"employee".equals(user.getRole())) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Only employees can be promoted to admin"));
+            }
+            
+            user.setRole("admin");
+            userRepository.save(user);
+            
+            UserDto dto = new UserDto(user.getId(), user.getEmail(), user.getName(),
+                    user.getAddress(), user.getPhone(), user.getRole(), user.getApprovalStatus());
+            
+            return ResponseEntity.ok(dto);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PostMapping("/schedule/assign")
+    public ResponseEntity<?> assignEmployeesForDate(@RequestBody Map<String, Object> request) {
+        try {
+            String dateStr = (String) request.get("date");
+            @SuppressWarnings("unchecked")
+            List<Integer> cookingEmployees = (List<Integer>) request.get("cookingEmployees");
+            @SuppressWarnings("unchecked")
+            List<Integer> deliveryEmployees = (List<Integer>) request.get("deliveryEmployees");
+
+            if (dateStr == null || cookingEmployees == null || deliveryEmployees == null) {
+                return ResponseEntity.badRequest().body(Map.of("error", "날짜와 직원 목록이 필요합니다."));
+            }
+
+            String datePattern = dateStr; // "2025-11-22"
+            
+            // 해당 날짜의 모든 주문 조회 (deliveryTime이 String이므로 LIKE로 검색)
+            List<Order> ordersForDate = orderRepository.findByDeliveryTimeStartingWith(datePattern);
+
+            // Round-robin 방식으로 직원 할당
+            int cookingIndex = 0;
+            int deliveryIndex = 0;
+
+            for (Order order : ordersForDate) {
+                if (!cookingEmployees.isEmpty()) {
+                    Long cookingEmployeeId = Long.valueOf(cookingEmployees.get(cookingIndex % cookingEmployees.size()));
+                    order.setCookingEmployeeId(cookingEmployeeId);
+                    cookingIndex++;
+                }
+                if (!deliveryEmployees.isEmpty()) {
+                    Long deliveryEmployeeId = Long.valueOf(deliveryEmployees.get(deliveryIndex % deliveryEmployees.size()));
+                    order.setDeliveryEmployeeId(deliveryEmployeeId);
+                    deliveryIndex++;
+                }
+                orderRepository.save(order);
+
+                // 배달 직원이 배당되면 DeliverySchedule 생성 또는 업데이트
+                if (order.getDeliveryEmployeeId() != null && order.getDeliveryTime() != null && order.getDeliveryAddress() != null) {
+                    try {
+                        java.time.LocalDateTime deliveryDateTime = null;
+                        java.time.format.DateTimeFormatter[] formatters = {
+                            java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME,
+                            java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm")
+                        };
+                        
+                        for (java.time.format.DateTimeFormatter formatter : formatters) {
+                            try {
+                                deliveryDateTime = java.time.LocalDateTime.parse(order.getDeliveryTime(), formatter);
+                                break;
+                            } catch (java.time.format.DateTimeParseException e) {
+                                // Try next formatter
+                            }
+                        }
+                        
+                        if (deliveryDateTime != null) {
+                            deliverySchedulingService.commitAssignmentForOrder(order.getId(), order.getDeliveryEmployeeId(), 
+                                deliveryDateTime, order.getDeliveryAddress());
+                        }
+                    } catch (Exception e) {
+                        System.err.println("[AdminController] 배달 스케줄 생성 실패: " + e.getMessage());
+                    }
+                }
+            }
+
+            return ResponseEntity.ok(Map.of("message", "직원 할당이 저장되었습니다.", "assignedOrders", ordersForDate.size()));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", "직원 할당 저장 실패: " + e.getMessage()));
         }
     }
 }

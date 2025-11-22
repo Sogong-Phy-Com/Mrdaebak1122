@@ -207,6 +207,25 @@ public class InventoryService {
         return menuInventoryRepository.save(inventory);
     }
 
+    @Transactional("transactionManager")
+    public MenuInventory setOrderedQuantity(Long menuItemId, int orderedQuantity) {
+        if (menuItemId == null) {
+            throw new IllegalArgumentException("메뉴 아이템 ID는 필수입니다.");
+        }
+        if (orderedQuantity < 0) {
+            throw new IllegalArgumentException("주문 수량은 0 이상이어야 합니다.");
+        }
+        
+        // Verify menu item exists
+        if (!menuItemRepository.existsById(menuItemId)) {
+            throw new RuntimeException("메뉴 아이템을 찾을 수 없습니다: " + menuItemId);
+        }
+        
+        MenuInventory inventory = getInventory(menuItemId);
+        inventory.setOrderedQuantity(orderedQuantity);
+        return menuInventoryRepository.save(inventory);
+    }
+
     private MenuInventory autoCreateInventory(Long menuItemId) {
         MenuInventory inventory = new MenuInventory();
         inventory.setMenuItemId(menuItemId);

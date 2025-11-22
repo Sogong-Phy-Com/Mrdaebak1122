@@ -35,6 +35,9 @@ public class MenuInventory {
     @Column(name = "notes")
     private String notes;
 
+    @Column(name = "ordered_quantity", nullable = false)
+    private Integer orderedQuantity = 0;
+
     @PrePersist
     public void onCreate() {
         if (lastRestockedAt == null) {

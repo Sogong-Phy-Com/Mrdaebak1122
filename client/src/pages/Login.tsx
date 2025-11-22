@@ -25,13 +25,8 @@ const Login: React.FC = () => {
         return;
       }
       
-      if (loggedInUser.role === 'admin') {
-        navigate('/admin');
-      } else if (loggedInUser.role === 'employee') {
-        navigate('/employee');
-      } else {
-        navigate('/');
-      }
+      // 모든 사용자는 메인 페이지로 이동
+      navigate('/');
     } catch (err: any) {
       setError(err.message);
     }
@@ -66,11 +61,22 @@ const Login: React.FC = () => {
           <p className="register-link">
             계정이 없으신가요? <Link to="/register">회원가입</Link>
           </p>
-          <div style={{ marginTop: '20px', padding: '15px', background: '#f0f0f0', borderRadius: '8px', fontSize: '14px' }}>
-            <strong>관리자/직원 로그인 테스트 계정:</strong><br />
-            관리자: admin@mrdabak.com / admin123<br />
-            직원1: employee1@mrdabak.com / emp123<br />
-            직원2: employee2@mrdabak.com / emp123
+          <p className="register-link">
+            <Link to="/forgot-password">비밀번호를 잊으셨나요?</Link>
+          </p>
+          <div style={{ 
+            marginTop: '30px', 
+            padding: '20px', 
+            background: 'linear-gradient(135deg, #FFD700 0%, #FFA500 100%)', 
+            borderRadius: '12px', 
+            textAlign: 'center',
+            color: '#000',
+            fontWeight: 'bold',
+            boxShadow: '0 4px 15px rgba(255, 215, 0, 0.3)'
+          }}>
+            <div style={{ fontSize: '24px', marginBottom: '10px' }}>🎉</div>
+            <div style={{ fontSize: '18px', marginBottom: '5px' }}>특별한 날의 특별한 디너</div>
+            <div style={{ fontSize: '14px', opacity: 0.8 }}>미스터 대박과 함께하세요</div>
           </div>
         </form>
       </div>

@@ -29,8 +29,8 @@ const StaffHome: React.FC = () => {
           </div>
           <div className="grid-item grid-item-2" onClick={handleOrderManagement}>
             <div className="grid-item-content">
-              <div className="grid-icon">📋</div>
-              <h3>주문 관리</h3>
+              <div className="grid-icon">📅</div>
+              <h3>스케줄 관리</h3>
             </div>
           </div>
           <div className="grid-item grid-item-3" onClick={handleInventory}>

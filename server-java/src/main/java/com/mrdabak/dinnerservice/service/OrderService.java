@@ -6,6 +6,7 @@ import com.mrdabak.dinnerservice.model.*;
 import com.mrdabak.dinnerservice.repository.*;
 import com.mrdabak.dinnerservice.repository.order.OrderRepository;
 import com.mrdabak.dinnerservice.repository.order.OrderItemRepository;
+import com.mrdabak.dinnerservice.model.User;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,51 +25,70 @@ public class OrderService {
     private final MenuItemRepository menuItemRepository;
     private final InventoryService inventoryService;
     private final DeliverySchedulingService deliverySchedulingService;
+    private final UserRepository userRepository;
 
     public OrderService(OrderRepository orderRepository, OrderItemRepository orderItemRepository,
                        DinnerTypeRepository dinnerTypeRepository, MenuItemRepository menuItemRepository,
-                       InventoryService inventoryService, DeliverySchedulingService deliverySchedulingService) {
+                       InventoryService inventoryService, DeliverySchedulingService deliverySchedulingService,
+                       UserRepository userRepository) {
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
         this.dinnerTypeRepository = dinnerTypeRepository;
         this.menuItemRepository = menuItemRepository;
         this.inventoryService = inventoryService;
         this.deliverySchedulingService = deliverySchedulingService;
+        this.userRepository = userRepository;
     }
 
-    @Transactional(transactionManager = "orderTransactionManager", rollbackFor = Exception.class)
     public Order createOrder(Long userId, OrderRequest request) {
-        int maxRetries = 5;
+        int maxRetries = 10;
         int retryCount = 0;
+        long baseDelay = 100; // Start with 100ms
         
         while (retryCount < maxRetries) {
             try {
-                return createOrderInternal(userId, request);
+                return createOrderWithTransaction(userId, request);
             } catch (Exception e) {
-                String errorMessage = e.getMessage() != null ? e.getMessage() : "";
-                String causeMessage = e.getCause() != null && e.getCause().getMessage() != null 
-                    ? e.getCause().getMessage() : "";
+                String errorMessage = e.getMessage() != null ? e.getMessage().toLowerCase() : "";
+                String causeMessage = "";
+                if (e.getCause() != null && e.getCause().getMessage() != null) {
+                    causeMessage = e.getCause().getMessage().toLowerCase();
+                }
                 
+                // Check for various SQLite lock errors
                 boolean isLocked = errorMessage.contains("database is locked") 
-                    || errorMessage.contains("SQLITE_BUSY")
+                    || errorMessage.contains("sqlite_busy")
+                    || errorMessage.contains("sqlite_busy_snapshot")
                     || causeMessage.contains("database is locked")
-                    || causeMessage.contains("SQLITE_BUSY");
+                    || causeMessage.contains("sqlite_busy")
+                    || causeMessage.contains("sqlite_busy_snapshot");
                 
                 if (isLocked && retryCount < maxRetries - 1) {
                     retryCount++;
-                    System.out.println("[OrderService] Database locked, retrying... (" + retryCount + "/" + maxRetries + ")");
+                    long delay = baseDelay * (long) Math.pow(2, retryCount - 1); // Exponential backoff: 100ms, 200ms, 400ms, 800ms...
+                    System.out.println("[OrderService] Database locked (SQLITE_BUSY_SNAPSHOT), retrying... (" + retryCount + "/" + maxRetries + ") after " + delay + "ms");
                     try {
-                        Thread.sleep(200 * retryCount); // Exponential backoff
+                        Thread.sleep(delay);
                     } catch (InterruptedException ie) {
                         Thread.currentThread().interrupt();
                         throw new RuntimeException("Order creation interrupted", ie);
                     }
                 } else {
-                    throw e;
+                    // Not a lock error or max retries reached
+                    if (isLocked) {
+                        throw new RuntimeException("Failed to create order after " + maxRetries + " retries due to database lock", e);
+                    } else {
+                        throw e;
+                    }
                 }
             }
         }
         throw new RuntimeException("Failed to create order after " + maxRetries + " retries");
+    }
+    
+    @Transactional(transactionManager = "orderTransactionManager", rollbackFor = Exception.class)
+    private Order createOrderWithTransaction(Long userId, OrderRequest request) {
+        return createOrderInternal(userId, request);
     }
     
     private Order createOrderInternal(Long userId, OrderRequest request) {
@@ -138,6 +158,38 @@ public class OrderService {
         order.setTotalPrice((int) Math.round(totalPrice));
         order.setPaymentStatus("pending");
         order.setPaymentMethod(request.getPaymentMethod());
+
+        // Auto-assign employees (5 cooking, 5 delivery employees)
+        // Get all employees and assign based on employeeType or default (first 5 cooking, last 5 delivery)
+        List<User> allEmployees = userRepository.findByRole("employee");
+        List<User> cookingEmployees = allEmployees.stream()
+                .filter(emp -> "cooking".equals(emp.getEmployeeType()) || 
+                        (emp.getEmployeeType() == null && allEmployees.indexOf(emp) < 5))
+                .limit(5)
+                .toList();
+        List<User> deliveryEmployees = allEmployees.stream()
+                .filter(emp -> "delivery".equals(emp.getEmployeeType()) || 
+                        (emp.getEmployeeType() == null && allEmployees.indexOf(emp) >= 5))
+                .limit(5)
+                .toList();
+        
+        // Assign cooking employee (round-robin based on order count)
+        if (!cookingEmployees.isEmpty()) {
+            List<Order> cookingOrders = orderRepository.findAll().stream()
+                    .filter(o -> o.getCookingEmployeeId() != null)
+                    .toList();
+            int cookingIndex = (int) (cookingOrders.size() % cookingEmployees.size());
+            order.setCookingEmployeeId(cookingEmployees.get(cookingIndex).getId());
+        }
+        
+        // Assign delivery employee (round-robin based on order count)
+        if (!deliveryEmployees.isEmpty()) {
+            List<Order> deliveryOrders = orderRepository.findAll().stream()
+                    .filter(o -> o.getDeliveryEmployeeId() != null)
+                    .toList();
+            int deliveryIndex = (int) (deliveryOrders.size() % deliveryEmployees.size());
+            order.setDeliveryEmployeeId(deliveryEmployees.get(deliveryIndex).getId());
+        }
 
         Order savedOrder = orderRepository.save(order);
 

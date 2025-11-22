@@ -6,7 +6,6 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -16,7 +15,10 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     Optional<Order> findByIdAndUserId(Long id, Long userId);
     List<Order> findByStatus(String status);
     
-    @Query("SELECT o FROM Order o WHERE o.deliveryTime >= :start AND o.deliveryTime < :end")
-    List<Order> findByDeliveryTimeBetween(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+    @Query("SELECT o FROM Order o WHERE o.deliveryTime LIKE :datePattern%")
+    List<Order> findByDeliveryTimeStartingWith(@Param("datePattern") String datePattern);
+    
+    @Query(value = "SELECT * FROM orders WHERE delivery_time >= :start AND delivery_time < :end", nativeQuery = true)
+    List<Order> findByDeliveryTimeBetweenNative(@Param("start") String start, @Param("end") String end);
 }
 

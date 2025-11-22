@@ -39,19 +39,24 @@ const Profile: React.FC = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
   
-  // 주소 관리 모달
-  const [showAddressModal, setShowAddressModal] = useState(false);
-  const [newAddress, setNewAddress] = useState(user?.address || '');
-  const [addressError, setAddressError] = useState('');
+  // 기본 정보 수정
+  const [showEditProfile, setShowEditProfile] = useState(false);
+  const [editPassword, setEditPassword] = useState('');
+  const [editName, setEditName] = useState(user?.name || '');
+  const [editPhone, setEditPhone] = useState(user?.phone || '');
+  
 
   useEffect(() => {
-    if (activeTab === 'info') {
+    if (activeTab === 'info' && user?.role === 'customer') {
       fetchStats();
-      fetchReservedOrders();
     } else if (activeTab === 'orders') {
       fetchAllOrders();
     }
-  }, [activeTab]);
+    if (user) {
+      setEditName(user.name || '');
+      setEditPhone(user.phone || '');
+    }
+  }, [activeTab, user?.role, user]);
 
   const fetchStats = async () => {
     try {
@@ -109,8 +114,15 @@ const Profile: React.FC = () => {
         return;
       }
 
+      // Filter only reserved orders (future delivery time)
+      const now = new Date();
+      const reservedOrders = response.data.filter((order: any) => {
+        const deliveryTime = new Date(order.delivery_time);
+        return deliveryTime > now && order.status !== 'delivered' && order.status !== 'cancelled';
+      });
+      
       // dinner_name이 없으면 추가
-      const ordersWithDinnerName = await Promise.all(response.data.map(async (order: any) => {
+      const ordersWithDinnerName = await Promise.all(reservedOrders.map(async (order: any) => {
         if (order.dinner_name) {
           return order;
         }
@@ -193,29 +205,42 @@ const Profile: React.FC = () => {
     }
   };
 
-  const handleAddressUpdate = async () => {
-    setAddressError('');
-    
-    if (!newAddress.trim()) {
-      setAddressError('주소를 입력해주세요.');
+
+  const handleUpdateProfile = async () => {
+    if (!editPassword) {
+      alert('비밀번호를 입력해주세요.');
       return;
     }
 
     try {
       const token = localStorage.getItem('token');
-      await axios.put(`${API_URL}/auth/update-address`, {
-        address: newAddress
+      // Verify password first
+      await axios.post(`${API_URL}/auth/verify-password`, {
+        password: editPassword
+      }, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      // Update profile
+      await axios.put(`${API_URL}/auth/update-profile`, {
+        name: editName,
+        phone: editPhone
       }, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
       if (user) {
-        updateUser({ ...user, address: newAddress });
+        updateUser({ ...user, name: editName, phone: editPhone });
       }
-      alert('주소가 변경되었습니다.');
-      setShowAddressModal(false);
+      alert('기본 정보가 수정되었습니다.');
+      setShowEditProfile(false);
+      setEditPassword('');
     } catch (err: any) {
-      setAddressError(err.response?.data?.error || '주소 변경에 실패했습니다.');
+      if (err.response?.status === 401) {
+        alert('비밀번호가 올바르지 않습니다.');
+      } else {
+        alert('기본 정보 수정에 실패했습니다.');
+      }
     }
   };
 
@@ -262,93 +287,137 @@ const Profile: React.FC = () => {
             >
               내 정보
             </button>
-            <button
-              className={`tab-button ${activeTab === 'orders' ? 'active' : ''}`}
-              onClick={() => setActiveTab('orders')}
-            >
-              주문 내역
-            </button>
-            <button
-              className={`tab-button ${activeTab === 'settings' ? 'active' : ''}`}
-              onClick={() => setActiveTab('settings')}
-            >
-              설정
-            </button>
+            {user?.role === 'customer' && (
+              <button
+                className={`tab-button ${activeTab === 'orders' ? 'active' : ''}`}
+                onClick={() => setActiveTab('orders')}
+              >
+                주문 내역
+              </button>
+            )}
+            {user?.role === 'customer' && (
+              <button
+                className={`tab-button ${activeTab === 'settings' ? 'active' : ''}`}
+                onClick={() => setActiveTab('settings')}
+              >
+                설정
+              </button>
+            )}
           </div>
 
           {/* 탭 컨텐츠 */}
           <div className="tab-content">
             {activeTab === 'info' && (
               <div className="info-section">
-                <div className="card">
-                  <h3 className="card-title">기본 정보</h3>
-                  <div className="info-item">
-                    <span className="info-label">이름</span>
-                    <span className="info-value">{user?.name || '-'}</span>
-                  </div>
-                  <div className="info-item">
-                    <span className="info-label">이메일</span>
-                    <span className="info-value">{user?.email || '-'}</span>
-                  </div>
-                  <div className="info-item">
-                    <span className="info-label">전화번호</span>
-                    <span className="info-value">{user?.phone || '-'}</span>
-                  </div>
-                  <div className="info-item">
-                    <span className="info-label">주소</span>
-                    <span className="info-value">{user?.address || '-'}</span>
-                  </div>
-                </div>
+                {user?.role === 'customer' ? (
+                  <>
+                    <div className="card">
+                      <h3 className="card-title">기본 정보</h3>
+                      <div className="info-item">
+                        <span className="info-label">이름</span>
+                        <input
+                          type="text"
+                          value={user?.name || ''}
+                          onChange={(e) => {
+                            if (user) {
+                              updateUser({ ...user, name: e.target.value });
+                            }
+                          }}
+                          onBlur={async () => {
+                            if (user) {
+                              try {
+                                const token = localStorage.getItem('token');
+                                await axios.put(`${API_URL}/auth/update-profile`, {
+                                  name: user.name,
+                                  phone: user.phone
+                                }, {
+                                  headers: { 'Authorization': `Bearer ${token}` }
+                                });
+                              } catch (err) {
+                                console.error('프로필 업데이트 실패:', err);
+                              }
+                            }
+                          }}
+                          style={{ padding: '8px', borderRadius: '4px', border: '1px solid #d4af37', width: '100%' }}
+                        />
+                      </div>
+                      <div className="info-item">
+                        <span className="info-label">이메일</span>
+                        <span className="info-value">{user?.email || '-'}</span>
+                      </div>
+                      <div className="info-item">
+                        <span className="info-label">전화번호</span>
+                        <input
+                          type="text"
+                          value={user?.phone || ''}
+                          onChange={(e) => {
+                            if (user) {
+                              updateUser({ ...user, phone: e.target.value });
+                            }
+                          }}
+                          onBlur={async () => {
+                            if (user) {
+                              try {
+                                const token = localStorage.getItem('token');
+                                await axios.put(`${API_URL}/auth/update-profile`, {
+                                  name: user.name,
+                                  phone: user.phone
+                                }, {
+                                  headers: { 'Authorization': `Bearer ${token}` }
+                                });
+                              } catch (err) {
+                                console.error('프로필 업데이트 실패:', err);
+                              }
+                            }
+                          }}
+                          style={{ padding: '8px', borderRadius: '4px', border: '1px solid #d4af37', width: '100%' }}
+                        />
+                      </div>
+                      <div className="info-item">
+                        <span className="info-label">주소</span>
+                        <span className="info-value">{user?.address || '-'}</span>
+                      </div>
+                    </div>
 
-                <div className="card">
-                  <h3 className="card-title">주문 통계</h3>
-                  <div className="stats-grid">
-                    <div className="stat-item">
-                      <div className="stat-value">{stats.totalOrders}</div>
-                      <div className="stat-label">총 주문</div>
-                    </div>
-                    <div className="stat-item">
-                      <div className="stat-value">{stats.deliveredOrders}</div>
-                      <div className="stat-label">배달 완료</div>
-                    </div>
-                    <div className="stat-item">
-                      <div className="stat-value">{reservedOrders.length}</div>
-                      <div className="stat-label">예약 주문</div>
-                    </div>
-                  </div>
-                </div>
-
-                {reservedOrders.length > 0 && (
-                  <div className="card">
-                    <h3 className="card-title">예약 주문</h3>
-                    <div className="reserved-orders-list">
-                      {reservedOrders.map(order => (
-                        <div key={order.id} className="reserved-order-item">
-                          <div className="reserved-order-header">
-                            <span className="reserved-order-name">{order.dinner_name}</span>
-                            <span className="reserved-order-status">{order.status}</span>
-                          </div>
-                          <div className="reserved-order-details">
-                            <div>배달 시간: {new Date(order.delivery_time).toLocaleString('ko-KR')}</div>
-                            <div>배달 주소: {order.delivery_address}</div>
-                            <div>총 금액: {order.total_price.toLocaleString()}원</div>
-                          </div>
-                          <button
-                            className="btn btn-primary"
-                            style={{ width: '100%', marginTop: '8px' }}
-                            onClick={() => navigate(`/delivery/${order.id}`)}
-                          >
-                            배달 현황 보기
-                          </button>
+                    <div className="card">
+                      <h3 className="card-title">주문 통계</h3>
+                      <div className="stats-grid">
+                        <div className="stat-item">
+                          <div className="stat-value">{stats.totalOrders}</div>
+                          <div className="stat-label">총 주문</div>
                         </div>
-                      ))}
+                        <div className="stat-item">
+                          <div className="stat-value">{stats.deliveredOrders}</div>
+                          <div className="stat-label">배달 완료</div>
+                        </div>
+                        <div className="stat-item">
+                          <div className="stat-value">{stats.pendingOrders}</div>
+                          <div className="stat-label">대기 중</div>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="card">
+                    <h3 className="card-title">기본 정보</h3>
+                    <div className="info-item">
+                      <span className="info-label">이름</span>
+                      <span className="info-value">{user?.name || '-'}</span>
+                    </div>
+                    <div className="info-item">
+                      <span className="info-label">이메일</span>
+                      <span className="info-value">{user?.email || '-'}</span>
+                    </div>
+                    <div className="info-item">
+                      <span className="info-label">전화번호</span>
+                      <span className="info-value">{user?.phone || '-'}</span>
                     </div>
                   </div>
                 )}
               </div>
             )}
 
-            {activeTab === 'orders' && (
+            {activeTab === 'orders' && user?.role === 'customer' && (
               <div className="orders-section">
                 {ordersLoading ? (
                   <div className="loading">로딩 중...</div>
@@ -430,16 +499,6 @@ const Profile: React.FC = () => {
                   >
                     비밀번호 변경
                   </button>
-                  <button
-                    className="btn btn-secondary"
-                    style={{ width: '100%' }}
-                    onClick={() => {
-                      setNewAddress(user?.address || '');
-                      setShowAddressModal(true);
-                    }}
-                  >
-                    주소 관리
-                  </button>
                 </div>
 
                 <div className="card">
@@ -514,32 +573,6 @@ const Profile: React.FC = () => {
         </div>
       )}
 
-      {/* 주소 관리 모달 */}
-      {showAddressModal && (
-        <div className="modal-overlay" onClick={() => setShowAddressModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h3>주소 관리</h3>
-            <div className="form-group">
-              <label>배달 주소</label>
-              <textarea
-                value={newAddress}
-                onChange={(e) => setNewAddress(e.target.value)}
-                rows={3}
-                placeholder="배달 주소를 입력하세요"
-              />
-            </div>
-            {addressError && <div className="error">{addressError}</div>}
-            <div style={{ display: 'flex', gap: '12px', marginTop: '20px' }}>
-              <button className="btn btn-secondary" onClick={() => setShowAddressModal(false)}>
-                취소
-              </button>
-              <button className="btn btn-primary" onClick={handleAddressUpdate}>
-                저장
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
     </div>
   );

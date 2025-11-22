@@ -103,5 +103,127 @@ public class AuthController {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
+
+    @PutMapping("/update-profile")
+    public ResponseEntity<?> updateProfile(@RequestBody Map<String, String> request, Authentication authentication) {
+        try {
+            if (authentication == null || authentication.getName() == null) {
+                return ResponseEntity.status(401).body(Map.of("error", "Authentication required"));
+            }
+
+            Long userId = Long.parseLong(authentication.getName());
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+
+            String name = request.get("name");
+            String phone = request.get("phone");
+            
+            if (name != null) {
+                user.setName(name);
+            }
+            if (phone != null) {
+                user.setPhone(phone);
+            }
+            
+            userRepository.save(user);
+
+            return ResponseEntity.ok(Map.of("message", "Profile updated successfully"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PostMapping("/verify-password")
+    public ResponseEntity<?> verifyPassword(@RequestBody Map<String, String> request, Authentication authentication) {
+        try {
+            if (authentication == null || authentication.getName() == null) {
+                return ResponseEntity.status(401).body(Map.of("error", "Authentication required"));
+            }
+
+            Long userId = Long.parseLong(authentication.getName());
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+
+            String password = request.get("password");
+            if (password == null) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Password is required"));
+            }
+
+            if (!passwordEncoder.matches(password, user.getPassword())) {
+                return ResponseEntity.status(401).body(Map.of("error", "비밀번호가 올바르지 않습니다"));
+            }
+
+            return ResponseEntity.ok(Map.of("message", "Password verified"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @GetMapping("/user/{email}/security-question")
+    public ResponseEntity<?> getSecurityQuestion(@PathVariable String email) {
+        try {
+            User user = userRepository.findByEmail(email)
+                    .orElseThrow(() -> new RuntimeException("존재하지 않는 계정입니다"));
+
+            return ResponseEntity.ok(Map.of("securityQuestion", user.getSecurityQuestion() != null ? user.getSecurityQuestion() : ""));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", "오류가 발생했습니다"));
+        }
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<?> forgotPassword(@RequestBody Map<String, String> request) {
+        try {
+            String email = request.get("email");
+            String securityQuestion = request.get("securityQuestion");
+            String securityAnswer = request.get("securityAnswer");
+            String newPassword = request.get("newPassword");
+
+            if (email == null || securityQuestion == null || securityAnswer == null || newPassword == null) {
+                return ResponseEntity.badRequest().body(Map.of("error", "모든 필드를 입력해주세요"));
+            }
+            if (newPassword.length() < 6) {
+                return ResponseEntity.badRequest().body(Map.of("error", "새 비밀번호는 6자 이상이어야 합니다."));
+            }
+
+            authService.forgotPassword(email, securityQuestion, securityAnswer, newPassword);
+            return ResponseEntity.ok(Map.of("message", "Password reset successfully"));
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "비밀번호 재설정 중 오류가 발생했습니다."));
+        }
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<?> resetPassword(@RequestBody Map<String, String> request) {
+        try {
+            String email = request.get("email");
+            String securityAnswer = request.get("securityAnswer");
+            String newPassword = request.get("newPassword");
+
+            if (email == null || securityAnswer == null || newPassword == null) {
+                return ResponseEntity.badRequest().body(Map.of("error", "모든 필드를 입력해주세요"));
+            }
+
+            User user = userRepository.findByEmail(email)
+                    .orElseThrow(() -> new RuntimeException("존재하지 않는 계정입니다"));
+
+            if (user.getSecurityAnswer() == null || !user.getSecurityAnswer().equals(securityAnswer)) {
+                return ResponseEntity.status(401).body(Map.of("error", "보안 질문 답변이 올바르지 않습니다"));
+            }
+
+            user.setPassword(passwordEncoder.encode(newPassword));
+            userRepository.save(user);
+
+            return ResponseEntity.ok(Map.of("message", "비밀번호가 변경되었습니다"));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", "오류가 발생했습니다"));
+        }
+    }
 }
 

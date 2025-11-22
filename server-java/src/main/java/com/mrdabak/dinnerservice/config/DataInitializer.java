@@ -37,60 +37,115 @@ public class DataInitializer implements CommandLineRunner {
     }
 
     @Override
-    @Transactional("transactionManager")
     public void run(String... args) {
-        // 데이터베이스 마이그레이션: inventory_reservations 테이블에 컬럼 추가
-        try (Connection connection = dataSource.getConnection()) {
-            DatabaseMetaData metaData = connection.getMetaData();
-            
-            // consumed 컬럼 확인 및 추가
-            boolean hasConsumed = false;
-            boolean hasExpiresAt = false;
-            try (ResultSet columns = metaData.getColumns(null, null, "inventory_reservations", null)) {
-                while (columns.next()) {
-                    String columnName = columns.getString("COLUMN_NAME");
-                    if ("consumed".equalsIgnoreCase(columnName)) {
-                        hasConsumed = true;
+        // Wait for Hibernate to finish initializing
+        try {
+            Thread.sleep(3000);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        
+        // Database migration: Add columns to inventory_reservations table
+        // Do this outside of transaction to avoid lock issues
+        int retries = 3;
+        boolean migrationSuccess = false;
+        while (retries > 0 && !migrationSuccess) {
+            try (Connection connection = dataSource.getConnection()) {
+                connection.setAutoCommit(true);
+                
+                // Check if table exists
+                boolean tableExists = false;
+                try (ResultSet tables = connection.getMetaData().getTables(null, null, "inventory_reservations", null)) {
+                    tableExists = tables.next();
+                }
+                
+                if (!tableExists) {
+                    System.out.println("[DataInitializer] inventory_reservations table does not exist yet. Migration skipped.");
+                    migrationSuccess = true;
+                } else {
+                    DatabaseMetaData metaData = connection.getMetaData();
+                    
+                    // Check and add consumed column
+                    boolean hasConsumed = false;
+                    boolean hasExpiresAt = false;
+                    try (ResultSet columns = metaData.getColumns(null, null, "inventory_reservations", null)) {
+                        while (columns.next()) {
+                            String columnName = columns.getString("COLUMN_NAME");
+                            if ("consumed".equalsIgnoreCase(columnName)) {
+                                hasConsumed = true;
+                            }
+                            if ("expires_at".equalsIgnoreCase(columnName)) {
+                                hasExpiresAt = true;
+                            }
+                        }
                     }
-                    if ("expires_at".equalsIgnoreCase(columnName)) {
-                        hasExpiresAt = true;
+                    
+                    // Check menu_inventory table for ordered_quantity column
+                    boolean hasOrderedQuantity = false;
+                    try (ResultSet columns = metaData.getColumns(null, null, "menu_inventory", null)) {
+                        while (columns.next()) {
+                            String columnName = columns.getString("COLUMN_NAME");
+                            if ("ordered_quantity".equalsIgnoreCase(columnName)) {
+                                hasOrderedQuantity = true;
+                            }
+                        }
                     }
+                    
+                    try (Statement stmt = connection.createStatement()) {
+                        if (!hasConsumed) {
+                            stmt.execute("ALTER TABLE inventory_reservations ADD COLUMN consumed INTEGER DEFAULT 0");
+                            System.out.println("[DataInitializer] Added 'consumed' column to inventory_reservations table");
+                        }
+                        if (!hasExpiresAt) {
+                            stmt.execute("ALTER TABLE inventory_reservations ADD COLUMN expires_at TEXT");
+                            System.out.println("[DataInitializer] Added 'expires_at' column to inventory_reservations table");
+                        }
+                        if (!hasOrderedQuantity) {
+                            stmt.execute("ALTER TABLE menu_inventory ADD COLUMN ordered_quantity INTEGER DEFAULT 0");
+                            System.out.println("[DataInitializer] Added 'ordered_quantity' column to menu_inventory table");
+                        }
+                    }
+                    migrationSuccess = true;
+                }
+            } catch (Exception e) {
+                retries--;
+                if (retries > 0) {
+                    System.out.println("[DataInitializer] Database migration retry (" + retries + " attempts remaining)...");
+                    try {
+                        Thread.sleep(1000);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                    }
+                } else {
+                    System.err.println("[DataInitializer] Database migration error: " + e.getMessage());
+                    e.printStackTrace();
+                    // Continue even if migration fails (table might not exist yet)
                 }
             }
-            
-            try (Statement stmt = connection.createStatement()) {
-                if (!hasConsumed) {
-                    stmt.execute("ALTER TABLE inventory_reservations ADD COLUMN consumed INTEGER DEFAULT 0");
-                    System.out.println("[DataInitializer] Added 'consumed' column to inventory_reservations table");
-                }
-                if (!hasExpiresAt) {
-                    stmt.execute("ALTER TABLE inventory_reservations ADD COLUMN expires_at TEXT");
-                    System.out.println("[DataInitializer] Added 'expires_at' column to inventory_reservations table");
-                }
+        }
+        // Wait a bit to ensure Hibernate has finished initializing
+        try {
+            Thread.sleep(2000);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        
+        // Update existing users' approvalStatus if null
+        try {
+            updateUserApprovalStatus();
+            createDefaultAccounts();
+        } catch (Exception e) {
+            System.err.println("[DataInitializer] Error initializing user data: " + e.getMessage());
+            e.printStackTrace();
+        }
+
+        try {
+            if (dinnerTypeRepository.count() > 0) {
+                return; // Data already initialized
             }
         } catch (Exception e) {
-            System.err.println("[DataInitializer] Database migration error: " + e.getMessage());
-            // 마이그레이션 실패해도 계속 진행 (테이블이 없을 수도 있음)
-        }
-        // Update existing users' approvalStatus if null
-        userRepository.findAll().forEach(user -> {
-            if (user.getApprovalStatus() == null || user.getApprovalStatus().isEmpty()) {
-                // 기존 사용자는 모두 승인된 것으로 간주
-                user.setApprovalStatus("approved");
-                userRepository.save(user);
-            }
-        });
-        
-        // Delete and recreate admin account
-        userRepository.findByEmail("admin@mrdabak.com").ifPresent(user -> userRepository.delete(user));
-        createEmployeeAccount("admin@mrdabak.com", "admin123", "관리자", "서울시 강남구", "010-0000-0000", "admin");
-        
-        // Create employee accounts (check if they exist first)
-        createEmployeeAccount("employee1@mrdabak.com", "emp123", "직원1", "서울시 강남구", "010-1111-1111", "employee");
-        createEmployeeAccount("employee2@mrdabak.com", "emp123", "직원2", "서울시 강남구", "010-2222-2222", "employee");
-
-        if (dinnerTypeRepository.count() > 0) {
-            return; // Data already initialized
+            System.err.println("[DataInitializer] Error checking dinner types: " + e.getMessage());
+            // Continue to initialize data
         }
 
         // Insert menu items
@@ -152,6 +207,36 @@ public class DataInitializer implements CommandLineRunner {
         System.out.println("Initial data seeded successfully");
     }
 
+    @Transactional("transactionManager")
+    private void updateUserApprovalStatus() {
+        userRepository.findAll().forEach(user -> {
+            if (user.getApprovalStatus() == null || user.getApprovalStatus().isEmpty()) {
+                user.setApprovalStatus("approved");
+                if (user.getSecurityQuestion() == null || user.getSecurityQuestion().isEmpty()) {
+                    user.setSecurityQuestion("내 어릴적 별명은?");
+                    user.setSecurityAnswer("asd");
+                }
+                userRepository.save(user);
+            }
+        });
+    }
+    
+    @Transactional("transactionManager")
+    private void createDefaultAccounts() {
+        // Delete and recreate admin account
+        userRepository.findByEmail("admin@mrdabak.com").ifPresent(user -> userRepository.delete(user));
+        createEmployeeAccount("admin@mrdabak.com", "admin123", "Admin", "Seoul", "010-0000-0000", "admin");
+        
+        // Create 10 employee accounts
+        // First 5 are for cooking, last 5 are for delivery (can be changed by admin)
+        for (int i = 1; i <= 10; i++) {
+            String email = "emp" + i + "@emp.com";
+            String name = "직원" + i;
+            String phone = "010-" + String.format("%04d", i * 1111);
+            createEmployeeAccount(email, "emp123", name, "Seoul", phone, "employee");
+        }
+    }
+
     private void createEmployeeAccount(String email, String password, String name, String address, String phone, String role) {
         if (!userRepository.existsByEmail(email)) {
             User employee = new User();
@@ -162,12 +247,23 @@ public class DataInitializer implements CommandLineRunner {
             employee.setPhone(phone);
             employee.setRole(role);
             employee.setApprovalStatus("approved"); // 관리자/직원 계정은 자동 승인
+            employee.setSecurityQuestion("내 어릴적 별명은?");
+            employee.setSecurityAnswer("asd");
             userRepository.save(employee);
         } else {
-            // 기존 사용자의 approvalStatus 업데이트 (null이면 approved로 설정)
+            // 기존 사용자의 approvalStatus 및 보안 질문 업데이트
             userRepository.findByEmail(email).ifPresent(user -> {
+                boolean updated = false;
                 if (user.getApprovalStatus() == null || user.getApprovalStatus().isEmpty()) {
                     user.setApprovalStatus("approved");
+                    updated = true;
+                }
+                if (user.getSecurityQuestion() == null || user.getSecurityQuestion().isEmpty()) {
+                    user.setSecurityQuestion("내 어릴적 별명은?");
+                    user.setSecurityAnswer("asd");
+                    updated = true;
+                }
+                if (updated) {
                     userRepository.save(user);
                 }
             });

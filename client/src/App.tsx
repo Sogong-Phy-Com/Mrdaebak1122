@@ -4,6 +4,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import PrivateRoute from './components/PrivateRoute';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import ForgotPassword from './pages/ForgotPassword';
 import CustomerHome from './pages/CustomerHome';
 import StaffHome from './pages/StaffHome';
 import AdminHome from './pages/AdminHome';
@@ -18,6 +19,7 @@ import AdminOrderManagement from './pages/AdminOrderManagement';
 import AdminInventoryManagement from './pages/AdminInventoryManagement';
 import AdminAccountManagement from './pages/AdminAccountManagement';
 import AdminApprovalManagement from './pages/AdminApprovalManagement';
+import AdminScheduleManagement from './pages/AdminScheduleManagement';
 import EmployeeOrderManagement from './pages/EmployeeOrderManagement';
 import EmployeeInventoryManagement from './pages/EmployeeInventoryManagement';
 import ScheduleCalendar from './pages/ScheduleCalendar';
@@ -50,6 +52,7 @@ function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route
             path="/"
             element={
@@ -116,10 +119,18 @@ function App() {
             }
           />
           <Route
-            path="/admin/approvals"
+            path="/admin/schedule-management"
             element={
               <PrivateRoute requireRole="admin">
-                <AdminApprovalManagement />
+                <AdminScheduleManagement />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/admin/schedule"
+            element={
+              <PrivateRoute requireRole="admin">
+                <AdminScheduleManagement />
               </PrivateRoute>
             }
           />

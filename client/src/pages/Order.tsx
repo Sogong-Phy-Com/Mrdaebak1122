@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 import TopLogo from '../components/TopLogo';
@@ -35,25 +35,38 @@ interface ServingStyle {
 const Order: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const modifyOrderId = searchParams.get('modify');
+  const [isModifying, setIsModifying] = useState(false);
   const [dinners, setDinners] = useState<Dinner[]>([]);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [servingStyles, setServingStyles] = useState<ServingStyle[]>([]);
   const [selectedDinner, setSelectedDinner] = useState<number | null>(null);
   const [selectedStyle, setSelectedStyle] = useState<string>('simple');
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1);
+  const [selectedDay, setSelectedDay] = useState<number>(new Date().getDate());
+  const [selectedTime, setSelectedTime] = useState<string>('');
   const [deliveryTime, setDeliveryTime] = useState('');
+  const [useMyAddress, setUseMyAddress] = useState<boolean>(true);
   const [deliveryAddress, setDeliveryAddress] = useState(user?.address || '');
+  const [customAddress, setCustomAddress] = useState('');
   const [orderItems, setOrderItems] = useState<{ menu_item_id: number; quantity: number }[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [inventoryAvailable, setInventoryAvailable] = useState(true);
+  const [availableTimeSlots, setAvailableTimeSlots] = useState<string[]>([]);
 
   useEffect(() => {
     fetchDinners();
     fetchMenuItems();
     fetchServingStyles();
-  }, []);
+    if (modifyOrderId) {
+      fetchOrderForModification(Number(modifyOrderId));
+    }
+  }, [modifyOrderId]);
 
   useEffect(() => {
     if (selectedDinner) {
@@ -68,7 +81,67 @@ const Order: React.FC = () => {
     }
   }, [selectedDinner, dinners]);
 
-  // 재고 확인 (배달 시간이 선택되고 디너가 선택되었을 때)
+  // Generate years (current year to next year)
+  const years = Array.from({ length: 2 }, (_, i) => new Date().getFullYear() + i);
+  
+  // Generate months (1-12)
+  const months = Array.from({ length: 12 }, (_, i) => i + 1);
+  
+  // Generate days based on selected year and month
+  const getDaysInMonth = (year: number, month: number): number => {
+    return new Date(year, month, 0).getDate();
+  };
+  
+  const days = Array.from({ length: getDaysInMonth(selectedYear, selectedMonth) }, (_, i) => i + 1);
+  
+  // Get selected date string
+  const selectedDate = `${selectedYear}-${selectedMonth.toString().padStart(2, '0')}-${selectedDay.toString().padStart(2, '0')}`;
+  
+  // Validate selected date (must be today or future)
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const selectedDateObj = new Date(selectedYear, selectedMonth - 1, selectedDay);
+  selectedDateObj.setHours(0, 0, 0, 0);
+  const isDateValid = selectedDateObj >= today;
+
+  // Generate time slots (5 PM - 9 PM, 30 min intervals)
+  useEffect(() => {
+    if (isDateValid) {
+      const slots: string[] = [];
+      for (let hour = 17; hour <= 21; hour++) {
+        for (let minute = 0; minute < 60; minute += 30) {
+          if (hour === 21 && minute > 0) break; // Stop at 9:00 PM
+          const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+          slots.push(timeStr);
+        }
+      }
+      setAvailableTimeSlots(slots);
+    } else {
+      setAvailableTimeSlots([]);
+      setSelectedTime('');
+    }
+  }, [isDateValid]);
+
+  // Update deliveryTime when date and time are selected
+  useEffect(() => {
+    if (isDateValid && selectedTime) {
+      const dateTime = `${selectedDate}T${selectedTime}:00`;
+      setDeliveryTime(dateTime);
+    } else {
+      setDeliveryTime('');
+    }
+  }, [selectedDate, selectedTime, isDateValid]);
+
+  // Update delivery address based on selection
+  useEffect(() => {
+    if (useMyAddress) {
+      setDeliveryAddress(user?.address || '');
+    } else {
+      setDeliveryAddress(customAddress);
+    }
+  }, [useMyAddress, user?.address, customAddress]);
+
+  // Check inventory when delivery time is set
   useEffect(() => {
     const checkInventory = async () => {
       if (!selectedDinner || !deliveryTime || orderItems.length === 0) {
@@ -85,11 +158,10 @@ const Order: React.FC = () => {
           }
         });
 
-        // 모든 메뉴 아이템이 재고가 있는지 확인
         const allAvailable = orderItems.every(item => response.data[item.menu_item_id] === true);
         setInventoryAvailable(allAvailable);
       } catch (err) {
-        console.error('재고 확인 실패:', err);
+        console.error('Inventory check failed:', err);
         setInventoryAvailable(false);
       }
     };
@@ -130,6 +202,61 @@ const Order: React.FC = () => {
       setServingStyles(response.data);
     } catch (err) {
       console.error('서빙 스타일 조회 실패:', err);
+    }
+  };
+
+  const fetchOrderForModification = async (orderId: number) => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setError('로그인이 필요합니다.');
+        return;
+      }
+
+      const response = await axios.get(`${API_URL}/orders`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      const order = response.data.find((o: any) => o.id === orderId);
+      if (!order) {
+        setError('주문을 찾을 수 없습니다.');
+        return;
+      }
+
+      setIsModifying(true);
+      setSelectedDinner(order.dinner_type_id);
+      setSelectedStyle(order.serving_style);
+      
+      // Parse delivery time
+      const deliveryDateTime = new Date(order.delivery_time);
+      setSelectedYear(deliveryDateTime.getFullYear());
+      setSelectedMonth(deliveryDateTime.getMonth() + 1);
+      setSelectedDay(deliveryDateTime.getDate());
+      setSelectedTime(`${deliveryDateTime.getHours().toString().padStart(2, '0')}:${deliveryDateTime.getMinutes().toString().padStart(2, '0')}`);
+      
+      // Set address
+      if (user && order.delivery_address === user.address) {
+        setUseMyAddress(true);
+        setDeliveryAddress(user.address);
+      } else {
+        setUseMyAddress(false);
+        setCustomAddress(order.delivery_address);
+        setDeliveryAddress(order.delivery_address);
+      }
+
+      // Set order items
+      if (order.items && Array.isArray(order.items)) {
+        setOrderItems(order.items.map((item: any) => ({
+          menu_item_id: item.menu_item_id || item.id,
+          quantity: item.quantity || 1
+        })));
+      }
+    } catch (err: any) {
+      console.error('주문 조회 실패:', err);
+      setError('주문 정보를 불러오는데 실패했습니다.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -234,8 +361,18 @@ const Order: React.FC = () => {
       return;
     }
 
+    if (!selectedDate) {
+      setError('배달 날짜를 선택해주세요.');
+      return;
+    }
+
+    if (!selectedTime) {
+      setError('배달 시간을 선택해주세요.');
+      return;
+    }
+
     if (!deliveryTime) {
-      setError('배달 시간을 입력해주세요.');
+      setError('배달 시간을 설정해주세요.');
       return;
     }
 
@@ -266,28 +403,49 @@ const Order: React.FC = () => {
         return;
       }
 
-      const response = await axios.post(`${API_URL}/orders`, {
-        dinner_type_id: selectedDinner,
-        serving_style: selectedStyle,
-        delivery_time: deliveryTime,
-        delivery_address: deliveryAddress,
-        items: orderItems,
-        payment_method: 'card'
-      }, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      if (isModifying && modifyOrderId) {
+        // Modify existing order
+        const response = await axios.post(`${API_URL}/orders/${modifyOrderId}/modify`, {
+          dinner_type_id: selectedDinner,
+          serving_style: selectedStyle,
+          delivery_time: deliveryTime,
+          delivery_address: deliveryAddress,
+          items: orderItems,
+          payment_method: 'card'
+        }, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
 
-      console.log('[주문 생성] 성공:', response.data);
-      // 응답 형식에 따라 orderId 추출
-      const orderId = response.data.order_id || response.data.id || response.data.order?.id || response.data.order_id;
-      if (orderId) {
-        navigate(`/delivery/${orderId}`);
-      } else {
-        // orderId가 없어도 주문은 성공했을 수 있으므로 주문 목록으로 이동
-        console.warn('[주문 생성] orderId를 찾을 수 없지만 주문은 성공했습니다:', response.data);
+        console.log('[주문 수정] 성공:', response.data);
+        alert('주문이 수정되었습니다.');
         navigate('/orders');
+      } else {
+        // Create new order
+        const response = await axios.post(`${API_URL}/orders`, {
+          dinner_type_id: selectedDinner,
+          serving_style: selectedStyle,
+          delivery_time: deliveryTime,
+          delivery_address: deliveryAddress,
+          items: orderItems,
+          payment_method: 'card'
+        }, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        console.log('[주문 생성] 성공:', response.data);
+        // 응답 형식에 따라 orderId 추출
+        const orderId = response.data.order_id || response.data.id || response.data.order?.id || response.data.order_id;
+        if (orderId) {
+          navigate(`/delivery/${orderId}`);
+        } else {
+          // orderId가 없어도 주문은 성공했을 수 있으므로 주문 목록으로 이동
+          console.warn('[주문 생성] orderId를 찾을 수 없지만 주문은 성공했습니다:', response.data);
+          navigate('/orders');
+        }
       }
     } catch (err: any) {
       console.error('[주문 생성] 실패');
@@ -338,7 +496,7 @@ const Order: React.FC = () => {
             ← 홈으로
           </button>
         </div>
-        <h2>주문하기</h2>
+        <h2>{isModifying ? '주문 수정' : '주문하기'}</h2>
 
         <div className="voice-section">
           <button
@@ -437,23 +595,143 @@ const Order: React.FC = () => {
               </div>
 
               <div className="form-group">
-                <label>배달 시간</label>
-                <input
-                  type="datetime-local"
-                  value={deliveryTime}
-                  onChange={(e) => setDeliveryTime(e.target.value)}
-                  required
-                />
+                <label>배달 날짜</label>
+                <div style={{ 
+                  display: 'flex', 
+                  gap: '15px', 
+                  alignItems: 'center',
+                  flexWrap: 'wrap'
+                }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                    <label style={{ fontSize: '12px', color: '#666' }}>년도</label>
+                    <select
+                      value={selectedYear}
+                      onChange={(e) => {
+                        setSelectedYear(Number(e.target.value));
+                        const maxDay = getDaysInMonth(Number(e.target.value), selectedMonth);
+                        if (selectedDay > maxDay) setSelectedDay(maxDay);
+                      }}
+                      style={{ padding: '10px', borderRadius: '8px', border: '1px solid #d4af37', minWidth: '100px' }}
+                    >
+                      {years.map(year => (
+                        <option key={year} value={year}>{year}년</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                    <label style={{ fontSize: '12px', color: '#666' }}>월</label>
+                    <select
+                      value={selectedMonth}
+                      onChange={(e) => {
+                        setSelectedMonth(Number(e.target.value));
+                        const maxDay = getDaysInMonth(selectedYear, Number(e.target.value));
+                        if (selectedDay > maxDay) setSelectedDay(maxDay);
+                      }}
+                      style={{ padding: '10px', borderRadius: '8px', border: '1px solid #d4af37', minWidth: '100px' }}
+                    >
+                      {months.map(month => (
+                        <option key={month} value={month}>{month}월</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                    <label style={{ fontSize: '12px', color: '#666' }}>일</label>
+                    <select
+                      value={selectedDay}
+                      onChange={(e) => setSelectedDay(Number(e.target.value))}
+                      style={{ padding: '10px', borderRadius: '8px', border: '1px solid #d4af37', minWidth: '100px' }}
+                    >
+                      {days.map(day => (
+                        <option key={day} value={day}>{day}일</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                {!isDateValid && (
+                  <div style={{ color: '#ff4444', fontSize: '12px', marginTop: '5px' }}>
+                    과거 날짜는 선택할 수 없습니다.
+                  </div>
+                )}
               </div>
+
+              {isDateValid && (
+                <div className="form-group">
+                  <label>배달 시간 (5 PM - 9 PM, 30분 단위)</label>
+                  <div className="time-slots-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '10px', marginTop: '10px' }}>
+                    {availableTimeSlots.map(time => (
+                      <button
+                        key={time}
+                        type="button"
+                        onClick={() => setSelectedTime(time)}
+                        className={`btn ${selectedTime === time ? 'btn-primary' : 'btn-secondary'}`}
+                        style={{ padding: '10px' }}
+                      >
+                        {time}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="form-group">
                 <label>배달 주소</label>
-                <textarea
-                  value={deliveryAddress}
-                  onChange={(e) => setDeliveryAddress(e.target.value)}
-                  required
-                  rows={3}
-                />
+                <div style={{ display: 'flex', gap: '15px', marginBottom: '15px' }}>
+                  <div
+                    onClick={() => setUseMyAddress(true)}
+                    style={{
+                      flex: 1,
+                      padding: '20px',
+                      border: `2px solid ${useMyAddress ? '#FFD700' : '#d4af37'}`,
+                      borderRadius: '8px',
+                      backgroundColor: useMyAddress ? 'rgba(255, 215, 0, 0.1)' : 'transparent',
+                      cursor: 'pointer',
+                      textAlign: 'center',
+                      transition: 'all 0.3s',
+                      fontWeight: useMyAddress ? 'bold' : 'normal'
+                    }}
+                  >
+                    내 주소로 배달
+                  </div>
+                  <div
+                    onClick={() => setUseMyAddress(false)}
+                    style={{
+                      flex: 1,
+                      padding: '20px',
+                      border: `2px solid ${!useMyAddress ? '#FFD700' : '#d4af37'}`,
+                      borderRadius: '8px',
+                      backgroundColor: !useMyAddress ? 'rgba(255, 215, 0, 0.1)' : 'transparent',
+                      cursor: 'pointer',
+                      textAlign: 'center',
+                      transition: 'all 0.3s',
+                      fontWeight: !useMyAddress ? 'bold' : 'normal'
+                    }}
+                  >
+                    다른 주소로 배달
+                  </div>
+                </div>
+                {useMyAddress ? (
+                  <div style={{ 
+                    padding: '15px', 
+                    backgroundColor: '#1a1a1a', 
+                    borderRadius: '8px', 
+                    minHeight: '60px', 
+                    display: 'flex', 
+                    alignItems: 'center',
+                    border: '1px solid #d4af37',
+                    color: '#FFD700'
+                  }}>
+                    <strong>{deliveryAddress || '주소가 설정되지 않았습니다.'}</strong>
+                  </div>
+                ) : (
+                  <textarea
+                    value={customAddress}
+                    onChange={(e) => setCustomAddress(e.target.value)}
+                    required={!useMyAddress}
+                    rows={3}
+                    placeholder="배달 주소를 입력하세요"
+                    style={{ width: '100%', padding: '15px', borderRadius: '8px', border: '1px solid #d4af37' }}
+                  />
+                )}
               </div>
 
               <div className="total-price">
@@ -474,7 +752,7 @@ const Order: React.FC = () => {
                 className="btn btn-primary submit-button" 
                 disabled={loading || !inventoryAvailable}
               >
-                {loading ? '주문 처리 중...' : '주문하기'}
+                {loading ? (isModifying ? '수정 중...' : '주문 처리 중...') : (isModifying ? '주문 수정하기' : '주문하기')}
               </button>
             </>
           )}

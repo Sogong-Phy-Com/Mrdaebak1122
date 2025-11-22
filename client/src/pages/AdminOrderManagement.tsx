@@ -11,14 +11,9 @@ const AdminOrderManagement: React.FC = () => {
   const [orders, setOrders] = useState<any[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [ordersError, setOrdersError] = useState('');
-  const [users, setUsers] = useState<any[]>([]);
-  const [assigningOrderId, setAssigningOrderId] = useState<number | null>(null);
-  const [assignCookingEmployee, setAssignCookingEmployee] = useState<number | null>(null);
-  const [assignDeliveryEmployee, setAssignDeliveryEmployee] = useState<number | null>(null);
 
   useEffect(() => {
     fetchOrders();
-    fetchUsers();
   }, []);
 
   const getAuthHeaders = () => {
@@ -29,16 +24,6 @@ const AdminOrderManagement: React.FC = () => {
     return {
       Authorization: `Bearer ${token}`
     };
-  };
-
-  const fetchUsers = async () => {
-    try {
-      const headers = getAuthHeaders();
-      const response = await axios.get(`${API_URL}/admin/users`, { headers });
-      setUsers(response.data);
-    } catch (err: any) {
-      console.error('회원 정보를 불러오는데 실패했습니다:', err);
-    }
   };
 
   const fetchOrders = async () => {
@@ -56,30 +41,6 @@ const AdminOrderManagement: React.FC = () => {
     }
   };
 
-  const handleAssignEmployees = async (orderId: number) => {
-    try {
-      const headers = getAuthHeaders();
-      await axios.post(
-        `${API_URL}/admin/orders/${orderId}/assign`,
-        {
-          cookingEmployeeId: assignCookingEmployee,
-          deliveryEmployeeId: assignDeliveryEmployee
-        },
-        { headers }
-      );
-      
-      setAssigningOrderId(null);
-      setAssignCookingEmployee(null);
-      setAssignDeliveryEmployee(null);
-      await fetchOrders();
-    } catch (err: any) {
-      setOrdersError(err.response?.data?.error || err.message || '직원 배당에 실패했습니다.');
-    }
-  };
-
-  const getEmployees = () => {
-    return users.filter(u => (u.role === 'employee' || u.role === 'admin') && u.id);
-  };
 
   return (
     <div className="admin-dashboard">
@@ -89,13 +50,16 @@ const AdminOrderManagement: React.FC = () => {
           <button onClick={() => navigate('/')} className="btn btn-secondary">
             ← 홈으로
           </button>
+          <button onClick={() => navigate('/admin/inventory')} className="btn btn-primary" style={{ marginLeft: '10px' }}>
+            📦 재고 관리
+          </button>
           <button onClick={() => navigate('/schedule')} className="btn btn-primary" style={{ marginLeft: '10px' }}>
             📅 스케줄 캘린더
           </button>
         </div>
 
         <div className="admin-section">
-          <h2>주문 관리 및 배당</h2>
+          <h2>주문 관리 및 작업 할당</h2>
           {ordersError && <div className="error">{ordersError}</div>}
           {ordersLoading ? (
             <div className="loading">주문 목록을 불러오는 중...</div>
@@ -113,7 +77,6 @@ const AdminOrderManagement: React.FC = () => {
                       <th>상태</th>
                       <th>조리 담당</th>
                       <th>배달 담당</th>
-                      <th>작업</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -130,100 +93,8 @@ const AdminOrderManagement: React.FC = () => {
                             {order.status}
                           </span>
                         </td>
-                        <td>{order.cooking_employee_name || '-'}</td>
-                        <td>{order.delivery_employee_name || '-'}</td>
-                        <td>
-                          {(() => {
-                            const isAssigned = order.cooking_employee_id || order.delivery_employee_id;
-                            
-                            if (assigningOrderId === order.id) {
-                              return (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                                  <select
-                                    value={assignCookingEmployee || ''}
-                                    onChange={(e) => setAssignCookingEmployee(e.target.value ? Number(e.target.value) : null)}
-                                    style={{ padding: '5px', fontSize: '12px' }}
-                                  >
-                                    <option value="">조리 담당 선택</option>
-                                    {getEmployees().map(emp => (
-                                      <option key={emp.id} value={emp.id}>{emp.name}</option>
-                                    ))}
-                                  </select>
-                                  <select
-                                    value={assignDeliveryEmployee || ''}
-                                    onChange={(e) => setAssignDeliveryEmployee(e.target.value ? Number(e.target.value) : null)}
-                                    style={{ padding: '5px', fontSize: '12px' }}
-                                  >
-                                    <option value="">배달 담당 선택</option>
-                                    {getEmployees().map(emp => (
-                                      <option key={emp.id} value={emp.id}>{emp.name}</option>
-                                    ))}
-                                  </select>
-                                  <div style={{ display: 'flex', gap: '5px' }}>
-                                    <button
-                                      onClick={() => handleAssignEmployees(order.id)}
-                                      className="btn btn-primary"
-                                      style={{ padding: '5px 10px', fontSize: '12px' }}
-                                    >
-                                      배당 완료
-                                    </button>
-                                    <button
-                                      onClick={() => {
-                                        setAssigningOrderId(null);
-                                        setAssignCookingEmployee(null);
-                                        setAssignDeliveryEmployee(null);
-                                      }}
-                                      className="btn btn-secondary"
-                                      style={{ padding: '5px 10px', fontSize: '12px' }}
-                                    >
-                                      취소
-                                    </button>
-                                  </div>
-                                </div>
-                              );
-                            } else if (isAssigned) {
-                              return (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                                  <div style={{ 
-                                    padding: '5px 10px', 
-                                    fontSize: '12px', 
-                                    backgroundColor: '#d4edda', 
-                                    color: '#155724',
-                                    borderRadius: '4px',
-                                    textAlign: 'center'
-                                  }}>
-                                    배당 완료됨
-                                  </div>
-                                  <button
-                                    onClick={() => {
-                                      setAssigningOrderId(order.id);
-                                      setAssignCookingEmployee(order.cooking_employee_id || null);
-                                      setAssignDeliveryEmployee(order.delivery_employee_id || null);
-                                    }}
-                                    className="btn btn-secondary"
-                                    style={{ padding: '5px 10px', fontSize: '12px' }}
-                                  >
-                                    배당 변경하기
-                                  </button>
-                                </div>
-                              );
-                            } else {
-                              return (
-                                <button
-                                  onClick={() => {
-                                    setAssigningOrderId(order.id);
-                                    setAssignCookingEmployee(null);
-                                    setAssignDeliveryEmployee(null);
-                                  }}
-                                  className="btn btn-primary"
-                                  style={{ padding: '5px 10px', fontSize: '12px' }}
-                                >
-                                  배당
-                                </button>
-                              );
-                            }
-                          })()}
-                        </td>
+                        <td>{order.cooking_employee_name || '자동 할당 대기'}</td>
+                        <td>{order.delivery_employee_name || '자동 할당 대기'}</td>
                       </tr>
                     ))}
                   </tbody>

@@ -38,6 +38,15 @@ public class User {
     @Column(name = "approval_status")
     private String approvalStatus = "approved"; // pending, approved, rejected
 
+    @Column(name = "employee_type")
+    private String employeeType; // cooking, delivery
+
+    @Column(name = "security_question")
+    private String securityQuestion; // For password recovery
+
+    @Column(name = "security_answer")
+    private String securityAnswer; // For password recovery
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 

@@ -19,5 +19,7 @@ public class AuthRequest {
     private String address;
     private String phone;
     private String role; // customer, employee, admin
+    private String securityQuestion; // For password recovery
+    private String securityAnswer; // For password recovery
 }
 

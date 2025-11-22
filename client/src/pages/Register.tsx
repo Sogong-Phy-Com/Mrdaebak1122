@@ -10,7 +10,9 @@ const Register: React.FC = () => {
     name: '',
     address: '',
     phone: '',
-    role: 'customer'
+    role: 'customer',
+    securityQuestion: '',
+    securityAnswer: ''
   });
   const [error, setError] = useState('');
   const { register } = useAuth();
@@ -34,7 +36,9 @@ const Register: React.FC = () => {
         formData.name,
         formData.address,
         formData.phone,
-        formData.role
+        formData.role,
+        formData.securityQuestion,
+        formData.securityAnswer
       );
       // Navigate based on role
       const loggedInUser = JSON.parse(localStorage.getItem('user') || '{}');
@@ -121,13 +125,40 @@ const Register: React.FC = () => {
             >
               <option value="customer">고객</option>
               <option value="employee">직원</option>
-              <option value="admin">관리자</option>
             </select>
-            <p style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
-              고객: 디너 주문 및 주문 내역 조회<br />
-              직원: 주문 관리 및 상태 업데이트<br />
-              관리자: 회원 관리 및 모든 기능 접근
-            </p>
+            {formData.role === 'employee' && (
+              <p style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+                직원 계정은 관리자 승인이 필요합니다. 승인 후 관리자로 승급 가능합니다.
+              </p>
+            )}
+          </div>
+          <div className="form-group">
+            <label>비밀번호 찾기 질문</label>
+            <select
+              name="securityQuestion"
+              value={formData.securityQuestion}
+              onChange={handleChange}
+              className="form-group select"
+              required
+            >
+              <option value="">질문을 선택하세요</option>
+              <option value="내가 처음으로 산 차는?">내가 처음으로 산 차는?</option>
+              <option value="어릴적 별명은?">어릴적 별명은?</option>
+              <option value="내 어릴적 별명은?">내 어릴적 별명은?</option>
+              <option value="가장 좋아하는 음식은?">가장 좋아하는 음식은?</option>
+              <option value="출신 초등학교는?">출신 초등학교는?</option>
+            </select>
+          </div>
+          <div className="form-group">
+            <label>비밀번호 찾기 답변</label>
+            <input
+              type="text"
+              name="securityAnswer"
+              value={formData.securityAnswer}
+              onChange={handleChange}
+              required
+              placeholder="답변을 입력하세요"
+            />
           </div>
           {error && <div className="error">{error}</div>}
           <button type="submit" className="btn btn-primary">회원가입</button>

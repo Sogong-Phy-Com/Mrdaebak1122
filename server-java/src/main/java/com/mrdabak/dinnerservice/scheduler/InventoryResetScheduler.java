@@ -3,6 +3,7 @@ package com.mrdabak.dinnerservice.scheduler;
 import com.mrdabak.dinnerservice.model.MenuItem;
 import com.mrdabak.dinnerservice.repository.InventoryReservationRepository;
 import com.mrdabak.dinnerservice.repository.MenuItemRepository;
+import com.mrdabak.dinnerservice.repository.MenuInventoryRepository;
 import com.mrdabak.dinnerservice.repository.order.OrderItemRepository;
 import com.mrdabak.dinnerservice.repository.order.OrderRepository;
 import com.mrdabak.dinnerservice.service.InventoryService;
@@ -12,6 +13,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -28,22 +30,26 @@ public class InventoryResetScheduler {
     private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
     private final MenuItemRepository menuItemRepository;
+    private final MenuInventoryRepository menuInventoryRepository;
     private final InventoryService inventoryService;
 
     public InventoryResetScheduler(InventoryReservationRepository inventoryReservationRepository,
                                    OrderRepository orderRepository,
                                    OrderItemRepository orderItemRepository,
                                    MenuItemRepository menuItemRepository,
+                                   MenuInventoryRepository menuInventoryRepository,
                                    InventoryService inventoryService) {
         this.inventoryReservationRepository = inventoryReservationRepository;
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
         this.menuItemRepository = menuItemRepository;
+        this.menuInventoryRepository = menuInventoryRepository;
         this.inventoryService = inventoryService;
     }
 
     /**
      * 매일 자정(00:00:00)에 전날의 재고 예약을 삭제하고, 당일 예약량의 110% 재고 준비
+     * 월요일/금요일에는 주문 재고를 현재 보유량에 더하고 주문 수량을 0으로 변경
      * cron 표현식: 초 분 시 일 월 요일
      * "0 0 0 * * ?" = 매일 자정
      */
@@ -52,6 +58,8 @@ public class InventoryResetScheduler {
     public void resetDailyInventory() {
         try {
             LocalDate today = LocalDate.now();
+            DayOfWeek dayOfWeek = today.getDayOfWeek();
+            boolean isRestockDay = (dayOfWeek == DayOfWeek.MONDAY || dayOfWeek == DayOfWeek.FRIDAY);
             LocalDateTime todayStart = LocalDateTime.of(today, LocalTime.MIN);
             LocalDateTime tomorrowStart = todayStart.plusDays(1);
             
@@ -75,8 +83,9 @@ public class InventoryResetScheduler {
             }
             
             // 2. 당일 예약된 주문 확인하여 110% 재고 준비
+            String todayStr = today.toString(); // "2025-11-22"
             List<com.mrdabak.dinnerservice.model.Order> todayOrders = 
-                orderRepository.findByDeliveryTimeBetween(todayStart, tomorrowStart);
+                orderRepository.findByDeliveryTimeStartingWith(todayStr);
             
             if (!todayOrders.isEmpty()) {
                 // 메뉴 아이템별로 수량 집계
@@ -124,7 +133,25 @@ public class InventoryResetScheduler {
                 logger.info("[InventoryResetScheduler] 3일 경과 재료 {}개 폐기 완료", expiredCount);
             }
             
-            logger.info("[InventoryResetScheduler] 매일 재고 초기화 완료 - 날짜: {}", today);
+            // 4. 재고 받는 날(월요일, 금요일)에 주문 재고를 현재 보유량에 더하고 주문 수량을 0으로 변경
+            if (isRestockDay) {
+                List<com.mrdabak.dinnerservice.model.MenuInventory> allInventories = 
+                    menuInventoryRepository.findAll();
+                
+                for (com.mrdabak.dinnerservice.model.MenuInventory inventory : allInventories) {
+                    int orderedQty = inventory.getOrderedQuantity() != null ? inventory.getOrderedQuantity() : 0;
+                    if (orderedQty > 0) {
+                        int newCapacity = inventory.getCapacityPerWindow() + orderedQty;
+                        inventory.setCapacityPerWindow(newCapacity);
+                        inventory.setOrderedQuantity(0);
+                        menuInventoryRepository.save(inventory);
+                        logger.info("[InventoryResetScheduler] 메뉴 아이템 {} 재고 수령 완료: 주문 재고 {}개가 현재 보유량에 추가됨", 
+                            inventory.getMenuItemId(), orderedQty);
+                    }
+                }
+            }
+            
+            logger.info("[InventoryResetScheduler] 매일 재고 초기화 완료 - 날짜: {}, 재고 수령일: {}", today, isRestockDay);
         } catch (Exception e) {
             logger.error("[InventoryResetScheduler] 재고 초기화 중 오류 발생: {}", e.getMessage(), e);
         }

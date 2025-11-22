@@ -21,10 +21,19 @@ const AdminAccountManagement: React.FC = () => {
   const [filter, setFilter] = useState<string>('all');
   const [loading, setLoading] = useState(true);
   const [userError, setUserError] = useState('');
+  const [promotingUserId, setPromotingUserId] = useState<number | null>(null);
+  const [pendingApprovals, setPendingApprovals] = useState<any[]>([]);
+  const [pendingLoading, setPendingLoading] = useState(false);
+  const [pendingError, setPendingError] = useState('');
+  const [activeTab, setActiveTab] = useState<'accounts' | 'approvals'>('accounts');
 
   useEffect(() => {
-    fetchUsers();
-  }, []);
+    if (activeTab === 'accounts') {
+      fetchUsers();
+    } else {
+      fetchPendingApprovals();
+    }
+  }, [activeTab]);
 
   const getAuthHeaders = () => {
     const token = localStorage.getItem('token');
@@ -71,6 +80,62 @@ const AdminAccountManagement: React.FC = () => {
     return classes[role] || '';
   };
 
+  const fetchPendingApprovals = async () => {
+    try {
+      setPendingLoading(true);
+      setPendingError('');
+      const headers = getAuthHeaders();
+      const response = await axios.get(`${API_URL}/admin/pending-approvals`, { headers });
+      setPendingApprovals(response.data);
+    } catch (err: any) {
+      setPendingError(err.response?.data?.error || err.message || '승인 대기 목록을 불러오는데 실패했습니다.');
+      setPendingApprovals([]);
+    } finally {
+      setPendingLoading(false);
+    }
+  };
+
+  const handleApproveUser = async (userId: number) => {
+    try {
+      const headers = getAuthHeaders();
+      await axios.post(`${API_URL}/admin/approve-user/${userId}`, {}, { headers });
+      await fetchPendingApprovals();
+    } catch (err: any) {
+      setPendingError(err.response?.data?.error || err.message || '승인에 실패했습니다.');
+    }
+  };
+
+  const handleRejectUser = async (userId: number) => {
+    if (!window.confirm('이 사용자의 가입을 거부하시겠습니까?')) {
+      return;
+    }
+    try {
+      const headers = getAuthHeaders();
+      await axios.post(`${API_URL}/admin/reject-user/${userId}`, {}, { headers });
+      await fetchPendingApprovals();
+    } catch (err: any) {
+      setPendingError(err.response?.data?.error || err.message || '거부에 실패했습니다.');
+    }
+  };
+
+  const handlePromoteToAdmin = async (userId: number) => {
+    if (!window.confirm('이 직원을 관리자로 승급시키시겠습니까?')) {
+      return;
+    }
+    
+    try {
+      setPromotingUserId(userId);
+      const headers = getAuthHeaders();
+      await axios.patch(`${API_URL}/admin/users/${userId}/promote`, {}, { headers });
+      await fetchUsers(); // Refresh user list
+      setUserError('');
+    } catch (err: any) {
+      setUserError(err.response?.data?.error || err.message || '관리자 승급에 실패했습니다.');
+    } finally {
+      setPromotingUserId(null);
+    }
+  };
+
   const filteredUsers = filter === 'all'
     ? users
     : users.filter(user => user.role === filter);
@@ -102,8 +167,25 @@ const AdminAccountManagement: React.FC = () => {
         </div>
 
         <div className="admin-section">
-          <h2>회원 관리</h2>
-          {userError && <div className="error">{userError}</div>}
+          <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+            <button
+              className={`btn ${activeTab === 'accounts' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setActiveTab('accounts')}
+            >
+              계정 관리
+            </button>
+            <button
+              className={`btn ${activeTab === 'approvals' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setActiveTab('approvals')}
+            >
+              계정 승인
+            </button>
+          </div>
+
+          {activeTab === 'accounts' && (
+            <>
+              <h2>회원 관리</h2>
+              {userError && <div className="error">{userError}</div>}
 
           <div className="stats-section">
             <div className="stat-card">
@@ -151,6 +233,7 @@ const AdminAccountManagement: React.FC = () => {
                     <th>전화번호</th>
                     <th>주소</th>
                     <th>역할</th>
+                    <th>작업</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -166,12 +249,86 @@ const AdminAccountManagement: React.FC = () => {
                           {getRoleLabel(user.role)}
                         </span>
                       </td>
+                      <td>
+                        {user.role === 'employee' && (
+                          <button
+                            className="btn btn-primary"
+                            onClick={() => handlePromoteToAdmin(user.id)}
+                            disabled={promotingUserId === user.id}
+                            style={{ padding: '5px 10px', fontSize: '12px' }}
+                          >
+                            {promotingUserId === user.id ? '처리 중...' : '관리자 승급'}
+                          </button>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             )}
           </div>
+            </>
+          )}
+
+          {activeTab === 'approvals' && (
+            <>
+              <h2>계정 승인</h2>
+              {pendingError && <div className="error">{pendingError}</div>}
+              {pendingLoading ? (
+                <div className="loading">로딩 중...</div>
+              ) : pendingApprovals.length === 0 ? (
+                <p style={{ textAlign: 'center', padding: '20px' }}>승인 대기 중인 계정이 없습니다.</p>
+              ) : (
+                <div className="users-table">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>ID</th>
+                        <th>이름</th>
+                        <th>이메일</th>
+                        <th>전화번호</th>
+                        <th>역할</th>
+                        <th>작업</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pendingApprovals.map(user => (
+                        <tr key={user.id}>
+                          <td>{user.id}</td>
+                          <td>{user.name}</td>
+                          <td>{user.email}</td>
+                          <td>{user.phone}</td>
+                          <td>
+                            <span className={`role-badge ${getRoleClass(user.role)}`}>
+                              {getRoleLabel(user.role)}
+                            </span>
+                          </td>
+                          <td>
+                            <div style={{ display: 'flex', gap: '5px' }}>
+                              <button
+                                className="btn btn-success"
+                                onClick={() => handleApproveUser(user.id)}
+                                style={{ padding: '5px 10px', fontSize: '12px' }}
+                              >
+                                승인
+                              </button>
+                              <button
+                                className="btn btn-danger"
+                                onClick={() => handleRejectUser(user.id)}
+                                style={{ padding: '5px 10px', fontSize: '12px' }}
+                              >
+                                거부
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </>
+          )}
         </div>
       </div>
     </div>

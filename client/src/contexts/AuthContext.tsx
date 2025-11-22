@@ -15,7 +15,7 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, name: string, address: string, phone: string, role?: string) => Promise<void>;
+  register: (email: string, password: string, name: string, address: string, phone: string, role?: string, securityQuestion?: string, securityAnswer?: string) => Promise<void>;
   logout: () => void;
   updateUser: (updatedUser: User) => void;
   loading: boolean;
@@ -71,7 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const register = async (email: string, password: string, name: string, address: string, phone: string, role?: string) => {
+  const register = async (email: string, password: string, name: string, address: string, phone: string, role?: string, securityQuestion?: string, securityAnswer?: string) => {
     try {
       const response = await axios.post(`${API_URL}/auth/register`, {
         email,
@@ -79,7 +79,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         name,
         address,
         phone,
-        role: role || 'customer'
+        role: role || 'customer',
+        securityQuestion: securityQuestion || '',
+        securityAnswer: securityAnswer || ''
       });
       const { token: newToken, user: newUser } = response.data;
       

@@ -59,36 +59,13 @@ public class EmployeeController {
 
     @GetMapping("/orders")
     public ResponseEntity<List<Map<String, Object>>> getOrders(@RequestParam(required = false) String status) {
-        // 당일 배달 예정인 주문만 필터링
-        LocalDate today = LocalDate.now();
-        List<Order> allOrders;
+        // Get all orders (no date filtering)
+        List<Order> orders;
         if (status != null && !status.isEmpty()) {
-            allOrders = orderRepository.findByStatus(status);
+            orders = orderRepository.findByStatus(status);
         } else {
-            allOrders = orderRepository.findAll();
+            orders = orderRepository.findAll();
         }
-        
-        // 당일 배달 예정인 주문만 필터링
-        List<Order> orders = allOrders.stream()
-            .filter(order -> {
-                try {
-                    // delivery_time 파싱 (예: "2025-11-21T18:00" 또는 "2025-11-21T18:00:00")
-                    String deliveryTimeStr = order.getDeliveryTime();
-                    if (deliveryTimeStr == null || deliveryTimeStr.isEmpty()) {
-                        return false;
-                    }
-                    
-                    // 날짜 부분만 추출 (T 이전 부분)
-                    String datePart = deliveryTimeStr.split("T")[0];
-                    LocalDate deliveryDate = LocalDate.parse(datePart);
-                    
-                    return deliveryDate.equals(today);
-                } catch (Exception e) {
-                    // 파싱 실패 시 제외
-                    return false;
-                }
-            })
-            .toList();
 
         List<Map<String, Object>> orderDtos = orders.stream().map(order -> {
             Map<String, Object> orderMap = new HashMap<>();
@@ -178,18 +155,18 @@ public class EmployeeController {
             boolean isAdmin = authentication.getAuthorities().stream()
                     .anyMatch(auth -> "ROLE_ADMIN".equals(auth.getAuthority()));
 
-            // 관리자가 특정 직원을 선택한 경우 해당 직원의 스케줄만 반환
+            // If admin selects specific employee, return only that employee's schedule
             List<com.mrdabak.dinnerservice.model.DeliverySchedule> schedules;
             if (isAdmin && employeeId != null) {
-                // 관리자가 특정 직원 선택 시 해당 직원의 스케줄만 조회
-                // shift 시간은 application.properties에서 가져오거나 기본값 사용
+                // Admin selected specific employee - return only that employee's schedule
+                // Shift times from application.properties or use default values
                 java.time.LocalTime shiftStart = java.time.LocalTime.parse("15:00");
                 java.time.LocalTime shiftEnd = java.time.LocalTime.parse("22:00");
                 java.time.LocalDateTime start = java.time.LocalDateTime.of(targetDate, shiftStart);
                 java.time.LocalDateTime end = java.time.LocalDateTime.of(targetDate, shiftEnd);
                 schedules = deliveryScheduleRepository.findByEmployeeIdAndDepartureTimeBetween(employeeId, start, end);
             } else {
-                // 일반 조회 (관리자는 전체, 직원은 자신의 스케줄)
+                // General query (admin sees all, employee sees own schedule)
                 schedules = deliverySchedulingService.getSchedulesForUser(requesterId, isAdmin, targetDate);
             }
 
@@ -395,6 +372,76 @@ public class EmployeeController {
                     .body(excelData);
         } catch (Exception e) {
             return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    @GetMapping("/schedule/assignments")
+    public ResponseEntity<?> getEmployeeScheduleAssignments(
+            @RequestParam(required = false) String date,
+            Authentication authentication) {
+        if (authentication == null || authentication.getName() == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "인증이 필요합니다."));
+        }
+        
+        try {
+            Long employeeId = Long.parseLong(authentication.getName());
+            java.time.LocalDate targetDate;
+            
+            if (date != null && !date.trim().isEmpty()) {
+                targetDate = java.time.LocalDate.parse(date);
+            } else {
+                targetDate = java.time.LocalDate.now();
+            }
+            
+            String datePattern = targetDate.toString(); // "2025-11-22"
+            
+            // 해당 날짜에 할당된 주문 조회
+            List<Order> ordersForDate = orderRepository.findByDeliveryTimeStartingWith(datePattern);
+            
+            // 해당 직원에게 할당된 주문 필터링
+            List<Map<String, Object>> assignments = ordersForDate.stream()
+                .filter(order -> 
+                    (order.getCookingEmployeeId() != null && order.getCookingEmployeeId().equals(employeeId)) ||
+                    (order.getDeliveryEmployeeId() != null && order.getDeliveryEmployeeId().equals(employeeId))
+                )
+                .map(order -> {
+                    Map<String, Object> assignment = new HashMap<>();
+                    assignment.put("date", datePattern);
+                    assignment.put("isWorking", true);
+                    List<String> tasks = new java.util.ArrayList<>();
+                    if (order.getCookingEmployeeId() != null && order.getCookingEmployeeId().equals(employeeId)) {
+                        tasks.add("조리");
+                    }
+                    if (order.getDeliveryEmployeeId() != null && order.getDeliveryEmployeeId().equals(employeeId)) {
+                        tasks.add("배달");
+                    }
+                    assignment.put("tasks", tasks);
+                    assignment.put("orderCount", 1);
+                    return assignment;
+                })
+                .collect(java.util.stream.Collectors.toList());
+            
+            // 출근 여부 확인 (할당된 작업이 있으면 출근)
+            boolean isWorking = !assignments.isEmpty();
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("date", datePattern);
+            response.put("isWorking", isWorking);
+            if (isWorking) {
+                List<String> allTasks = assignments.stream()
+                    .flatMap(a -> ((List<String>) a.get("tasks")).stream())
+                    .distinct()
+                    .collect(java.util.stream.Collectors.toList());
+                response.put("tasks", allTasks);
+                response.put("orderCount", assignments.size());
+            } else {
+                response.put("tasks", List.of());
+                response.put("orderCount", 0);
+            }
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", "스케줄 조회 중 오류가 발생했습니다: " + e.getMessage()));
         }
     }
 }

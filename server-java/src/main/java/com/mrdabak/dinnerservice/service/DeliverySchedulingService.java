@@ -92,6 +92,36 @@ public class DeliverySchedulingService {
     }
 
     @Transactional("transactionManager")
+    public DeliverySchedule commitAssignmentForOrder(Long orderId, Long employeeId, LocalDateTime deliveryTime, String deliveryAddress) {
+        if (orderId == null || employeeId == null || deliveryTime == null || deliveryAddress == null) {
+            throw new IllegalArgumentException("주문 ID, 직원 ID, 배달 시간, 배달 주소는 필수입니다.");
+        }
+
+        int oneWayMinutes = travelTimeEstimator.estimateOneWayMinutes(deliveryAddress, deliveryTime);
+        LocalDateTime departure = deliveryTime.minusMinutes(oneWayMinutes);
+        LocalDateTime returnTime = deliveryTime.plusMinutes(oneWayMinutes);
+
+        validateWithinShift(departure, returnTime);
+
+        // Check if schedule already exists
+        deliveryScheduleRepository.findByOrderId(orderId).ifPresent(schedule -> {
+            deliveryScheduleRepository.delete(schedule);
+        });
+
+        DeliverySchedule schedule = new DeliverySchedule();
+        schedule.setOrderId(orderId);
+        schedule.setEmployeeId(employeeId);
+        schedule.setDeliveryAddress(deliveryAddress);
+        schedule.setDepartureTime(departure);
+        schedule.setArrivalTime(deliveryTime);
+        schedule.setReturnTime(returnTime);
+        schedule.setOneWayMinutes(oneWayMinutes);
+        schedule.setStatus("SCHEDULED");
+
+        return deliveryScheduleRepository.save(schedule);
+    }
+
+    @Transactional("transactionManager")
     public DeliverySchedule commitAssignment(Long orderId, DeliveryAssignmentPlan plan) {
         if (orderId == null) {
             throw new IllegalArgumentException("주문 ID는 필수입니다.");

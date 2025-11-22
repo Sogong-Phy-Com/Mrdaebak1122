@@ -42,6 +42,8 @@ public class AuthService {
         user.setAddress(request.getAddress());
         user.setPhone(request.getPhone());
         user.setRole(role);
+        user.setSecurityQuestion(request.getSecurityQuestion());
+        user.setSecurityAnswer(request.getSecurityAnswer());
         
         // Set approval status: customer is auto-approved, employee/admin need approval
         if (role.equals("customer")) {
@@ -98,6 +100,22 @@ public class AuthService {
                 new UserDto(user.getId(), user.getEmail(), user.getName(),
                         user.getAddress(), user.getPhone(), user.getRole(), user.getApprovalStatus())
         );
+    }
+
+    public void forgotPassword(String email, String securityQuestion, String securityAnswer, String newPassword) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("존재하지 않는 계정입니다."));
+
+        if (user.getSecurityQuestion() == null || !user.getSecurityQuestion().equals(securityQuestion)) {
+            throw new RuntimeException("보안 질문이 일치하지 않습니다.");
+        }
+
+        if (!passwordEncoder.matches(securityAnswer, user.getSecurityAnswer())) {
+            throw new RuntimeException("보안 답변이 올바르지 않습니다.");
+        }
+
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
     }
 }
 

@@ -14,6 +14,8 @@ interface InventoryItem {
   capacity_per_window: number;
   reserved: number;
   remaining: number;
+  weekly_reserved?: number;
+  ordered_quantity?: number;
   window_start: string;
   window_end: string;
   notes?: string;
@@ -24,7 +26,8 @@ const AdminInventoryManagement: React.FC = () => {
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [inventoryLoading, setInventoryLoading] = useState(false);
   const [inventoryError, setInventoryError] = useState('');
-  const [restockValues, setRestockValues] = useState<Record<number, number>>({});
+  const [restockValues, setRestockValues] = useState<Record<number, number | ''>>({});
+  const [orderedInventory, setOrderedInventory] = useState<Record<number, number>>({});
   const [restockNotes, setRestockNotes] = useState<Record<number, string>>({});
   const [restockMessage, setRestockMessage] = useState('');
 
@@ -50,14 +53,18 @@ const AdminInventoryManagement: React.FC = () => {
       const response = await axios.get(`${API_URL}/inventory`, { headers });
       if (response.data && Array.isArray(response.data)) {
         setInventoryItems(response.data);
-        const defaultValues: Record<number, number> = {};
+        const defaultValues: Record<number, number | ''> = {};
         const defaultNotes: Record<number, string> = {};
+        const orderedInv: Record<number, number> = {};
         response.data.forEach((item: InventoryItem) => {
-          defaultValues[item.menu_item_id] = item.capacity_per_window;
-          defaultNotes[item.menu_item_id] = item.notes || '';
+          defaultValues[item.menu_item_id] = ''; // Empty by default
+          // Clear all notes
+          defaultNotes[item.menu_item_id] = '';
+          orderedInv[item.menu_item_id] = item.ordered_quantity || 0;
         });
         setRestockValues(defaultValues);
         setRestockNotes(defaultNotes);
+        setOrderedInventory(orderedInv);
       } else {
         setInventoryItems([]);
       }
@@ -71,24 +78,35 @@ const AdminInventoryManagement: React.FC = () => {
   };
 
   const handleRestock = async (menuItemId: number) => {
-    const capacity = restockValues[menuItemId];
-    if (!capacity || capacity <= 0) {
-      setRestockMessage('보충 수량은 1 이상이어야 합니다.');
-      setTimeout(() => setRestockMessage(''), 3000);
+    const restockValue = restockValues[menuItemId];
+    const currentCapacity = inventoryItems.find(item => item.menu_item_id === menuItemId)?.capacity_per_window || 0;
+    
+    // If restock value is empty or 0, just update ordered inventory
+    if (restockValue === '' || restockValue === 0) {
+      // Just update ordered inventory to 0
+      setOrderedInventory(prev => ({ ...prev, [menuItemId]: 0 }));
+      setRestockValues(prev => ({ ...prev, [menuItemId]: '' }));
       return;
     }
+    
+    // Calculate ordered inventory (restock value - current capacity)
+    const ordered = Math.max(0, Number(restockValue) - currentCapacity);
+    
     try {
       setRestockMessage('');
       const headers = getAuthHeaders();
-      await axios.post(`${API_URL}/inventory/${menuItemId}/restock`, {
-        capacity_per_window: capacity,
-        notes: restockNotes[menuItemId] || ''
+      // Save ordered inventory
+      await axios.post(`${API_URL}/inventory/${menuItemId}/order`, {
+        ordered_quantity: ordered
       }, { headers });
-      setRestockMessage('재고가 성공적으로 업데이트되었습니다.');
+      
+      setOrderedInventory(prev => ({ ...prev, [menuItemId]: ordered }));
+      setRestockValues(prev => ({ ...prev, [menuItemId]: '' }));
+      setRestockMessage('주문 재고가 저장되었습니다.');
       setTimeout(() => setRestockMessage(''), 3000);
       await fetchInventory();
     } catch (err: any) {
-      const errorMsg = err.response?.data?.error || err.message || '재고 보충에 실패했습니다.';
+      const errorMsg = err.response?.data?.error || err.message || '주문 재고 저장에 실패했습니다.';
       setRestockMessage(errorMsg);
       setTimeout(() => setRestockMessage(''), 5000);
     }
@@ -122,10 +140,11 @@ const AdminInventoryManagement: React.FC = () => {
                   <tr>
                     <th>메뉴</th>
                     <th>카테고리</th>
-                    <th>현재 용량</th>
-                    <th>예약</th>
-                    <th>잔여</th>
-                    <th>보충 창</th>
+                    <th>현재 보유량</th>
+                    <th>주문 재고</th>
+                    <th>이번주 예약 수량</th>
+                    <th>예비 수량</th>
+                    <th>보충일</th>
                     <th>비고</th>
                     <th>보충</th>
                   </tr>
@@ -133,7 +152,7 @@ const AdminInventoryManagement: React.FC = () => {
                 <tbody>
                   {inventoryItems.length === 0 ? (
                     <tr>
-                      <td colSpan={8} style={{ textAlign: 'center', padding: '20px' }}>
+                      <td colSpan={9} style={{ textAlign: 'center', padding: '20px' }}>
                         등록된 재고가 없습니다.
                       </td>
                     </tr>
@@ -146,29 +165,53 @@ const AdminInventoryManagement: React.FC = () => {
                         </td>
                         <td>{item.category || '-'}</td>
                         <td>{item.capacity_per_window?.toLocaleString()}개</td>
-                        <td>{item.reserved?.toLocaleString()}개</td>
-                        <td>{item.remaining?.toLocaleString()}개</td>
                         <td>
-                          <div>{formatDateTime(item.window_start)}</div>
-                          <div className="text-muted">~ {formatDateTime(item.window_end)}</div>
+                          {orderedInventory[item.menu_item_id] ? `${orderedInventory[item.menu_item_id].toLocaleString()}개` : '0개'}
+                        </td>
+                        <td>{item.weekly_reserved || item.reserved || 0}개</td>
+                        <td>
+                          {(() => {
+                            const currentCapacity = item.capacity_per_window || 0;
+                            const weeklyReserved = item.weekly_reserved || item.reserved || 0;
+                            const spareQuantity = Math.max(0, currentCapacity - weeklyReserved);
+                            return `${spareQuantity.toLocaleString()}개`;
+                          })()}
+                        </td>
+                        <td>
+                          {(() => {
+                            const today = new Date();
+                            const dayOfWeek = today.getDay();
+                            // Monday = 1, Friday = 5
+                            if (dayOfWeek === 1) return '월요일';
+                            if (dayOfWeek === 5) return '금요일';
+                            // Calculate next restock day
+                            const daysUntilMonday = (1 - dayOfWeek + 7) % 7 || 7;
+                            const daysUntilFriday = (5 - dayOfWeek + 7) % 7 || 7;
+                            const nextRestockDay = Math.min(daysUntilMonday, daysUntilFriday);
+                            if (nextRestockDay === daysUntilMonday && nextRestockDay <= daysUntilFriday) return `다음 월요일 (${nextRestockDay}일 후)`;
+                            if (nextRestockDay === daysUntilFriday) return `다음 금요일 (${nextRestockDay}일 후)`;
+                            return '-';
+                          })()}
                         </td>
                         <td>{item.notes || '-'}</td>
                         <td>
                           <div className="restock-controls">
                             <input
                               type="number"
-                              min={1}
-                              value={restockValues[item.menu_item_id] ?? item.capacity_per_window}
-                              onChange={(e) =>
+                              min={0}
+                              placeholder="보충 수량"
+                              value={restockValues[item.menu_item_id] === '' ? '' : (restockValues[item.menu_item_id] || '')}
+                              onChange={(e) => {
+                                const value = e.target.value === '' ? '' : Number(e.target.value);
                                 setRestockValues(prev => ({
                                   ...prev,
-                                  [item.menu_item_id]: Number(e.target.value)
-                                }))
-                              }
+                                  [item.menu_item_id]: value
+                                }));
+                              }}
                             />
                             <input
                               type="text"
-                              placeholder="메모 (선택)"
+                              placeholder="비고 작성"
                               value={restockNotes[item.menu_item_id] ?? ''}
                               onChange={(e) =>
                                 setRestockNotes(prev => ({

@@ -32,10 +32,11 @@ public class OrderDatabaseConfig {
     public DataSource orderDataSource() {
         SQLiteConfig config = new SQLiteConfig();
         config.setJournalMode(SQLiteConfig.JournalMode.WAL);
-        config.setBusyTimeout(30_000);
+        config.setBusyTimeout(60_000); // Increase to 60 seconds
         config.setSynchronous(SQLiteConfig.SynchronousMode.NORMAL);
         SQLiteDataSource dataSource = new SQLiteDataSource(config);
-        dataSource.setUrl("jdbc:sqlite:data/orders.db");
+        // Add WAL mode and busy timeout to URL as well for compatibility
+        dataSource.setUrl("jdbc:sqlite:data/orders.db?journal_mode=WAL&busy_timeout=60000");
         return dataSource;
     }
 
