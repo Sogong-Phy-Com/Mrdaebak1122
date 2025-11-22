@@ -3,13 +3,14 @@ services:
     name: mrdabak-dinner-service
     env: docker
     dockerfilePath: ./server-java/Dockerfile
-    dockerContext: ./server-java
+    dockerContext: .
     envVars:
       - key: SPRING_PROFILES_ACTIVE
         value: production
       - key: JWT_SECRET
         generateValue: true
       - key: PORT
-        value: 5000
+        sync: false
     healthCheckPath: /api/health
+    plan: starter
 
