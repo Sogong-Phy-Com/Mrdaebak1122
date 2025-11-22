@@ -390,6 +390,7 @@ public class AdminController {
     }
 
     @PostMapping("/schedule/assign")
+    @org.springframework.transaction.annotation.Transactional(transactionManager = "orderTransactionManager")
     public ResponseEntity<?> assignEmployeesForDate(@RequestBody Map<String, Object> request) {
         try {
             String dateStr = (String) request.get("date");
@@ -410,19 +411,28 @@ public class AdminController {
             // Round-robin 방식으로 직원 할당
             int cookingIndex = 0;
             int deliveryIndex = 0;
+            int savedCount = 0;
 
             for (Order order : ordersForDate) {
+                boolean modified = false;
                 if (!cookingEmployees.isEmpty()) {
                     Long cookingEmployeeId = Long.valueOf(cookingEmployees.get(cookingIndex % cookingEmployees.size()));
                     order.setCookingEmployeeId(cookingEmployeeId);
                     cookingIndex++;
+                    modified = true;
                 }
                 if (!deliveryEmployees.isEmpty()) {
                     Long deliveryEmployeeId = Long.valueOf(deliveryEmployees.get(deliveryIndex % deliveryEmployees.size()));
                     order.setDeliveryEmployeeId(deliveryEmployeeId);
                     deliveryIndex++;
+                    modified = true;
                 }
-                orderRepository.save(order);
+                if (modified) {
+                    Order saved = orderRepository.save(order);
+                    savedCount++;
+                    System.out.println("[AdminController] 주문 " + saved.getId() + "에 직원 할당 저장 완료 - 조리: " + 
+                        saved.getCookingEmployeeId() + ", 배달: " + saved.getDeliveryEmployeeId());
+                }
 
                 // 배달 직원이 배당되면 DeliverySchedule 생성 또는 업데이트
                 if (order.getDeliveryEmployeeId() != null && order.getDeliveryTime() != null && order.getDeliveryAddress() != null) {
@@ -452,7 +462,11 @@ public class AdminController {
                 }
             }
 
-            return ResponseEntity.ok(Map.of("message", "직원 할당이 저장되었습니다.", "assignedOrders", ordersForDate.size()));
+            return ResponseEntity.ok(Map.of(
+                "message", "직원 할당이 저장되었습니다.", 
+                "assignedOrders", ordersForDate.size(),
+                "savedOrders", savedCount
+            ));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", "직원 할당 저장 실패: " + e.getMessage()));
         }

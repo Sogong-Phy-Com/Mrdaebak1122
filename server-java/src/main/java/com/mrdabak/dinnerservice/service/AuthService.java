@@ -110,8 +110,9 @@ public class AuthService {
             throw new RuntimeException("보안 질문이 일치하지 않습니다.");
         }
 
-        if (!passwordEncoder.matches(securityAnswer, user.getSecurityAnswer())) {
-            throw new RuntimeException("보안 답변이 올바르지 않습니다.");
+        // 보안 답변은 평문으로 저장되어 있으므로 단순 문자열 비교
+        if (user.getSecurityAnswer() == null || !user.getSecurityAnswer().equals(securityAnswer)) {
+            throw new RuntimeException("보안 질문 답변이 올바르지 않습니다.");
         }
 
         user.setPassword(passwordEncoder.encode(newPassword));
