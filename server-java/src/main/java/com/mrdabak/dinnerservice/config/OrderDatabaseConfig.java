@@ -30,6 +30,9 @@ public class OrderDatabaseConfig {
 
     @Bean(name = "orderDataSource")
     public DataSource orderDataSource() {
+        // Ensure data directory exists
+        ensureDataDirectory();
+        
         SQLiteConfig config = new SQLiteConfig();
         config.setJournalMode(SQLiteConfig.JournalMode.WAL);
         config.setBusyTimeout(60_000); // Increase to 60 seconds
@@ -38,6 +41,18 @@ public class OrderDatabaseConfig {
         // Add WAL mode and busy timeout to URL as well for compatibility
         dataSource.setUrl("jdbc:sqlite:data/orders.db?journal_mode=WAL&busy_timeout=60000");
         return dataSource;
+    }
+    
+    private void ensureDataDirectory() {
+        java.io.File dataDir = new java.io.File("data");
+        if (!dataDir.exists()) {
+            boolean created = dataDir.mkdirs();
+            if (created) {
+                System.out.println("[OrderDatabaseConfig] Created data directory");
+            } else {
+                System.err.println("[OrderDatabaseConfig] Failed to create data directory");
+            }
+        }
     }
 
     @Bean(name = "orderEntityManagerFactory")
