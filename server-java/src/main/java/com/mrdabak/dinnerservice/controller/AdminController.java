@@ -13,6 +13,8 @@ import com.mrdabak.dinnerservice.service.TravelTimeEstimator;
 import com.mrdabak.dinnerservice.service.OrderService;
 import com.mrdabak.dinnerservice.model.DeliverySchedule;
 import com.mrdabak.dinnerservice.repository.schedule.DeliveryScheduleRepository;
+import com.mrdabak.dinnerservice.repository.schedule.EmployeeWorkAssignmentRepository;
+import com.mrdabak.dinnerservice.model.EmployeeWorkAssignment;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -35,6 +37,7 @@ public class AdminController {
     private final OrderRepository orderRepository;
     private final DeliverySchedulingService deliverySchedulingService;
     private final DeliveryScheduleRepository deliveryScheduleRepository;
+    private final EmployeeWorkAssignmentRepository employeeWorkAssignmentRepository;
     private final TravelTimeEstimator travelTimeEstimator;
     private final OrderService orderService;
 
@@ -42,6 +45,7 @@ public class AdminController {
                           JwtService jwtService, OrderRepository orderRepository,
                           DeliverySchedulingService deliverySchedulingService,
                           DeliveryScheduleRepository deliveryScheduleRepository,
+                          EmployeeWorkAssignmentRepository employeeWorkAssignmentRepository,
                           TravelTimeEstimator travelTimeEstimator,
                           OrderService orderService) {
         this.userRepository = userRepository;
@@ -50,6 +54,7 @@ public class AdminController {
         this.orderRepository = orderRepository;
         this.deliverySchedulingService = deliverySchedulingService;
         this.deliveryScheduleRepository = deliveryScheduleRepository;
+        this.employeeWorkAssignmentRepository = employeeWorkAssignmentRepository;
         this.travelTimeEstimator = travelTimeEstimator;
         this.orderService = orderService;
     }
@@ -390,7 +395,7 @@ public class AdminController {
     }
 
     @PostMapping("/schedule/assign")
-    @org.springframework.transaction.annotation.Transactional(transactionManager = "orderTransactionManager")
+    @org.springframework.transaction.annotation.Transactional(transactionManager = "scheduleTransactionManager")
     public ResponseEntity<?> assignEmployeesForDate(@RequestBody Map<String, Object> request) {
         try {
             String dateStr = (String) request.get("date");
@@ -403,71 +408,39 @@ public class AdminController {
                 return ResponseEntity.badRequest().body(Map.of("error", "날짜와 직원 목록이 필요합니다."));
             }
 
-            String datePattern = dateStr; // "2025-11-22"
+            java.time.LocalDate workDate = java.time.LocalDate.parse(dateStr);
             
-            // 해당 날짜의 모든 주문 조회 (deliveryTime이 String이므로 LIKE로 검색)
-            List<Order> ordersForDate = orderRepository.findByDeliveryTimeStartingWith(datePattern);
-
-            // Round-robin 방식으로 직원 할당
-            int cookingIndex = 0;
-            int deliveryIndex = 0;
-            int savedCount = 0;
-
-            for (Order order : ordersForDate) {
-                boolean modified = false;
-                if (!cookingEmployees.isEmpty()) {
-                    Long cookingEmployeeId = Long.valueOf(cookingEmployees.get(cookingIndex % cookingEmployees.size()));
-                    order.setCookingEmployeeId(cookingEmployeeId);
-                    cookingIndex++;
-                    modified = true;
-                }
-                if (!deliveryEmployees.isEmpty()) {
-                    Long deliveryEmployeeId = Long.valueOf(deliveryEmployees.get(deliveryIndex % deliveryEmployees.size()));
-                    order.setDeliveryEmployeeId(deliveryEmployeeId);
-                    deliveryIndex++;
-                    modified = true;
-                }
-                if (modified) {
-                    Order saved = orderRepository.save(order);
-                    savedCount++;
-                    System.out.println("[AdminController] 주문 " + saved.getId() + "에 직원 할당 저장 완료 - 조리: " + 
-                        saved.getCookingEmployeeId() + ", 배달: " + saved.getDeliveryEmployeeId());
-                }
-
-                // 배달 직원이 배당되면 DeliverySchedule 생성 또는 업데이트
-                if (order.getDeliveryEmployeeId() != null && order.getDeliveryTime() != null && order.getDeliveryAddress() != null) {
-                    try {
-                        java.time.LocalDateTime deliveryDateTime = null;
-                        java.time.format.DateTimeFormatter[] formatters = {
-                            java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME,
-                            java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm")
-                        };
-                        
-                        for (java.time.format.DateTimeFormatter formatter : formatters) {
-                            try {
-                                deliveryDateTime = java.time.LocalDateTime.parse(order.getDeliveryTime(), formatter);
-                                break;
-                            } catch (java.time.format.DateTimeParseException e) {
-                                // Try next formatter
-                            }
-                        }
-                        
-                        if (deliveryDateTime != null) {
-                            deliverySchedulingService.commitAssignmentForOrder(order.getId(), order.getDeliveryEmployeeId(), 
-                                deliveryDateTime, order.getDeliveryAddress());
-                        }
-                    } catch (Exception e) {
-                        System.err.println("[AdminController] 배달 스케줄 생성 실패: " + e.getMessage());
-                    }
-                }
+            // 기존 할당 삭제
+            employeeWorkAssignmentRepository.deleteByWorkDate(workDate);
+            
+            // 조리 담당 직원 할당 저장
+            for (Integer empId : cookingEmployees) {
+                EmployeeWorkAssignment assignment = new EmployeeWorkAssignment();
+                assignment.setEmployeeId(Long.valueOf(empId));
+                assignment.setWorkDate(workDate);
+                assignment.setTaskType("COOKING");
+                employeeWorkAssignmentRepository.save(assignment);
             }
+            
+            // 배달 담당 직원 할당 저장
+            for (Integer empId : deliveryEmployees) {
+                EmployeeWorkAssignment assignment = new EmployeeWorkAssignment();
+                assignment.setEmployeeId(Long.valueOf(empId));
+                assignment.setWorkDate(workDate);
+                assignment.setTaskType("DELIVERY");
+                employeeWorkAssignmentRepository.save(assignment);
+            }
+
+            System.out.println("[AdminController] 직원 할당 저장 완료 - 날짜: " + dateStr + 
+                ", 조리: " + cookingEmployees.size() + "명, 배달: " + deliveryEmployees.size() + "명");
 
             return ResponseEntity.ok(Map.of(
                 "message", "직원 할당이 저장되었습니다.", 
-                "assignedOrders", ordersForDate.size(),
-                "savedOrders", savedCount
+                "cookingEmployees", cookingEmployees.size(),
+                "deliveryEmployees", deliveryEmployees.size()
             ));
         } catch (Exception e) {
+            e.printStackTrace();
             return ResponseEntity.badRequest().body(Map.of("error", "직원 할당 저장 실패: " + e.getMessage()));
         }
     }

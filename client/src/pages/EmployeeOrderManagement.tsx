@@ -184,9 +184,6 @@ const EmployeeOrderManagement: React.FC = () => {
           <button onClick={() => navigate('/')} className="btn btn-secondary">
             ← 홈으로
           </button>
-          <button onClick={() => navigate('/schedule')} className="btn btn-primary" style={{ marginLeft: '10px' }}>
-            📅 스케줄 캘린더
-          </button>
         </div>
 
         <h2>스케줄 관리</h2>

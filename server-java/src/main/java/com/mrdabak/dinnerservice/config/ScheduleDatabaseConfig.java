@@ -1,6 +1,7 @@
 package com.mrdabak.dinnerservice.config;
 
 import com.mrdabak.dinnerservice.model.DeliverySchedule;
+import com.mrdabak.dinnerservice.model.EmployeeWorkAssignment;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.orm.jpa.EntityManagerFactoryBuilder;
 import org.springframework.context.annotation.Bean;
@@ -67,7 +68,7 @@ public class ScheduleDatabaseConfig {
 
         return builder
             .dataSource(dataSource)
-            .packages(DeliverySchedule.class)
+            .packages(DeliverySchedule.class, EmployeeWorkAssignment.class)
             .persistenceUnit("schedule")
             .properties(properties)
             .build();

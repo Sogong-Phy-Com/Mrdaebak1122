@@ -4,6 +4,8 @@ import com.mrdabak.dinnerservice.model.*;
 import com.mrdabak.dinnerservice.repository.*;
 import com.mrdabak.dinnerservice.repository.order.OrderRepository;
 import com.mrdabak.dinnerservice.repository.order.OrderItemRepository;
+import com.mrdabak.dinnerservice.repository.schedule.EmployeeWorkAssignmentRepository;
+import com.mrdabak.dinnerservice.model.EmployeeWorkAssignment;
 import com.mrdabak.dinnerservice.service.DeliverySchedulingService;
 import com.mrdabak.dinnerservice.service.ExcelExportService;
 import com.mrdabak.dinnerservice.service.OrderService;
@@ -37,6 +39,7 @@ public class EmployeeController {
     private final OrderService orderService;
     private final InventoryService inventoryService;
     private final com.mrdabak.dinnerservice.repository.schedule.DeliveryScheduleRepository deliveryScheduleRepository;
+    private final EmployeeWorkAssignmentRepository employeeWorkAssignmentRepository;
 
     public EmployeeController(OrderRepository orderRepository, OrderItemRepository orderItemRepository,
                              UserRepository userRepository, DinnerTypeRepository dinnerTypeRepository,
@@ -44,7 +47,8 @@ public class EmployeeController {
                              DeliverySchedulingService deliverySchedulingService,
                              OrderService orderService,
                              InventoryService inventoryService,
-                             com.mrdabak.dinnerservice.repository.schedule.DeliveryScheduleRepository deliveryScheduleRepository) {
+                             com.mrdabak.dinnerservice.repository.schedule.DeliveryScheduleRepository deliveryScheduleRepository,
+                             EmployeeWorkAssignmentRepository employeeWorkAssignmentRepository) {
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
         this.userRepository = userRepository;
@@ -55,6 +59,7 @@ public class EmployeeController {
         this.orderService = orderService;
         this.inventoryService = inventoryService;
         this.deliveryScheduleRepository = deliveryScheduleRepository;
+        this.employeeWorkAssignmentRepository = employeeWorkAssignmentRepository;
     }
 
     @GetMapping("/orders")
@@ -393,51 +398,26 @@ public class EmployeeController {
                 targetDate = java.time.LocalDate.now();
             }
             
-            String datePattern = targetDate.toString(); // "2025-11-22"
+            // 스케줄 데이터베이스에서 직원 할당 조회
+            List<EmployeeWorkAssignment> assignments = employeeWorkAssignmentRepository.findByEmployeeIdAndWorkDate(employeeId, targetDate);
             
-            // 해당 날짜에 할당된 주문 조회
-            List<Order> ordersForDate = orderRepository.findByDeliveryTimeStartingWith(datePattern);
-            
-            // 해당 직원에게 할당된 주문 필터링
-            List<Map<String, Object>> assignments = ordersForDate.stream()
-                .filter(order -> 
-                    (order.getCookingEmployeeId() != null && order.getCookingEmployeeId().equals(employeeId)) ||
-                    (order.getDeliveryEmployeeId() != null && order.getDeliveryEmployeeId().equals(employeeId))
-                )
-                .map(order -> {
-                    Map<String, Object> assignment = new HashMap<>();
-                    assignment.put("date", datePattern);
-                    assignment.put("isWorking", true);
-                    List<String> tasks = new java.util.ArrayList<>();
-                    if (order.getCookingEmployeeId() != null && order.getCookingEmployeeId().equals(employeeId)) {
-                        tasks.add("조리");
-                    }
-                    if (order.getDeliveryEmployeeId() != null && order.getDeliveryEmployeeId().equals(employeeId)) {
-                        tasks.add("배달");
-                    }
-                    assignment.put("tasks", tasks);
-                    assignment.put("orderCount", 1);
-                    return assignment;
-                })
-                .collect(java.util.stream.Collectors.toList());
+            List<String> tasks = new java.util.ArrayList<>();
+            for (EmployeeWorkAssignment assignment : assignments) {
+                if ("COOKING".equals(assignment.getTaskType())) {
+                    tasks.add("조리");
+                } else if ("DELIVERY".equals(assignment.getTaskType())) {
+                    tasks.add("배달");
+                }
+            }
             
             // 출근 여부 확인 (할당된 작업이 있으면 출근)
             boolean isWorking = !assignments.isEmpty();
             
             Map<String, Object> response = new HashMap<>();
-            response.put("date", datePattern);
+            response.put("date", targetDate.toString());
             response.put("isWorking", isWorking);
-            if (isWorking) {
-                List<String> allTasks = assignments.stream()
-                    .flatMap(a -> ((List<String>) a.get("tasks")).stream())
-                    .distinct()
-                    .collect(java.util.stream.Collectors.toList());
-                response.put("tasks", allTasks);
-                response.put("orderCount", assignments.size());
-            } else {
-                response.put("tasks", List.of());
-                response.put("orderCount", 0);
-            }
+            response.put("tasks", tasks);
+            response.put("orderCount", isWorking ? 1 : 0);
             
             return ResponseEntity.ok(response);
         } catch (Exception e) {

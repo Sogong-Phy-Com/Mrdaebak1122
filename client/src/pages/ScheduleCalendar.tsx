@@ -54,6 +54,7 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({ type: propType }) =
   const [schedules, setSchedules] = useState<DeliverySchedule[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [employees, setEmployees] = useState<User[]>([]);
+  const [workAssignments, setWorkAssignments] = useState<{[key: string]: {tasks: string[]}}>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -76,6 +77,7 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({ type: propType }) =
     }
     if (calendarType === 'schedule') {
       fetchSchedules();
+      fetchWorkAssignments();
     } else {
       fetchOrders();
     }
@@ -139,6 +141,44 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({ type: propType }) =
     } catch (err: any) {
       console.error('배달 스케줄 조회 실패:', err);
       setSchedules([]);
+    }
+  };
+
+  const fetchWorkAssignments = async () => {
+    try {
+      if (!user) {
+        return;
+      }
+
+      const headers = getAuthHeaders();
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth();
+      const firstDay = new Date(year, month, 1);
+      const lastDay = new Date(year, month + 1, 0);
+      
+      const assignments: {[key: string]: {tasks: string[]}} = {};
+      
+      // 해당 월의 모든 날짜에 대해 할당 조회
+      for (let day = 1; day <= lastDay.getDate(); day++) {
+        const date = new Date(year, month, day);
+        const dateStr = date.toISOString().split('T')[0];
+        
+        try {
+          const response = await axios.get(`${API_URL}/employee/schedule/assignments?date=${dateStr}`, { headers });
+          if (response.data && response.data.isWorking) {
+            assignments[dateStr] = {
+              tasks: response.data.tasks || []
+            };
+          }
+        } catch (err: any) {
+          // Ignore errors for individual dates
+        }
+      }
+      
+      setWorkAssignments(assignments);
+    } catch (err: any) {
+      console.error('작업 할당 조회 실패:', err);
+      setWorkAssignments({});
     }
   };
 
@@ -279,7 +319,13 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({ type: propType }) =
   const hasMySchedule = (date: Date | null): boolean => {
     if (!date || !user) return false;
     if (calendarType === 'schedule') {
-      // For schedule calendar, check if employee has assignments
+      // For schedule calendar, check if employee has work assignments
+      const dateStr = date.toISOString().split('T')[0];
+      const assignment = workAssignments[dateStr];
+      if (assignment && assignment.tasks && assignment.tasks.length > 0) {
+        return true;
+      }
+      // Fallback to old logic for backward compatibility
       const daySchedules = getSchedulesForDate(date);
       const dayOrders = getOrdersForDate(date);
       return daySchedules.some(schedule => schedule.employee_id === user.id) ||
@@ -294,22 +340,25 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({ type: propType }) =
     }
   };
 
-  const getOrderColor = (order: Order): 'red' | 'green' => {
-    if (isAdmin) {
-      // 관리자: 본인이 할당된 경우 빨간색, 끝난 주문(delivered, cancelled) = 초록색, 나머지 = 빨간색
-      const isMyOrder = order.cooking_employee_id === user?.id || order.delivery_employee_id === user?.id;
-      if (isMyOrder) {
-        return 'red';
-      }
-      return (order.status === 'delivered' || order.status === 'cancelled') ? 'green' : 'red';
-    } else {
-      // 직원: 본인 할당 = 빨간색, 나머지 또는 끝난 주문 = 초록색
-      const isMyOrder = order.cooking_employee_id === user?.id || order.delivery_employee_id === user?.id;
-      if (isMyOrder && order.status !== 'delivered' && order.status !== 'cancelled') {
-        return 'red';
-      }
+  const getOrderColor = (order: Order, date: Date | null): 'red' | 'green' => {
+    if (!date) return 'green';
+    
+    // 해당 날짜에 근무하는 직원인지 확인
+    const dateStr = date.toISOString().split('T')[0];
+    const assignment = workAssignments[dateStr];
+    
+    if (assignment && assignment.tasks && assignment.tasks.length > 0) {
+      // 해당 날에 할당된 작업이 있으면 빨간색
+      return 'red';
+    }
+    
+    // 끝난 주문은 초록색
+    if (order.status === 'delivered' || order.status === 'cancelled') {
       return 'green';
     }
+    
+    // 기본적으로 빨간색 (주문이 있으면)
+    return 'red';
   };
 
   const handleDateClick = (date: Date | null) => {
@@ -489,6 +538,12 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({ type: propType }) =
                 const getDayColor = () => {
                   if (!date) return '';
                   if (calendarType === 'schedule') {
+                    // 해당 날에 할당된 작업이 있으면 빨간색
+                    const dateStr = date.toISOString().split('T')[0];
+                    const assignment = workAssignments[dateStr];
+                    if (assignment && assignment.tasks && assignment.tasks.length > 0) {
+                      return 'red';
+                    }
                     return hasMySchedules ? 'red' : 'green';
                   } else {
                     return dayOrders.length > 0 ? 'blue' : '';
@@ -579,13 +634,13 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({ type: propType }) =
                             // Orders calendar: show orders
                             <>
                               {dayOrders.slice(0, 2).map(order => {
-                                const orderColor = getOrderColor(order);
+                                const orderColor = getOrderColor(order, date);
                                 return (
                                   <div
                                     key={order.id}
                                     className={`schedule-item order-item ${orderColor === 'red' ? 'my-schedule' : 'other-schedule'}`}
                                     style={{ borderLeftColor: orderColor === 'red' ? '#ff4444' : '#4CAF50' }}
-                                    title={`주문 #${order.id} - ${order.delivery_address || '주소 없음'} (${formatTime(order.delivery_time || '')})`}
+                                    title={`주문 #${order.id} - ${order.customer_name || '고객'} | ${order.dinner_name || '디너'}`}
                                   >
                                     <div className="schedule-time">{formatTime(order.delivery_time)}</div>
                                     <div className="schedule-status" style={{ color: orderColor === 'red' ? '#ff4444' : '#4CAF50' }}>
@@ -637,10 +692,10 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({ type: propType }) =
                 ) : (
                   <div className="schedule-list">
                     {selectedOrders.map(order => {
-                      const orderColor = getOrderColor(order);
-                      const isMyOrder = order.cooking_employee_id === user?.id || order.delivery_employee_id === user?.id;
-                      const isMyCooking = order.cooking_employee_id === user?.id;
-                      const isMyDelivery = order.delivery_employee_id === user?.id;
+                      const orderColor = getOrderColor(order, selectedDate);
+                      const dateStr = selectedDate ? selectedDate.toISOString().split('T')[0] : '';
+                      const assignment = workAssignments[dateStr];
+                      const tasks = assignment?.tasks || [];
                       return (
                         <div 
                           key={order.id} 
@@ -653,18 +708,11 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({ type: propType }) =
                                 {order.customer_name && `고객: ${order.customer_name}`}
                                 {order.dinner_name && ` | ${order.dinner_name}`}
                               </p>
-                              {calendarType === 'schedule' && isMyOrder && (
+                              {calendarType === 'schedule' && tasks.length > 0 && (
                                 <p className="employee-name" style={{ fontSize: '14px', marginTop: '8px', color: '#FFD700', fontWeight: 'bold' }}>
-                                  {isMyCooking && isMyDelivery ? '🔧 조리 / 🚚 배달 담당' : 
-                                   isMyCooking ? '🔧 조리 담당' : 
-                                   isMyDelivery ? '🚚 배달 담당' : ''}
-                                </p>
-                              )}
-                              {(order.cooking_employee_name || order.delivery_employee_name) && (
-                                <p className="employee-name" style={{ fontSize: '12px', marginTop: '4px' }}>
-                                  {order.cooking_employee_name && `조리: ${order.cooking_employee_name}`}
-                                  {order.cooking_employee_name && order.delivery_employee_name && ' | '}
-                                  {order.delivery_employee_name && `배달: ${order.delivery_employee_name}`}
+                                  {tasks.includes('조리') && tasks.includes('배달') ? '🔧 조리 / 🚚 배달 담당' : 
+                                   tasks.includes('조리') ? '🔧 조리 담당' : 
+                                   tasks.includes('배달') ? '🚚 배달 담당' : ''}
                                 </p>
                               )}
                             </div>

@@ -3,6 +3,7 @@ package com.mrdabak.dinnerservice.service;
 import com.mrdabak.dinnerservice.dto.OrderItemDto;
 import com.mrdabak.dinnerservice.model.InventoryReservation;
 import com.mrdabak.dinnerservice.model.MenuInventory;
+import com.mrdabak.dinnerservice.model.MenuItem;
 import com.mrdabak.dinnerservice.repository.inventory.InventoryReservationRepository;
 import com.mrdabak.dinnerservice.repository.inventory.MenuInventoryRepository;
 import com.mrdabak.dinnerservice.repository.MenuItemRepository;
@@ -165,11 +166,33 @@ public class InventoryService {
         }
     }
 
-    @Transactional(value = "inventoryTransactionManager", readOnly = true)
+    @Transactional(value = "inventoryTransactionManager")
     public List<InventorySnapshot> getInventorySnapshots() {
         LocalDateTime now = LocalDateTime.now();
         RestockWindow currentWindow = resolveWindow(now);
 
+        // Get all menu items and ensure inventory exists for each
+        List<MenuItem> allMenuItems = menuItemRepository.findAll();
+        
+        // Create inventory for menu items that don't have one yet
+        for (MenuItem menuItem : allMenuItems) {
+            if (!menuInventoryRepository.findByMenuItemId(menuItem.getId()).isPresent()) {
+                // Auto-create inventory if it doesn't exist
+                MenuInventory newInventory = new MenuInventory();
+                newInventory.setMenuItemId(menuItem.getId());
+                newInventory.setCapacityPerWindow(defaultCapacity);
+                newInventory.setSafetyStock(0);
+                newInventory.setNotes("auto-initialized");
+                try {
+                    menuInventoryRepository.save(newInventory);
+                } catch (Exception e) {
+                    // If save fails, ignore (might be created by another thread)
+                    System.err.println("[InventoryService] Failed to auto-create inventory for menu item " + menuItem.getId() + ": " + e.getMessage());
+                }
+            }
+        }
+
+        // Now get all inventories (including newly created ones)
         return menuInventoryRepository.findAll().stream().map(inventory -> {
             Integer reserved = inventoryReservationRepository
                     .sumQuantityByMenuItemIdAndWindowStart(inventory.getMenuItemId(), currentWindow.start());

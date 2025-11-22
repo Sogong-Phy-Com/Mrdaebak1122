@@ -201,6 +201,36 @@ const AdminScheduleManagement: React.FC = () => {
         <h2>스케줄 관리</h2>
         {error && <div className="error">{error}</div>}
 
+        {/* Tab Menu for Calendar Views */}
+        <div style={{ 
+          display: 'flex', 
+          gap: '10px', 
+          marginBottom: '20px',
+          borderBottom: '2px solid #FFD700',
+          paddingBottom: '10px'
+        }}>
+          <button
+            className="btn btn-secondary"
+            onClick={() => navigate('/schedule?type=schedule')}
+            style={{
+              borderBottom: '3px solid #FFD700',
+              borderRadius: '4px 4px 0 0'
+            }}
+          >
+            📅 스케줄 캘린더
+          </button>
+          <button
+            className="btn btn-secondary"
+            onClick={() => navigate('/schedule?type=orders')}
+            style={{
+              borderBottom: '3px solid #FFD700',
+              borderRadius: '4px 4px 0 0'
+            }}
+          >
+            📋 주문 캘린더
+          </button>
+        </div>
+
         <div style={{ marginBottom: '20px', display: 'flex', gap: '10px', alignItems: 'center' }}>
           <button
             onClick={() => {
