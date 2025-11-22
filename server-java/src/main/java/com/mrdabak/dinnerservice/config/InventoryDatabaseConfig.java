@@ -30,6 +30,9 @@ public class InventoryDatabaseConfig {
 
     @Bean(name = "inventoryDataSource")
     public DataSource inventoryDataSource() {
+        // Ensure data directory exists
+        ensureDataDirectory();
+        
         SQLiteConfig config = new SQLiteConfig();
         config.setJournalMode(SQLiteConfig.JournalMode.WAL);
         config.setBusyTimeout(60_000);
@@ -37,6 +40,18 @@ public class InventoryDatabaseConfig {
         SQLiteDataSource dataSource = new SQLiteDataSource(config);
         dataSource.setUrl("jdbc:sqlite:data/inventory.db?journal_mode=WAL&busy_timeout=60000");
         return dataSource;
+    }
+    
+    private void ensureDataDirectory() {
+        java.io.File dataDir = new java.io.File("data");
+        if (!dataDir.exists()) {
+            boolean created = dataDir.mkdirs();
+            if (created) {
+                System.out.println("[InventoryDatabaseConfig] Created data directory");
+            } else {
+                System.err.println("[InventoryDatabaseConfig] Failed to create data directory");
+            }
+        }
     }
 
     @Bean(name = "inventoryEntityManagerFactory")

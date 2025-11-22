@@ -44,6 +44,9 @@ public class MainDatabaseConfig {
     @Bean(name = "dataSource")
     @Primary
     public DataSource dataSource() {
+        // Ensure data directory exists
+        ensureDataDirectory();
+        
         SQLiteConfig config = new SQLiteConfig();
         config.setJournalMode(SQLiteConfig.JournalMode.WAL);
         config.setBusyTimeout(30_000);
@@ -51,6 +54,18 @@ public class MainDatabaseConfig {
         SQLiteDataSource dataSource = new SQLiteDataSource(config);
         dataSource.setUrl("jdbc:sqlite:data/mrdabak.db");
         return dataSource;
+    }
+    
+    private void ensureDataDirectory() {
+        java.io.File dataDir = new java.io.File("data");
+        if (!dataDir.exists()) {
+            boolean created = dataDir.mkdirs();
+            if (created) {
+                System.out.println("[MainDatabaseConfig] Created data directory");
+            } else {
+                System.err.println("[MainDatabaseConfig] Failed to create data directory");
+            }
+        }
     }
 
     @Bean(name = "entityManagerFactory")

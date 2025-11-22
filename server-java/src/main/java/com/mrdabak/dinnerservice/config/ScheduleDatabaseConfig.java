@@ -29,6 +29,9 @@ public class ScheduleDatabaseConfig {
 
     @Bean(name = "scheduleDataSource")
     public DataSource scheduleDataSource() {
+        // Ensure data directory exists
+        ensureDataDirectory();
+        
         SQLiteConfig config = new SQLiteConfig();
         config.setJournalMode(SQLiteConfig.JournalMode.WAL);
         config.setBusyTimeout(60_000);
@@ -36,6 +39,18 @@ public class ScheduleDatabaseConfig {
         SQLiteDataSource dataSource = new SQLiteDataSource(config);
         dataSource.setUrl("jdbc:sqlite:data/schedule.db?journal_mode=WAL&busy_timeout=60000");
         return dataSource;
+    }
+    
+    private void ensureDataDirectory() {
+        java.io.File dataDir = new java.io.File("data");
+        if (!dataDir.exists()) {
+            boolean created = dataDir.mkdirs();
+            if (created) {
+                System.out.println("[ScheduleDatabaseConfig] Created data directory");
+            } else {
+                System.err.println("[ScheduleDatabaseConfig] Failed to create data directory");
+            }
+        }
     }
 
     @Bean(name = "scheduleEntityManagerFactory")
