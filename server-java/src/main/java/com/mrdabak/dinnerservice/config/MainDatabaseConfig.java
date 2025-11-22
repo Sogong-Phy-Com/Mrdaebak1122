@@ -22,10 +22,20 @@ import org.sqlite.SQLiteDataSource;
 @EnableTransactionManagement
 @EnableJpaRepositories(
     basePackages = "com.mrdabak.dinnerservice.repository",
-    excludeFilters = @org.springframework.context.annotation.ComponentScan.Filter(
-        type = org.springframework.context.annotation.FilterType.REGEX,
-        pattern = ".*\\.order\\..*"
-    ),
+    excludeFilters = {
+        @org.springframework.context.annotation.ComponentScan.Filter(
+            type = org.springframework.context.annotation.FilterType.REGEX,
+            pattern = ".*\\.order\\..*"
+        ),
+        @org.springframework.context.annotation.ComponentScan.Filter(
+            type = org.springframework.context.annotation.FilterType.REGEX,
+            pattern = ".*\\.schedule\\..*"
+        ),
+        @org.springframework.context.annotation.ComponentScan.Filter(
+            type = org.springframework.context.annotation.FilterType.REGEX,
+            pattern = ".*\\.inventory\\..*"
+        )
+    },
     entityManagerFactoryRef = "entityManagerFactory",
     transactionManagerRef = "transactionManager"
 )
