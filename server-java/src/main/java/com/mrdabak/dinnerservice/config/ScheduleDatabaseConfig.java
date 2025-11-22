@@ -1,10 +1,10 @@
 package com.mrdabak.dinnerservice.config;
 
+import com.mrdabak.dinnerservice.model.DeliverySchedule;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.orm.jpa.EntityManagerFactoryBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Primary;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.orm.jpa.JpaTransactionManager;
 import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
@@ -21,33 +21,27 @@ import org.sqlite.SQLiteDataSource;
 @Configuration
 @EnableTransactionManagement
 @EnableJpaRepositories(
-    basePackages = "com.mrdabak.dinnerservice.repository",
-    excludeFilters = @org.springframework.context.annotation.ComponentScan.Filter(
-        type = org.springframework.context.annotation.FilterType.REGEX,
-        pattern = ".*\\.order\\..*"
-    ),
-    entityManagerFactoryRef = "entityManagerFactory",
-    transactionManagerRef = "transactionManager"
+    basePackages = "com.mrdabak.dinnerservice.repository.schedule",
+    entityManagerFactoryRef = "scheduleEntityManagerFactory",
+    transactionManagerRef = "scheduleTransactionManager"
 )
-public class MainDatabaseConfig {
+public class ScheduleDatabaseConfig {
 
-    @Bean(name = "dataSource")
-    @Primary
-    public DataSource dataSource() {
+    @Bean(name = "scheduleDataSource")
+    public DataSource scheduleDataSource() {
         SQLiteConfig config = new SQLiteConfig();
         config.setJournalMode(SQLiteConfig.JournalMode.WAL);
-        config.setBusyTimeout(30_000);
+        config.setBusyTimeout(60_000);
         config.setSynchronous(SQLiteConfig.SynchronousMode.NORMAL);
         SQLiteDataSource dataSource = new SQLiteDataSource(config);
-        dataSource.setUrl("jdbc:sqlite:data/mrdabak.db");
+        dataSource.setUrl("jdbc:sqlite:data/schedule.db?journal_mode=WAL&busy_timeout=60000");
         return dataSource;
     }
 
-    @Bean(name = "entityManagerFactory")
-    @Primary
-    public LocalContainerEntityManagerFactoryBean entityManagerFactory(
+    @Bean(name = "scheduleEntityManagerFactory")
+    public LocalContainerEntityManagerFactoryBean scheduleEntityManagerFactory(
             EntityManagerFactoryBuilder builder,
-            @Qualifier("dataSource") DataSource dataSource) {
+            @Qualifier("scheduleDataSource") DataSource dataSource) {
         Map<String, String> properties = new HashMap<>();
         properties.put("hibernate.dialect", "org.hibernate.community.dialect.SQLiteDialect");
         properties.put("hibernate.hbm2ddl.auto", "update");
@@ -58,21 +52,15 @@ public class MainDatabaseConfig {
 
         return builder
             .dataSource(dataSource)
-            .packages(
-                com.mrdabak.dinnerservice.model.User.class,
-                com.mrdabak.dinnerservice.model.DinnerType.class,
-                com.mrdabak.dinnerservice.model.MenuItem.class,
-                com.mrdabak.dinnerservice.model.DinnerMenuItem.class
-            )
-            .persistenceUnit("default")
+            .packages(DeliverySchedule.class)
+            .persistenceUnit("schedule")
             .properties(properties)
             .build();
     }
 
-    @Bean(name = "transactionManager")
-    @Primary
-    public PlatformTransactionManager transactionManager(
-            @Qualifier("entityManagerFactory") EntityManagerFactory entityManagerFactory) {
+    @Bean(name = "scheduleTransactionManager")
+    public PlatformTransactionManager scheduleTransactionManager(
+            @Qualifier("scheduleEntityManagerFactory") EntityManagerFactory entityManagerFactory) {
         return new JpaTransactionManager(entityManagerFactory);
     }
 }

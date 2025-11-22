@@ -1,9 +1,9 @@
 package com.mrdabak.dinnerservice.scheduler;
 
 import com.mrdabak.dinnerservice.model.MenuItem;
-import com.mrdabak.dinnerservice.repository.InventoryReservationRepository;
+import com.mrdabak.dinnerservice.repository.inventory.InventoryReservationRepository;
 import com.mrdabak.dinnerservice.repository.MenuItemRepository;
-import com.mrdabak.dinnerservice.repository.MenuInventoryRepository;
+import com.mrdabak.dinnerservice.repository.inventory.MenuInventoryRepository;
 import com.mrdabak.dinnerservice.repository.order.OrderItemRepository;
 import com.mrdabak.dinnerservice.repository.order.OrderRepository;
 import com.mrdabak.dinnerservice.service.InventoryService;
@@ -54,7 +54,7 @@ public class InventoryResetScheduler {
      * "0 0 0 * * ?" = 매일 자정
      */
     @Scheduled(cron = "0 0 0 * * ?")
-    @Transactional("transactionManager")
+    @Transactional("inventoryTransactionManager")
     public void resetDailyInventory() {
         try {
             LocalDate today = LocalDate.now();

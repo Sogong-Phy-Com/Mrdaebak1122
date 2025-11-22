@@ -3,8 +3,8 @@ package com.mrdabak.dinnerservice.service;
 import com.mrdabak.dinnerservice.dto.OrderItemDto;
 import com.mrdabak.dinnerservice.model.InventoryReservation;
 import com.mrdabak.dinnerservice.model.MenuInventory;
-import com.mrdabak.dinnerservice.repository.InventoryReservationRepository;
-import com.mrdabak.dinnerservice.repository.MenuInventoryRepository;
+import com.mrdabak.dinnerservice.repository.inventory.InventoryReservationRepository;
+import com.mrdabak.dinnerservice.repository.inventory.MenuInventoryRepository;
 import com.mrdabak.dinnerservice.repository.MenuItemRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -63,7 +63,7 @@ public class InventoryService {
         return new InventoryReservationPlan(window, aggregated, deliveryTime);
     }
 
-    @Transactional("transactionManager")
+    @Transactional("inventoryTransactionManager")
     public void commitReservations(Long orderId, InventoryReservationPlan plan) {
         if (orderId == null) {
             throw new IllegalArgumentException("주문 ID는 필수입니다.");
@@ -114,7 +114,7 @@ public class InventoryService {
                lowerCategory.contains("drink") || lowerCategory.contains("음료");
     }
 
-    @Transactional("transactionManager")
+    @Transactional("inventoryTransactionManager")
     public void releaseReservationsForOrder(Long orderId) {
         if (orderId == null) {
             throw new IllegalArgumentException("주문 ID는 필수입니다.");
@@ -137,7 +137,7 @@ public class InventoryService {
         }
     }
 
-    @Transactional("transactionManager")
+    @Transactional("inventoryTransactionManager")
     public void consumeReservationsForOrder(Long orderId) {
         if (orderId == null) {
             throw new IllegalArgumentException("주문 ID는 필수입니다.");
@@ -165,7 +165,7 @@ public class InventoryService {
         }
     }
 
-    @Transactional(readOnly = true)
+    @Transactional(value = "inventoryTransactionManager", readOnly = true)
     public List<InventorySnapshot> getInventorySnapshots() {
         LocalDateTime now = LocalDateTime.now();
         RestockWindow currentWindow = resolveWindow(now);
@@ -186,7 +186,7 @@ public class InventoryService {
         }).toList();
     }
 
-    @Transactional("transactionManager")
+    @Transactional("inventoryTransactionManager")
     public MenuInventory restock(Long menuItemId, int newCapacity, String notes) {
         if (menuItemId == null) {
             throw new IllegalArgumentException("메뉴 아이템 ID는 필수입니다.");
@@ -207,7 +207,7 @@ public class InventoryService {
         return menuInventoryRepository.save(inventory);
     }
 
-    @Transactional("transactionManager")
+    @Transactional("inventoryTransactionManager")
     public MenuInventory setOrderedQuantity(Long menuItemId, int orderedQuantity) {
         if (menuItemId == null) {
             throw new IllegalArgumentException("메뉴 아이템 ID는 필수입니다.");

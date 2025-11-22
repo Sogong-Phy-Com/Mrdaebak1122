@@ -12,7 +12,7 @@ import com.mrdabak.dinnerservice.service.DeliverySchedulingService;
 import com.mrdabak.dinnerservice.service.TravelTimeEstimator;
 import com.mrdabak.dinnerservice.service.OrderService;
 import com.mrdabak.dinnerservice.model.DeliverySchedule;
-import com.mrdabak.dinnerservice.repository.DeliveryScheduleRepository;
+import com.mrdabak.dinnerservice.repository.schedule.DeliveryScheduleRepository;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

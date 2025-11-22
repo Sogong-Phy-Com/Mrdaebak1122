@@ -1,4 +1,4 @@
-package com.mrdabak.dinnerservice.repository;
+package com.mrdabak.dinnerservice.repository.inventory;
 
 import com.mrdabak.dinnerservice.model.InventoryReservation;
 import org.springframework.data.jpa.repository.JpaRepository;

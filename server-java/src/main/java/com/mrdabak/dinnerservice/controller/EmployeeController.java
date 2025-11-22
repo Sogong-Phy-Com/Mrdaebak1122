@@ -36,7 +36,7 @@ public class EmployeeController {
     private final DeliverySchedulingService deliverySchedulingService;
     private final OrderService orderService;
     private final InventoryService inventoryService;
-    private final com.mrdabak.dinnerservice.repository.DeliveryScheduleRepository deliveryScheduleRepository;
+    private final com.mrdabak.dinnerservice.repository.schedule.DeliveryScheduleRepository deliveryScheduleRepository;
 
     public EmployeeController(OrderRepository orderRepository, OrderItemRepository orderItemRepository,
                              UserRepository userRepository, DinnerTypeRepository dinnerTypeRepository,
@@ -44,7 +44,7 @@ public class EmployeeController {
                              DeliverySchedulingService deliverySchedulingService,
                              OrderService orderService,
                              InventoryService inventoryService,
-                             com.mrdabak.dinnerservice.repository.DeliveryScheduleRepository deliveryScheduleRepository) {
+                             com.mrdabak.dinnerservice.repository.schedule.DeliveryScheduleRepository deliveryScheduleRepository) {
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
         this.userRepository = userRepository;

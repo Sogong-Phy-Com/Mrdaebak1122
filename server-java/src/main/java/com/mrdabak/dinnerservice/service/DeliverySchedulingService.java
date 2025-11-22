@@ -2,7 +2,7 @@ package com.mrdabak.dinnerservice.service;
 
 import com.mrdabak.dinnerservice.model.DeliverySchedule;
 import com.mrdabak.dinnerservice.model.User;
-import com.mrdabak.dinnerservice.repository.DeliveryScheduleRepository;
+import com.mrdabak.dinnerservice.repository.schedule.DeliveryScheduleRepository;
 import com.mrdabak.dinnerservice.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -91,7 +91,7 @@ public class DeliverySchedulingService {
                 .orElseThrow(() -> new RuntimeException("요청하신 시간에 배달 가능한 직원이 없습니다."));
     }
 
-    @Transactional("transactionManager")
+    @Transactional("scheduleTransactionManager")
     public DeliverySchedule commitAssignmentForOrder(Long orderId, Long employeeId, LocalDateTime deliveryTime, String deliveryAddress) {
         if (orderId == null || employeeId == null || deliveryTime == null || deliveryAddress == null) {
             throw new IllegalArgumentException("주문 ID, 직원 ID, 배달 시간, 배달 주소는 필수입니다.");
@@ -121,7 +121,7 @@ public class DeliverySchedulingService {
         return deliveryScheduleRepository.save(schedule);
     }
 
-    @Transactional("transactionManager")
+    @Transactional("scheduleTransactionManager")
     public DeliverySchedule commitAssignment(Long orderId, DeliveryAssignmentPlan plan) {
         if (orderId == null) {
             throw new IllegalArgumentException("주문 ID는 필수입니다.");
@@ -153,12 +153,12 @@ public class DeliverySchedulingService {
         return deliveryScheduleRepository.save(schedule);
     }
 
-    @Transactional("transactionManager")
+    @Transactional("scheduleTransactionManager")
     public void releaseAssignmentForOrder(Long orderId) {
         deliveryScheduleRepository.deleteByOrderId(orderId);
     }
 
-    @Transactional("transactionManager")
+    @Transactional("scheduleTransactionManager")
     public void cancelScheduleForOrder(Long orderId) {
         if (orderId == null) {
             throw new IllegalArgumentException("주문 ID는 필수입니다.");
@@ -189,7 +189,7 @@ public class DeliverySchedulingService {
         }
     }
 
-    @Transactional(readOnly = true)
+    @Transactional(value = "scheduleTransactionManager", readOnly = true)
     public List<DeliverySchedule> getSchedulesForUser(Long requesterId, boolean isAdmin, LocalDate date) {
         if (requesterId == null) {
             throw new IllegalArgumentException("요청자 ID는 필수입니다.");
@@ -203,7 +203,7 @@ public class DeliverySchedulingService {
         return deliveryScheduleRepository.findByEmployeeIdAndDepartureTimeBetween(requesterId, start, end);
     }
 
-    @Transactional("transactionManager")
+    @Transactional("scheduleTransactionManager")
     public DeliverySchedule updateStatus(Long scheduleId, String status, Long requesterId, boolean isAdmin) {
         if (scheduleId == null) {
             throw new IllegalArgumentException("스케줄 ID는 필수입니다.");

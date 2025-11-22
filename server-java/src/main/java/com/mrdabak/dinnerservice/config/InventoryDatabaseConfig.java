@@ -1,10 +1,11 @@
 package com.mrdabak.dinnerservice.config;
 
+import com.mrdabak.dinnerservice.model.MenuInventory;
+import com.mrdabak.dinnerservice.model.InventoryReservation;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.orm.jpa.EntityManagerFactoryBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Primary;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.orm.jpa.JpaTransactionManager;
 import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
@@ -21,33 +22,27 @@ import org.sqlite.SQLiteDataSource;
 @Configuration
 @EnableTransactionManagement
 @EnableJpaRepositories(
-    basePackages = "com.mrdabak.dinnerservice.repository",
-    excludeFilters = @org.springframework.context.annotation.ComponentScan.Filter(
-        type = org.springframework.context.annotation.FilterType.REGEX,
-        pattern = ".*\\.order\\..*"
-    ),
-    entityManagerFactoryRef = "entityManagerFactory",
-    transactionManagerRef = "transactionManager"
+    basePackages = "com.mrdabak.dinnerservice.repository.inventory",
+    entityManagerFactoryRef = "inventoryEntityManagerFactory",
+    transactionManagerRef = "inventoryTransactionManager"
 )
-public class MainDatabaseConfig {
+public class InventoryDatabaseConfig {
 
-    @Bean(name = "dataSource")
-    @Primary
-    public DataSource dataSource() {
+    @Bean(name = "inventoryDataSource")
+    public DataSource inventoryDataSource() {
         SQLiteConfig config = new SQLiteConfig();
         config.setJournalMode(SQLiteConfig.JournalMode.WAL);
-        config.setBusyTimeout(30_000);
+        config.setBusyTimeout(60_000);
         config.setSynchronous(SQLiteConfig.SynchronousMode.NORMAL);
         SQLiteDataSource dataSource = new SQLiteDataSource(config);
-        dataSource.setUrl("jdbc:sqlite:data/mrdabak.db");
+        dataSource.setUrl("jdbc:sqlite:data/inventory.db?journal_mode=WAL&busy_timeout=60000");
         return dataSource;
     }
 
-    @Bean(name = "entityManagerFactory")
-    @Primary
-    public LocalContainerEntityManagerFactoryBean entityManagerFactory(
+    @Bean(name = "inventoryEntityManagerFactory")
+    public LocalContainerEntityManagerFactoryBean inventoryEntityManagerFactory(
             EntityManagerFactoryBuilder builder,
-            @Qualifier("dataSource") DataSource dataSource) {
+            @Qualifier("inventoryDataSource") DataSource dataSource) {
         Map<String, String> properties = new HashMap<>();
         properties.put("hibernate.dialect", "org.hibernate.community.dialect.SQLiteDialect");
         properties.put("hibernate.hbm2ddl.auto", "update");
@@ -58,21 +53,15 @@ public class MainDatabaseConfig {
 
         return builder
             .dataSource(dataSource)
-            .packages(
-                com.mrdabak.dinnerservice.model.User.class,
-                com.mrdabak.dinnerservice.model.DinnerType.class,
-                com.mrdabak.dinnerservice.model.MenuItem.class,
-                com.mrdabak.dinnerservice.model.DinnerMenuItem.class
-            )
-            .persistenceUnit("default")
+            .packages(MenuInventory.class, InventoryReservation.class)
+            .persistenceUnit("inventory")
             .properties(properties)
             .build();
     }
 
-    @Bean(name = "transactionManager")
-    @Primary
-    public PlatformTransactionManager transactionManager(
-            @Qualifier("entityManagerFactory") EntityManagerFactory entityManagerFactory) {
+    @Bean(name = "inventoryTransactionManager")
+    public PlatformTransactionManager inventoryTransactionManager(
+            @Qualifier("inventoryEntityManagerFactory") EntityManagerFactory entityManagerFactory) {
         return new JpaTransactionManager(entityManagerFactory);
     }
 }

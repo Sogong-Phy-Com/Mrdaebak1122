@@ -1,4 +1,4 @@
-package com.mrdabak.dinnerservice.repository;
+package com.mrdabak.dinnerservice.repository.schedule;
 
 import com.mrdabak.dinnerservice.model.DeliverySchedule;
 import org.springframework.data.jpa.repository.JpaRepository;
