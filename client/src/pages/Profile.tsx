@@ -315,31 +315,7 @@ const Profile: React.FC = () => {
                       <h3 className="card-title">기본 정보</h3>
                       <div className="info-item">
                         <span className="info-label">이름</span>
-                        <input
-                          type="text"
-                          value={user?.name || ''}
-                          onChange={(e) => {
-                            if (user) {
-                              updateUser({ ...user, name: e.target.value });
-                            }
-                          }}
-                          onBlur={async () => {
-                            if (user) {
-                              try {
-                                const token = localStorage.getItem('token');
-                                await axios.put(`${API_URL}/auth/update-profile`, {
-                                  name: user.name,
-                                  phone: user.phone
-                                }, {
-                                  headers: { 'Authorization': `Bearer ${token}` }
-                                });
-                              } catch (err) {
-                                console.error('프로필 업데이트 실패:', err);
-                              }
-                            }
-                          }}
-                          style={{ padding: '8px', borderRadius: '4px', border: '1px solid #d4af37', width: '100%' }}
-                        />
+                        <span className="info-value">{user?.name || '-'}</span>
                       </div>
                       <div className="info-item">
                         <span className="info-label">이메일</span>
@@ -347,35 +323,20 @@ const Profile: React.FC = () => {
                       </div>
                       <div className="info-item">
                         <span className="info-label">전화번호</span>
-                        <input
-                          type="text"
-                          value={user?.phone || ''}
-                          onChange={(e) => {
-                            if (user) {
-                              updateUser({ ...user, phone: e.target.value });
-                            }
-                          }}
-                          onBlur={async () => {
-                            if (user) {
-                              try {
-                                const token = localStorage.getItem('token');
-                                await axios.put(`${API_URL}/auth/update-profile`, {
-                                  name: user.name,
-                                  phone: user.phone
-                                }, {
-                                  headers: { 'Authorization': `Bearer ${token}` }
-                                });
-                              } catch (err) {
-                                console.error('프로필 업데이트 실패:', err);
-                              }
-                            }
-                          }}
-                          style={{ padding: '8px', borderRadius: '4px', border: '1px solid #d4af37', width: '100%' }}
-                        />
+                        <span className="info-value">{user?.phone || '-'}</span>
                       </div>
                       <div className="info-item">
                         <span className="info-label">주소</span>
                         <span className="info-value">{user?.address || '-'}</span>
+                      </div>
+                      <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid #d4af37' }}>
+                        <button
+                          className="btn btn-primary"
+                          style={{ width: '100%' }}
+                          onClick={() => setShowEditProfile(true)}
+                        >
+                          내 정보 변경
+                        </button>
                       </div>
                     </div>
 
@@ -566,6 +527,56 @@ const Profile: React.FC = () => {
                 취소
               </button>
               <button className="btn btn-primary" onClick={handlePasswordChange}>
+                변경
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 내 정보 변경 모달 */}
+      {showEditProfile && (
+        <div className="modal-overlay" onClick={() => setShowEditProfile(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h3>내 정보 변경</h3>
+            <p style={{ color: '#FFD700', marginBottom: '20px' }}>정보를 변경하려면 비밀번호를 입력해주세요.</p>
+            <div className="form-group">
+              <label>비밀번호 확인</label>
+              <input
+                type="password"
+                value={editPassword}
+                onChange={(e) => setEditPassword(e.target.value)}
+                placeholder="비밀번호를 입력하세요"
+              />
+            </div>
+            <div className="form-group">
+              <label>이름</label>
+              <input
+                type="text"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                disabled={!editPassword}
+              />
+            </div>
+            <div className="form-group">
+              <label>전화번호</label>
+              <input
+                type="text"
+                value={editPhone}
+                onChange={(e) => setEditPhone(e.target.value)}
+                disabled={!editPassword}
+              />
+            </div>
+            <div style={{ display: 'flex', gap: '12px', marginTop: '20px' }}>
+              <button className="btn btn-secondary" onClick={() => {
+                setShowEditProfile(false);
+                setEditPassword('');
+                setEditName(user?.name || '');
+                setEditPhone(user?.phone || '');
+              }}>
+                취소
+              </button>
+              <button className="btn btn-primary" onClick={handleUpdateProfile} disabled={!editPassword}>
                 변경
               </button>
             </div>

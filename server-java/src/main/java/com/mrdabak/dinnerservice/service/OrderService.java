@@ -363,6 +363,96 @@ public class OrderService {
         }
     }
 
+    @Transactional(transactionManager = "orderTransactionManager", rollbackFor = Exception.class)
+    public Order modifyOrder(Long orderId, Long userId, OrderRequest request) {
+        if (orderId == null) {
+            throw new IllegalArgumentException("주문 ID는 필수입니다.");
+        }
+        if (userId == null) {
+            throw new IllegalArgumentException("사용자 ID는 필수입니다.");
+        }
+
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("주문을 찾을 수 없습니다: " + orderId));
+
+        // 주문 소유자 확인
+        if (!order.getUserId().equals(userId)) {
+            throw new RuntimeException("이 주문을 수정할 권한이 없습니다.");
+        }
+
+        // pending 상태인 주문만 수정 가능
+        if (!"pending".equals(order.getStatus())) {
+            throw new RuntimeException("주문 수정은 주문 접수 상태에서만 가능합니다.");
+        }
+
+        // 기존 가격 저장
+        int oldPrice = order.getTotalPrice();
+
+        // 배달 시간 업데이트
+        if (request.getDeliveryTime() != null && !request.getDeliveryTime().isEmpty()) {
+            order.setDeliveryTime(request.getDeliveryTime());
+        }
+
+        // 배달 주소 업데이트
+        if (request.getDeliveryAddress() != null && !request.getDeliveryAddress().isEmpty()) {
+            order.setDeliveryAddress(request.getDeliveryAddress());
+        }
+
+        // 주문 항목 업데이트
+        if (request.getItems() != null && !request.getItems().isEmpty()) {
+            // 기존 주문 항목 삭제
+            orderItemRepository.deleteByOrderId(orderId);
+
+            // 새 주문 항목 추가
+            for (OrderItemDto itemDto : request.getItems()) {
+                OrderItem orderItem = new OrderItem();
+                orderItem.setOrderId(orderId);
+                orderItem.setMenuItemId(itemDto.getMenuItemId());
+                orderItem.setQuantity(itemDto.getQuantity());
+                orderItemRepository.save(orderItem);
+            }
+
+            // 가격 재계산
+            DinnerType dinner = dinnerTypeRepository.findById(order.getDinnerTypeId())
+                    .orElseThrow(() -> new RuntimeException("디너 타입을 찾을 수 없습니다."));
+
+            Map<String, Double> styleMultipliers = Map.of(
+                    "simple", 1.0,
+                    "grand", 1.3,
+                    "deluxe", 1.6
+            );
+            double basePrice = dinner.getBasePrice() * styleMultipliers.getOrDefault(order.getServingStyle(), 1.0);
+
+            // 항목 가격 추가
+            double itemsPrice = 0;
+            for (OrderItemDto item : request.getItems()) {
+                MenuItem menuItem = menuItemRepository.findById(item.getMenuItemId())
+                        .orElseThrow(() -> new RuntimeException("메뉴 항목을 찾을 수 없습니다: " + item.getMenuItemId()));
+                itemsPrice += menuItem.getPrice() * item.getQuantity();
+            }
+
+            double totalPrice = basePrice + itemsPrice;
+
+            // 단골 고객 할인 (10%)
+            List<Order> previousOrders = orderRepository.findByUserIdOrderByCreatedAtDesc(userId);
+            if (previousOrders.stream().anyMatch(o -> "paid".equals(o.getPaymentStatus()))) {
+                totalPrice = totalPrice * 0.9;
+            }
+
+            // 수정 수수료 계산 (변경된 금액의 10%)
+            int newPrice = (int) Math.round(totalPrice);
+            int priceDifference = Math.abs(newPrice - oldPrice);
+            int modificationFee = (int) Math.round(priceDifference * 0.1);
+            int finalPrice = newPrice + modificationFee;
+
+            order.setTotalPrice(finalPrice);
+        }
+
+        orderRepository.save(order);
+
+        return order;
+    }
+
     private LocalDateTime parseDeliveryTime(String deliveryTime) {
         // datetime-local 형식 지원 (예: "2025-11-21T10:00" 또는 "2025-11-21T10:00:00")
         DateTimeFormatter[] formatters = {

@@ -212,6 +212,32 @@ public class OrderController {
         }
     }
 
+    @PostMapping("/{orderId}/modify")
+    public ResponseEntity<?> modifyOrder(@PathVariable Long orderId, 
+                                        @Valid @RequestBody OrderRequest request, 
+                                        Authentication authentication) {
+        try {
+            if (authentication == null || authentication.getName() == null || authentication.getName().isEmpty()) {
+                return ResponseEntity.status(401).body(Map.of("error", "Authentication required"));
+            }
+
+            Long userId = Long.parseLong(authentication.getName());
+            Order modifiedOrder = orderService.modifyOrder(orderId, userId, request);
+            
+            return ResponseEntity.ok(Map.of(
+                    "message", "Order modified successfully",
+                    "order_id", modifiedOrder.getId(),
+                    "total_price", modifiedOrder.getTotalPrice()
+            ));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", "Internal server error: " + e.getMessage()));
+        }
+    }
+
     @PostMapping("/{orderId}/cancel")
     public ResponseEntity<?> cancelOrder(@PathVariable Long orderId, Authentication authentication) {
         try {
