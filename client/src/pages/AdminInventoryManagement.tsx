@@ -131,7 +131,7 @@ const AdminInventoryManagement: React.FC = () => {
       let successCount = 0;
       let failCount = 0;
 
-      for (const menuItemId of selectedItems) {
+      const promises = Array.from(selectedItems).map(async (menuItemId) => {
         try {
           const currentCapacity = inventoryItems.find(item => item.menu_item_id === menuItemId)?.capacity_per_window || 0;
           const ordered = Math.max(0, Number(bulkRestockValue) - currentCapacity);
@@ -142,11 +142,15 @@ const AdminInventoryManagement: React.FC = () => {
           
           setOrderedInventory(prev => ({ ...prev, [menuItemId]: ordered }));
           successCount++;
+          return { success: true, menuItemId };
         } catch (err: any) {
           console.error(`재고 보충 실패 (메뉴 ID: ${menuItemId}):`, err);
           failCount++;
+          return { success: false, menuItemId };
         }
-      }
+      });
+
+      await Promise.all(promises);
 
       setSelectedItems(new Set());
       setBulkRestockValue('');
