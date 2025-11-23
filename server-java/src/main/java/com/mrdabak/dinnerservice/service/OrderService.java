@@ -165,19 +165,21 @@ public class OrderService {
         System.out.println("[OrderService] 배달 시간: " + request.getDeliveryTime());
         System.out.println("[OrderService] 배달 주소: " + request.getDeliveryAddress());
         
-        // 중복 주문 확인은 OrderController의 pendingOrders로 처리
-        // 여기서는 추가 검증만 수행 (로깅만)
+        // 중복 주문 확인: 동일한 사용자가 동일한 배달 시간과 주소로 최근 10초 이내에 주문을 생성했는지 확인
         String deliveryTimeStr = request.getDeliveryTime();
         String deliveryAddressStr = request.getDeliveryAddress();
         List<Order> recentOrders = orderRepository.findByUserIdAndDeliveryTimeAndDeliveryAddress(userId, deliveryTimeStr, deliveryAddressStr);
         
-        // 최근 5초 이내에 동일한 주문이 있는지 확인 (로깅만, 예외는 발생시키지 않음)
-        long fiveSecondsAgo = System.currentTimeMillis() - 5000;
+        // 최근 10초 이내에 동일한 주문이 있는지 확인
+        long tenSecondsAgo = System.currentTimeMillis() - 10000;
         for (Order recentOrder : recentOrders) {
-            if (recentOrder.getCreatedAt() != null && recentOrder.getCreatedAt().toInstant(java.time.ZoneOffset.UTC).toEpochMilli() > fiveSecondsAgo) {
-                System.out.println("[OrderService] 정보: 최근 5초 이내에 동일한 주문이 존재합니다 - 주문 ID: " + recentOrder.getId());
+            if (recentOrder.getCreatedAt() != null && recentOrder.getCreatedAt().toInstant(java.time.ZoneOffset.UTC).toEpochMilli() > tenSecondsAgo) {
+                System.out.println("[OrderService] 경고: 최근 10초 이내에 동일한 주문이 이미 존재합니다 - 주문 ID: " + recentOrder.getId());
                 System.out.println("[OrderService] 기존 주문 생성 시간: " + recentOrder.getCreatedAt());
-                // 중복은 OrderController에서 이미 처리되므로 여기서는 예외 발생하지 않음
+                System.out.println("[OrderService] 기존 주문 배달 시간: " + recentOrder.getDeliveryTime());
+                System.out.println("[OrderService] 기존 주문 배달 주소: " + recentOrder.getDeliveryAddress());
+                // 중복 주문이면 예외 발생 (중복 방지)
+                throw new RuntimeException("동일한 주문이 최근에 생성되었습니다. 주문 ID: " + recentOrder.getId());
             }
         }
         
