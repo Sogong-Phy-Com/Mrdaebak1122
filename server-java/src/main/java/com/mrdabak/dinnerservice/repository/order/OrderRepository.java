@@ -20,5 +20,8 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     
     @Query(value = "SELECT * FROM orders WHERE delivery_time >= :start AND delivery_time < :end", nativeQuery = true)
     List<Order> findByDeliveryTimeBetweenNative(@Param("start") String start, @Param("end") String end);
+    
+    @Query("SELECT o FROM Order o WHERE o.userId = :userId AND o.deliveryTime = :deliveryTime AND o.deliveryAddress = :deliveryAddress")
+    List<Order> findByUserIdAndDeliveryTimeAndDeliveryAddress(@Param("userId") Long userId, @Param("deliveryTime") String deliveryTime, @Param("deliveryAddress") String deliveryAddress);
 }
 

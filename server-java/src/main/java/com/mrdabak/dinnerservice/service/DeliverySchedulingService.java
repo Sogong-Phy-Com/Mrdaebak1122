@@ -135,8 +135,17 @@ public class DeliverySchedulingService {
             throw new IllegalArgumentException("배달 할당 계획은 필수입니다.");
         }
 
-        // Double-check availability (race condition prevention)
-        if (deliveryScheduleRepository.existsByEmployeeIdAndReturnTimeAfterAndDepartureTimeBefore(
+        // Check if schedule already exists for this order - update instead of create
+        DeliverySchedule schedule = deliveryScheduleRepository.findByOrderId(orderId)
+            .orElse(new DeliverySchedule());
+        
+        // If it's a new schedule, set the order ID
+        if (schedule.getId() == null) {
+            schedule.setOrderId(orderId);
+        }
+
+        // Double-check availability (race condition prevention) - only for new assignments
+        if (schedule.getId() == null && deliveryScheduleRepository.existsByEmployeeIdAndReturnTimeAfterAndDepartureTimeBefore(
                 plan.employeeId(), plan.departureTime(), plan.returnTime())) {
             throw new RuntimeException("해당 시간대에 배달 직원이 이미 배정되었습니다. 다시 시도해주세요.");
         }
@@ -146,15 +155,18 @@ public class DeliverySchedulingService {
             throw new RuntimeException("배달 직원을 찾을 수 없습니다.");
         }
 
-        DeliverySchedule schedule = new DeliverySchedule();
-        schedule.setOrderId(orderId);
+        // Update schedule fields
         schedule.setEmployeeId(plan.employeeId());
         schedule.setDeliveryAddress(plan.deliveryAddress());
         schedule.setDepartureTime(plan.departureTime());
         schedule.setArrivalTime(plan.arrivalTime());
         schedule.setReturnTime(plan.returnTime());
         schedule.setOneWayMinutes(plan.oneWayMinutes());
-        schedule.setStatus("SCHEDULED");
+        if (!"CANCELLED".equals(schedule.getStatus())) {
+            schedule.setStatus("SCHEDULED");
+        }
+        
+        System.out.println("[DeliverySchedulingService] 주문 ID " + orderId + "에 대한 배달 스케줄 저장/업데이트");
         return deliveryScheduleRepository.save(schedule);
     }
 

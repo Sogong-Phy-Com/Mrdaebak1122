@@ -807,12 +807,24 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({ type: propType }) =
                                       try {
                                         const headers = getAuthHeaders();
                                         
+                                        // 상태 변경 메시지 표시
+                                        const statusMessages: { [key: string]: string } = {
+                                          'cooking': '조리를 시작합니다',
+                                          'ready': '조리를 완료했습니다',
+                                          'out_for_delivery': '배달을 시작합니다',
+                                          'delivered': '배달을 완료했습니다'
+                                        };
+                                        const message = statusMessages[nextStatus] || '주문 상태가 변경되었습니다';
+                                        
                                         // 즉시 로컬 상태 업데이트하여 UI에 반영
                                         setOrders(prevOrders => 
                                           prevOrders.map(o => 
                                             o.id === order.id ? { ...o, status: nextStatus } : o
                                           )
                                         );
+                                        
+                                        // 팝업 알림 표시
+                                        alert(message);
                                         
                                         await axios.patch(`${API_URL}/employee/orders/${order.id}/status`, 
                                           { status: nextStatus }, 

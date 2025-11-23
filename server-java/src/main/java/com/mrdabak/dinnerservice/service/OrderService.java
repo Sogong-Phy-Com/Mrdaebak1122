@@ -167,21 +167,21 @@ public class OrderService {
         System.out.println("[OrderService] 배달 시간: " + request.getDeliveryTime());
         System.out.println("[OrderService] 배달 주소: " + request.getDeliveryAddress());
         
-        // 중복 주문 확인: 동일한 사용자가 동일한 배달 시간과 주소로 주문을 생성했는지 확인
-        List<Order> existingOrders = orderRepository.findByUserIdOrderByCreatedAtDesc(userId);
+        // 중복 주문 확인: 동일한 사용자가 동일한 배달 시간과 주소로 최근 10초 이내에 주문을 생성했는지 확인
         String deliveryTimeStr = request.getDeliveryTime();
         String deliveryAddressStr = request.getDeliveryAddress();
+        List<Order> recentOrders = orderRepository.findByUserIdAndDeliveryTimeAndDeliveryAddress(userId, deliveryTimeStr, deliveryAddressStr);
         
-        // 최근 동일한 주문이 있는지 확인
-        for (Order existingOrder : existingOrders) {
-            if (existingOrder.getDeliveryTime() != null && 
-                existingOrder.getDeliveryTime().equals(deliveryTimeStr) &&
-                existingOrder.getDeliveryAddress() != null &&
-                existingOrder.getDeliveryAddress().equals(deliveryAddressStr)) {
-                // 주문 생성 시간 확인 (created_at 필드가 있다면)
-                System.out.println("[OrderService] 경고: 동일한 주문이 이미 존재합니다 - 주문 ID: " + existingOrder.getId());
-                System.out.println("[OrderService] 기존 주문 배달 시간: " + existingOrder.getDeliveryTime());
-                System.out.println("[OrderService] 기존 주문 배달 주소: " + existingOrder.getDeliveryAddress());
+        // 최근 10초 이내에 동일한 주문이 있는지 확인
+        long tenSecondsAgo = System.currentTimeMillis() - 10000;
+        for (Order recentOrder : recentOrders) {
+            if (recentOrder.getCreatedAt() != null && recentOrder.getCreatedAt().toInstant(java.time.ZoneOffset.UTC).toEpochMilli() > tenSecondsAgo) {
+                System.out.println("[OrderService] 경고: 최근 10초 이내에 동일한 주문이 이미 존재합니다 - 주문 ID: " + recentOrder.getId());
+                System.out.println("[OrderService] 기존 주문 생성 시간: " + recentOrder.getCreatedAt());
+                System.out.println("[OrderService] 기존 주문 배달 시간: " + recentOrder.getDeliveryTime());
+                System.out.println("[OrderService] 기존 주문 배달 주소: " + recentOrder.getDeliveryAddress());
+                // 중복 주문이면 예외 발생
+                throw new RuntimeException("동일한 주문이 최근에 생성되었습니다. 주문 ID: " + recentOrder.getId());
             }
         }
         

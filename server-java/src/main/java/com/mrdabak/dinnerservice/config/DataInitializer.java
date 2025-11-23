@@ -248,6 +248,28 @@ public class DataInitializer implements CommandLineRunner {
             String phone = "010-" + String.format("%04d", i * 1111);
             createEmployeeAccount(email, "emp123", name, "Seoul", phone, "employee");
         }
+        
+        // Create test customer account
+        createCustomerAccount("rptmxm@rptmxm.com", "rptmxm", "테스트 고객", "Seoul", "010-1234-5678");
+    }
+    
+    private void createCustomerAccount(String email, String password, String name, String address, String phone) {
+        if (!userRepository.existsByEmail(email)) {
+            User customer = new User();
+            customer.setEmail(email);
+            customer.setPassword(passwordEncoder.encode(password));
+            customer.setName(name);
+            customer.setAddress(address);
+            customer.setPhone(phone);
+            customer.setRole("customer");
+            customer.setApprovalStatus("approved");
+            customer.setSecurityQuestion("내 어릴적 별명은?");
+            customer.setSecurityAnswer("asd");
+            userRepository.save(customer);
+            System.out.println("[DataInitializer] 고객 계정 생성: " + email);
+        } else {
+            System.out.println("[DataInitializer] 고객 계정이 이미 존재합니다: " + email);
+        }
     }
 
     private void createEmployeeAccount(String email, String password, String name, String address, String phone, String role) {
