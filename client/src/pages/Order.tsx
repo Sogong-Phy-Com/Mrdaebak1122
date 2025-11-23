@@ -54,6 +54,7 @@ const Order: React.FC = () => {
   const [orderItems, setOrderItems] = useState<{ menu_item_id: number; quantity: number }[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [inventoryAvailable, setInventoryAvailable] = useState(true);
@@ -387,10 +388,12 @@ const Order: React.FC = () => {
     }
 
     // 중복 제출 방지
-    if (loading) {
+    if (loading || isSubmitting) {
+      console.log('[주문 생성] 이미 제출 중입니다. 중복 제출 방지');
       return;
     }
 
+    setIsSubmitting(true);
     setLoading(true);
     setError(''); // 에러 초기화
 
@@ -421,6 +424,7 @@ const Order: React.FC = () => {
         console.log('[주문 수정] 성공:', response.data);
         alert('주문이 수정되었습니다.');
         setLoading(false);
+        setIsSubmitting(false);
         navigate('/orders');
       } else {
         // Create new order - 한 번만 호출되도록 보장
@@ -442,6 +446,7 @@ const Order: React.FC = () => {
         // 응답 형식에 따라 orderId 추출
         const orderId = response.data.order_id || response.data.id || response.data.order?.id || response.data.order_id;
         setLoading(false);
+        setIsSubmitting(false);
         if (orderId) {
           navigate(`/delivery/${orderId}`);
         } else {
@@ -454,6 +459,7 @@ const Order: React.FC = () => {
       console.error('[주문 생성] 실패');
       console.error('[주문 생성] 에러:', err);
       setLoading(false);
+      setIsSubmitting(false);
       
       if (err.response) {
         const status = err.response.status;

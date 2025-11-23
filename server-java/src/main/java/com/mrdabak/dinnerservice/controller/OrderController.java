@@ -19,6 +19,9 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/orders")
 public class OrderController {
+    
+    // 중복 주문 생성 방지를 위한 임시 저장소 (요청 ID 기반)
+    private final java.util.concurrent.ConcurrentHashMap<String, Long> pendingOrders = new java.util.concurrent.ConcurrentHashMap<>();
 
     private final OrderService orderService;
     private final OrderItemRepository orderItemRepository;
@@ -141,7 +144,7 @@ public class OrderController {
     }
 
     @PostMapping
-    public ResponseEntity<?> createOrder(@Valid @RequestBody OrderRequest request, Authentication authentication) {
+    public synchronized ResponseEntity<?> createOrder(@Valid @RequestBody OrderRequest request, Authentication authentication) {
         System.out.println("========== [주문 생성 API] 요청 시작 ==========");
         System.out.println("[주문 생성 API] Authentication 객체: " + (authentication != null ? "존재" : "null"));
         
@@ -197,10 +200,32 @@ public class OrderController {
                 return ResponseEntity.badRequest().body(Map.of("error", "Order items are required"));
             }
             
+            // 중복 주문 생성 방지: 동일한 요청(사용자 ID + 배달 시간 + 배달 주소)이 5초 이내에 들어오면 거부
+            String requestKey = userId + "|" + request.getDeliveryTime() + "|" + request.getDeliveryAddress();
+            Long existingOrderId = pendingOrders.get(requestKey);
+            if (existingOrderId != null) {
+                System.out.println("[주문 생성 API] 중복 요청 감지 - 요청 키: " + requestKey + ", 기존 주문 ID: " + existingOrderId);
+                return ResponseEntity.status(409).body(Map.of(
+                        "error", "동일한 주문이 이미 처리 중입니다.",
+                        "order_id", existingOrderId
+                ));
+            }
+            
             System.out.println("[주문 생성 API] 주문 서비스 호출 전 - 사용자 ID: " + userId);
             Order order = orderService.createOrder(userId, request);
             System.out.println("[주문 생성 API] 주문 서비스 호출 완료 - 주문 ID: " + order.getId());
             System.out.println("[주문 생성 API] 주문은 1개만 생성되었습니다.");
+            
+            // 주문 생성 완료 후 5초 후에 임시 저장소에서 제거
+            pendingOrders.put(requestKey, order.getId());
+            new java.util.Timer().schedule(new java.util.TimerTask() {
+                @Override
+                public void run() {
+                    pendingOrders.remove(requestKey);
+                    System.out.println("[주문 생성 API] 중복 방지 키 제거: " + requestKey);
+                }
+            }, 5000);
+            
             return ResponseEntity.status(201).body(Map.of(
                     "message", "Order created successfully",
                     "order_id", order.getId(),
