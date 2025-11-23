@@ -19,6 +19,17 @@ interface DayAssignment {
   deliveryEmployees: number[];
 }
 
+interface Order {
+  id: number;
+  customer_name?: string;
+  delivery_time: string;
+  delivery_address: string;
+  status: string;
+  dinner_name?: string;
+  cooking_employee_id?: number;
+  delivery_employee_id?: number;
+}
+
 const AdminScheduleManagement: React.FC = () => {
   const navigate = useNavigate();
   const [employees, setEmployees] = useState<Employee[]>([]);
