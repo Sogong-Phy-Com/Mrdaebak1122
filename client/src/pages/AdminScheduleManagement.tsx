@@ -116,8 +116,17 @@ const AdminScheduleManagement: React.FC = () => {
     return orders.filter(order => {
       if (!order.delivery_time) return false;
       try {
-        const orderDate = new Date(order.delivery_time);
-        const orderDateStr = orderDate.toISOString().split('T')[0];
+        // delivery_time이 "YYYY-MM-DDTHH:mm" 형식이면 그대로 사용, 아니면 파싱
+        let orderDateStr: string;
+        if (order.delivery_time.includes('T')) {
+          // "YYYY-MM-DDTHH:mm" 형식인 경우 날짜 부분만 추출
+          orderDateStr = order.delivery_time.split('T')[0];
+        } else {
+          // 다른 형식인 경우 Date 객체로 파싱
+          const orderDate = new Date(order.delivery_time);
+          if (isNaN(orderDate.getTime())) return false;
+          orderDateStr = orderDate.toISOString().split('T')[0];
+        }
         return orderDateStr === dateKey;
       } catch {
         return false;
@@ -244,20 +253,33 @@ const AdminScheduleManagement: React.FC = () => {
       const headers = getAuthHeaders();
       
       // Save assignment to backend
-      await axios.post(`${API_URL}/admin/schedule/assign`, {
+      const response = await axios.post(`${API_URL}/admin/schedule/assign`, {
         date: selectedDate,
         cookingEmployees: assignment.cookingEmployees,
         deliveryEmployees: assignment.deliveryEmployees
       }, { headers });
       
-      // 데이터베이스에 저장 완료 후 할당 정보 다시 불러오기
-      await fetchDayAssignments();
-      
-      alert('직원 할당이 저장되었습니다.');
-      setSelectedDate(null);
+      // 응답 확인 - 성공적으로 저장되었는지 확인
+      if (response.status === 200 || response.status === 201) {
+        // 데이터베이스에 저장 완료 후 할당 정보 다시 불러오기
+        await fetchDayAssignments();
+        
+        // 할당 정보가 제대로 저장되었는지 확인
+        const updatedAssignments = await axios.get(`${API_URL}/admin/schedule/assignments?date=${selectedDate}`, { headers });
+        if (updatedAssignments.data && updatedAssignments.data.date === selectedDate) {
+          alert('직원 할당이 저장되었습니다.');
+          setSelectedDate(null);
+        } else {
+          // 저장이 완료되지 않았으면 로딩 유지
+          throw new Error('할당 정보가 데이터베이스에 저장되지 않았습니다. 다시 시도해주세요.');
+        }
+      } else {
+        throw new Error('할당 저장에 실패했습니다.');
+      }
     } catch (err: any) {
       setError(err.response?.data?.error || err.message || '할당 저장에 실패했습니다.');
       alert('할당 저장에 실패했습니다: ' + (err.response?.data?.error || err.message));
+      // 에러 발생 시에도 로딩은 유지하지 않음 (사용자가 다시 시도할 수 있도록)
     } finally {
       setLoading(false);
     }

@@ -204,16 +204,29 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({ type: propType }) =
         const filteredOrders = response.data.filter((order: Order) => {
           if (!order.delivery_time) return false;
           try {
+            // delivery_time이 "YYYY-MM-DDTHH:mm" 형식이면 직접 파싱
             let orderDate: Date;
-            try {
-              orderDate = new Date(order.delivery_time);
-            } catch {
+            if (order.delivery_time.includes('T')) {
               const parts = order.delivery_time.split('T');
               if (parts.length === 2) {
-                orderDate = new Date(order.delivery_time + ':00');
+                const datePart = parts[0].split('-');
+                const timePart = parts[1].split(':');
+                if (datePart.length === 3 && timePart.length >= 2) {
+                  orderDate = new Date(
+                    parseInt(datePart[0]),
+                    parseInt(datePart[1]) - 1, // month는 0부터 시작
+                    parseInt(datePart[2]),
+                    parseInt(timePart[0]),
+                    parseInt(timePart[1])
+                  );
+                } else {
+                  orderDate = new Date(order.delivery_time);
+                }
               } else {
-                return false;
+                orderDate = new Date(order.delivery_time);
               }
+            } else {
+              orderDate = new Date(order.delivery_time);
             }
             if (isNaN(orderDate.getTime())) return false;
             return orderDate.getMonth() === currentMonth && orderDate.getFullYear() === currentYear;
@@ -277,21 +290,22 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({ type: propType }) =
       return orders.filter(order => {
         if (!order || !order.delivery_time) return false;
         try {
-          // delivery_time 파싱 (다양한 형식 지원)
-          let orderDate: Date;
-          try {
-            orderDate = new Date(order.delivery_time);
-          } catch {
-            // datetime-local 형식 시도
-            const parts = order.delivery_time.split('T');
-            if (parts.length === 2) {
-              orderDate = new Date(order.delivery_time + ':00');
-            } else {
-              return false;
-            }
+          // delivery_time이 "YYYY-MM-DDTHH:mm" 형식이면 직접 파싱 (UTC 변환 없이)
+          let orderDateStr: string;
+          if (order.delivery_time.includes('T')) {
+            // "YYYY-MM-DDTHH:mm" 형식인 경우 날짜 부분만 추출
+            orderDateStr = order.delivery_time.split('T')[0];
+          } else {
+            // 다른 형식인 경우 Date 객체로 파싱
+            const orderDate = new Date(order.delivery_time);
+            if (isNaN(orderDate.getTime())) return false;
+            // 로컬 날짜로 변환 (UTC 변환 없이)
+            const year = orderDate.getFullYear();
+            const month = (orderDate.getMonth() + 1).toString().padStart(2, '0');
+            const day = orderDate.getDate().toString().padStart(2, '0');
+            orderDateStr = `${year}-${month}-${day}`;
           }
-          if (isNaN(orderDate.getTime())) return false;
-          return orderDate.toISOString().split('T')[0] === dateStr;
+          return orderDateStr === dateStr;
         } catch {
           return false;
         }

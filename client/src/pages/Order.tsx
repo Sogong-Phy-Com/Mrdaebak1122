@@ -127,6 +127,7 @@ const Order: React.FC = () => {
   // Update deliveryTime when date and time are selected
   useEffect(() => {
     if (isDateValid && selectedTime) {
+      // 로컬 시간대를 사용하여 날짜/시간 문자열 생성 (UTC 변환 없이)
       const dateTime = `${selectedDate}T${selectedTime}:00`;
       setDeliveryTime(dateTime);
     } else {
@@ -392,6 +393,21 @@ const Order: React.FC = () => {
 
     if (orderItems.length === 0) {
       setError('주문 항목을 선택해주세요.');
+      return;
+    }
+
+    // 배달 시간 유효성 검사: 지난 시간이거나 3시간 이하 남은 경우 주문 불가
+    const now = new Date();
+    const deliveryDateTime = new Date(deliveryTime);
+    const hoursUntilDelivery = (deliveryDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+    
+    if (deliveryDateTime <= now) {
+      setError('이미 지난 시간은 선택할 수 없습니다.');
+      return;
+    }
+    
+    if (hoursUntilDelivery < 3) {
+      setError('배달 시간은 최소 3시간 전에 주문해야 합니다.');
       return;
     }
 
@@ -811,13 +827,22 @@ const Order: React.FC = () => {
                 </div>
               )}
 
-              <button 
-                type="submit" 
-                className="btn btn-primary submit-button" 
-                disabled={loading || !inventoryAvailable}
-              >
-                {loading ? (isModifying ? '수정 중...' : '주문 처리 중...') : (isModifying ? '주문 수정하기' : '주문하기')}
-              </button>
+              {(() => {
+                const now = new Date();
+                const deliveryDateTime = deliveryTime ? new Date(deliveryTime) : null;
+                const hoursUntilDelivery = deliveryDateTime ? (deliveryDateTime.getTime() - now.getTime()) / (1000 * 60 * 60) : Infinity;
+                const isTimeValid = deliveryDateTime && deliveryDateTime > now && hoursUntilDelivery >= 3;
+                
+                return (
+                  <button 
+                    type="submit" 
+                    className="btn btn-primary submit-button" 
+                    disabled={loading || !inventoryAvailable || !isTimeValid}
+                  >
+                    {loading ? (isModifying ? '수정 중...' : '주문 처리 중...') : (isModifying ? '주문 수정하기' : '주문하기')}
+                  </button>
+                );
+              })()}
             </>
           )}
         </form>
