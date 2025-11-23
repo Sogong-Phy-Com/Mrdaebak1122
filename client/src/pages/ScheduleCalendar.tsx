@@ -780,7 +780,14 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({ type: propType }) =
                                 const tasks = assignment?.tasks || [];
                                 const canChangeStatus = tasks.includes('조리') || tasks.includes('배달');
                                 
-                                if (!canChangeStatus) return null;
+                                // 할당받지 않은 작업이면 버튼 비활성화
+                                if (!canChangeStatus) {
+                                  return (
+                                    <button className="btn btn-secondary" disabled>
+                                      할당되지 않은 작업입니다
+                                    </button>
+                                  );
+                                }
                                 
                                 const getNextStatus = () => {
                                   if (order.status === 'pending') return 'cooking';
@@ -823,13 +830,18 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({ type: propType }) =
                                           )
                                         );
                                         
-                                        // 팝업 알림 표시
-                                        alert(message);
-                                        
                                         await axios.patch(`${API_URL}/employee/orders/${order.id}/status`, 
                                           { status: nextStatus }, 
                                           { headers }
                                         );
+                                        
+                                        // 팝업 알림 표시
+                                        alert(message);
+                                        
+                                        // 팝업 닫고 주문 캘린더로 돌아가기
+                                        setShowScheduleModal(false);
+                                        setSelectedDate(null);
+                                        setSelectedOrders([]);
                                         
                                         // 서버에서 최신 데이터 가져오기 (백그라운드)
                                         fetchOrders().catch(console.error);

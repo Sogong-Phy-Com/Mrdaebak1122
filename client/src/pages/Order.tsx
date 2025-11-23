@@ -522,6 +522,15 @@ const Order: React.FC = () => {
         } else if (status === 401) {
           setError(`[인증 실패] 로그인이 필요합니다. (상태: 401)\n상세: ${JSON.stringify(errorData)}`);
         } else if (status === 400) {
+          // 400 에러가 발생해도 주문이 성공적으로 생성되었을 수 있음
+          // 중복 주문 메시지인 경우 무시하고 주문 목록으로 이동
+          const errorMessage = errorData.error || errorData.message || JSON.stringify(errorData);
+          if (errorMessage.includes('동일한 주문이') || errorMessage.includes('이미 처리 중')) {
+            // 중복 주문 에러는 무시하고 주문 목록으로 이동
+            console.log('[주문 생성] 중복 주문 감지, 주문 목록으로 이동');
+            navigate('/orders', { replace: true });
+            return;
+          }
           const validationErrors = errorData.errors || errorData;
           if (Array.isArray(validationErrors)) {
             setError(`[입력 오류]\n${validationErrors.map((e: any) => e.message || e).join('\n')}`);

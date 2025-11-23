@@ -250,14 +250,14 @@ const AdminScheduleManagement: React.FC = () => {
         deliveryEmployees: assignment.deliveryEmployees
       }, { headers });
       
-      setDayAssignments({
-        ...dayAssignments,
-        [selectedDate]: assignment
-      });
+      // 데이터베이스에 저장 완료 후 할당 정보 다시 불러오기
+      await fetchDayAssignments();
+      
       alert('직원 할당이 저장되었습니다.');
       setSelectedDate(null);
     } catch (err: any) {
       setError(err.response?.data?.error || err.message || '할당 저장에 실패했습니다.');
+      alert('할당 저장에 실패했습니다: ' + (err.response?.data?.error || err.message));
     } finally {
       setLoading(false);
     }
@@ -493,6 +493,31 @@ const AdminScheduleManagement: React.FC = () => {
               border: '2px solid #d4af37'
             }}>
               <h3>{selectedDate} 직원 할당</h3>
+              {loading && (
+                <div style={{ 
+                  position: 'absolute', 
+                  top: 0, 
+                  left: 0, 
+                  right: 0, 
+                  bottom: 0, 
+                  background: 'rgba(0,0,0,0.8)', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  zIndex: 1001,
+                  borderRadius: '12px'
+                }}>
+                  <div style={{ 
+                    background: '#1a1a1a', 
+                    padding: '20px', 
+                    borderRadius: '8px',
+                    border: '2px solid #d4af37'
+                  }}>
+                    <div style={{ color: '#d4af37', fontSize: '18px', marginBottom: '10px' }}>할당 저장 중...</div>
+                    <div style={{ color: '#fff' }}>데이터베이스에 저장하고 있습니다.</div>
+                  </div>
+                </div>
+              )}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginTop: '20px' }}>
                 <div>
                   <h4>조리 담당 (5명 선택)</h4>
