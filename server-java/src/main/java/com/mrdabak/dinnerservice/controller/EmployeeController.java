@@ -7,7 +7,6 @@ import com.mrdabak.dinnerservice.repository.order.OrderItemRepository;
 import com.mrdabak.dinnerservice.repository.schedule.EmployeeWorkAssignmentRepository;
 import com.mrdabak.dinnerservice.model.EmployeeWorkAssignment;
 import com.mrdabak.dinnerservice.service.DeliverySchedulingService;
-import com.mrdabak.dinnerservice.service.ExcelExportService;
 import com.mrdabak.dinnerservice.service.OrderService;
 import com.mrdabak.dinnerservice.service.InventoryService;
 import org.springframework.http.HttpHeaders;
@@ -34,7 +33,6 @@ public class EmployeeController {
     private final UserRepository userRepository;
     private final DinnerTypeRepository dinnerTypeRepository;
     private final MenuItemRepository menuItemRepository;
-    private final ExcelExportService excelExportService;
     private final DeliverySchedulingService deliverySchedulingService;
     private final OrderService orderService;
     private final InventoryService inventoryService;
@@ -43,7 +41,7 @@ public class EmployeeController {
 
     public EmployeeController(OrderRepository orderRepository, OrderItemRepository orderItemRepository,
                              UserRepository userRepository, DinnerTypeRepository dinnerTypeRepository,
-                             MenuItemRepository menuItemRepository, ExcelExportService excelExportService,
+                             MenuItemRepository menuItemRepository,
                              DeliverySchedulingService deliverySchedulingService,
                              OrderService orderService,
                              InventoryService inventoryService,
@@ -54,7 +52,6 @@ public class EmployeeController {
         this.userRepository = userRepository;
         this.dinnerTypeRepository = dinnerTypeRepository;
         this.menuItemRepository = menuItemRepository;
-        this.excelExportService = excelExportService;
         this.deliverySchedulingService = deliverySchedulingService;
         this.orderService = orderService;
         this.inventoryService = inventoryService;
@@ -384,25 +381,6 @@ public class EmployeeController {
         }
     }
 
-    @GetMapping("/orders/export")
-    public ResponseEntity<byte[]> exportOrdersToExcel(@RequestParam(required = false) String status) {
-        try {
-            byte[] excelData = excelExportService.exportOrdersToExcel(status);
-            
-            String filename = "orders_" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")) + ".xlsx";
-            
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
-            headers.setContentDispositionFormData("attachment", filename);
-            headers.setContentLength(excelData.length);
-            
-            return ResponseEntity.ok()
-                    .headers(headers)
-                    .body(excelData);
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError().build();
-        }
-    }
 
     @GetMapping("/schedule/assignments")
     public ResponseEntity<?> getEmployeeScheduleAssignments(

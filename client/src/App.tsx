@@ -13,8 +13,6 @@ import Order from './pages/Order';
 import Orders from './pages/Orders';
 import Profile from './pages/Profile';
 import DeliveryStatus from './pages/DeliveryStatus';
-import EmployeeDashboard from './pages/EmployeeDashboard';
-import AdminDashboard from './pages/AdminDashboard';
 import AdminOrderManagement from './pages/AdminOrderManagement';
 import AdminInventoryManagement from './pages/AdminInventoryManagement';
 import AdminAccountManagement from './pages/AdminAccountManagement';
