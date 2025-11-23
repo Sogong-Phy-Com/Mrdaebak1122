@@ -146,5 +146,34 @@ public class InventoryController {
                     .body(Map.of("error", "주문 재고 저장 중 오류가 발생했습니다: " + e.getMessage()));
         }
     }
+
+    @PostMapping("/{menuItemId}/receive")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> receiveInventory(@PathVariable Long menuItemId) {
+        try {
+            if (menuItemId == null) {
+                return ResponseEntity.badRequest().body(Map.of("error", "메뉴 아이템 ID는 필수입니다."));
+            }
+            
+            // Verify menu item exists
+            if (!menuItemRepository.existsById(menuItemId)) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("error", "메뉴 아이템을 찾을 수 없습니다: " + menuItemId));
+            }
+            
+            var inventory = inventoryService.receiveOrderedInventory(menuItemId);
+            return ResponseEntity.ok(Map.of(
+                    "menu_item_id", inventory.getMenuItemId(),
+                    "capacity_per_window", inventory.getCapacityPerWindow(),
+                    "ordered_quantity", inventory.getOrderedQuantity(),
+                    "message", "재고 수령이 완료되었습니다."
+            ));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(500)
+                    .body(Map.of("error", "재고 수령 중 오류가 발생했습니다: " + e.getMessage()));
+        }
+    }
 }
 

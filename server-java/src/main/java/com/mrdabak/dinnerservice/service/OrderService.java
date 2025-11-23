@@ -159,37 +159,8 @@ public class OrderService {
         order.setPaymentStatus("pending");
         order.setPaymentMethod(request.getPaymentMethod());
 
-        // Auto-assign employees (5 cooking, 5 delivery employees)
-        // Get all employees and assign based on employeeType or default (first 5 cooking, last 5 delivery)
-        List<User> allEmployees = userRepository.findByRole("employee");
-        List<User> cookingEmployees = allEmployees.stream()
-                .filter(emp -> "cooking".equals(emp.getEmployeeType()) || 
-                        (emp.getEmployeeType() == null && allEmployees.indexOf(emp) < 5))
-                .limit(5)
-                .toList();
-        List<User> deliveryEmployees = allEmployees.stream()
-                .filter(emp -> "delivery".equals(emp.getEmployeeType()) || 
-                        (emp.getEmployeeType() == null && allEmployees.indexOf(emp) >= 5))
-                .limit(5)
-                .toList();
-        
-        // Assign cooking employee (round-robin based on order count)
-        if (!cookingEmployees.isEmpty()) {
-            List<Order> cookingOrders = orderRepository.findAll().stream()
-                    .filter(o -> o.getCookingEmployeeId() != null)
-                    .toList();
-            int cookingIndex = (int) (cookingOrders.size() % cookingEmployees.size());
-            order.setCookingEmployeeId(cookingEmployees.get(cookingIndex).getId());
-        }
-        
-        // Assign delivery employee (round-robin based on order count)
-        if (!deliveryEmployees.isEmpty()) {
-            List<Order> deliveryOrders = orderRepository.findAll().stream()
-                    .filter(o -> o.getDeliveryEmployeeId() != null)
-                    .toList();
-            int deliveryIndex = (int) (deliveryOrders.size() % deliveryEmployees.size());
-            order.setDeliveryEmployeeId(deliveryEmployees.get(deliveryIndex).getId());
-        }
+        // 주문 생성 시 직원 자동 할당 제거 - 관리자가 나중에 할당하도록 함
+        // 주문은 하나만 생성되며, 직원 할당은 관리자가 스케줄 관리에서 할당
 
         Order savedOrder = orderRepository.save(order);
 

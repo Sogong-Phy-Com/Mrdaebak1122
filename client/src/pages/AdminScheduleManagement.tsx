@@ -27,12 +27,20 @@ const AdminScheduleManagement: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [dayAssignments, setDayAssignments] = useState<{ [key: string]: DayAssignment }>({});
   const [loading, setLoading] = useState(false);
+  const [loadingAssignments, setLoadingAssignments] = useState(false);
   const [error, setError] = useState('');
+  const [calendarType, setCalendarType] = useState<'schedule' | 'orders'>('schedule');
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [selectedDateForOrders, setSelectedDateForOrders] = useState<string | null>(null);
 
   useEffect(() => {
     fetchEmployees();
-    fetchDayAssignments();
-  }, [currentMonth, currentYear]);
+    if (calendarType === 'schedule') {
+      fetchDayAssignments();
+    } else {
+      fetchOrders();
+    }
+  }, [currentMonth, currentYear, calendarType]);
 
   const getAuthHeaders = () => {
     const token = localStorage.getItem('token');
@@ -60,6 +68,65 @@ const AdminScheduleManagement: React.FC = () => {
       } catch (err2: any) {
         setError('직원 목록을 불러오는데 실패했습니다.');
       }
+    }
+  };
+
+  const fetchOrders = async () => {
+    try {
+      setLoadingAssignments(true);
+      const headers = getAuthHeaders();
+      const response = await axios.get(`${API_URL}/employee/orders`, { headers });
+      if (response.data && Array.isArray(response.data)) {
+        // 현재 월의 주문만 필터링
+        const filteredOrders = response.data.filter((order: Order) => {
+          if (!order.delivery_time) return false;
+          try {
+            const orderDate = new Date(order.delivery_time);
+            if (isNaN(orderDate.getTime())) return false;
+            return orderDate.getMonth() === currentMonth && orderDate.getFullYear() === currentYear;
+          } catch {
+            return false;
+          }
+        });
+        setOrders(filteredOrders);
+      } else {
+        setOrders([]);
+      }
+    } catch (err: any) {
+      console.error('주문 목록 조회 실패:', err);
+      setOrders([]);
+    } finally {
+      setLoadingAssignments(false);
+    }
+  };
+
+  const getOrdersForDate = (dateKey: string): Order[] => {
+    if (!dateKey) return [];
+    return orders.filter(order => {
+      if (!order.delivery_time) return false;
+      try {
+        const orderDate = new Date(order.delivery_time);
+        const orderDateStr = orderDate.toISOString().split('T')[0];
+        return orderDateStr === dateKey;
+      } catch {
+        return false;
+      }
+    });
+  };
+
+  const updateOrderStatus = async (orderId: number, newStatus: string) => {
+    try {
+      setLoading(true);
+      const headers = getAuthHeaders();
+      await axios.patch(`${API_URL}/admin/orders/${orderId}/status`, { status: newStatus }, { headers });
+      await fetchOrders();
+      alert('주문 상태가 변경되었습니다.');
+      setSelectedDateForOrders(null);
+      setSelectedDateForOrders(selectedDateForOrders); // Refresh modal
+    } catch (err: any) {
+      setError(err.response?.data?.error || err.message || '주문 상태 변경에 실패했습니다.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -230,6 +297,32 @@ const AdminScheduleManagement: React.FC = () => {
 
         <h2>스케줄 관리</h2>
         {error && <div className="error">{error}</div>}
+        {loadingAssignments && (
+          <div className="loading-overlay" style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.7)',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 9999,
+            pointerEvents: 'all'
+          }}>
+            <div style={{
+              background: '#1a1a1a',
+              padding: '30px',
+              borderRadius: '10px',
+              textAlign: 'center',
+              color: '#fff'
+            }}>
+              <div style={{ fontSize: '18px', marginBottom: '10px' }}>로딩 중...</div>
+              <div>직원 작업 할당 정보를 불러오는 중입니다.</div>
+            </div>
+          </div>
+        )}
 
         {/* Tab Menu for Calendar Views - Only Schedule and Order Calendar */}
         <div style={{ 
@@ -240,20 +333,20 @@ const AdminScheduleManagement: React.FC = () => {
           paddingBottom: '10px'
         }}>
           <button
-            className="btn btn-primary"
-            onClick={() => {}}
+            className={`btn ${calendarType === 'schedule' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => setCalendarType('schedule')}
             style={{
-              borderBottom: '3px solid #FFD700',
+              borderBottom: calendarType === 'schedule' ? '3px solid #FFD700' : 'none',
               borderRadius: '4px 4px 0 0'
             }}
           >
             📅 스케줄 캘린더 (작업 할당)
           </button>
           <button
-            className="btn btn-secondary"
-            onClick={() => navigate('/schedule?type=orders')}
+            className={`btn ${calendarType === 'orders' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => setCalendarType('orders')}
             style={{
-              borderBottom: '3px solid #FFD700',
+              borderBottom: calendarType === 'orders' ? '3px solid #FFD700' : 'none',
               borderRadius: '4px 4px 0 0'
             }}
           >
@@ -317,28 +410,46 @@ const AdminScheduleManagement: React.FC = () => {
             const day = i + 1;
             const dateKey = getDateKey(currentYear, currentMonth, day);
             const isPast = isDateInPast(currentYear, currentMonth, day);
-            const status = getAssignmentStatus(dateKey);
+            const status = calendarType === 'schedule' ? getAssignmentStatus(dateKey) : null;
             const isToday = dateKey === new Date().toISOString().split('T')[0];
+            const dayOrders = calendarType === 'orders' ? getOrdersForDate(dateKey) : [];
 
             return (
               <div
                 key={day}
-                onClick={() => !isPast && handleDateClick(dateKey)}
+                onClick={() => {
+                  if (calendarType === 'schedule') {
+                    !isPast && handleDateClick(dateKey);
+                  } else {
+                    !isPast && setSelectedDateForOrders(dateKey);
+                  }
+                }}
                 style={{
                   padding: '15px',
                   textAlign: 'center',
                   cursor: isPast ? 'not-allowed' : 'pointer',
-                  background: isPast ? '#ccc' : status === 'full' ? '#4CAF50' : status === 'partial' ? '#ff4444' : '#f5f5f5',
-                  color: isPast ? '#666' : status === 'empty' ? '#000' : '#fff',
+                  background: isPast ? '#ccc' : 
+                    calendarType === 'schedule' 
+                      ? (status === 'full' ? '#4CAF50' : status === 'partial' ? '#ff4444' : '#f5f5f5')
+                      : (dayOrders.length > 0 ? '#2196F3' : '#f5f5f5'),
+                  color: isPast ? '#666' : 
+                    calendarType === 'schedule'
+                      ? (status === 'empty' ? '#000' : '#fff')
+                      : (dayOrders.length > 0 ? '#fff' : '#000'),
                   border: isToday ? '2px solid #FFD700' : '1px solid #ddd',
                   borderRadius: '4px',
                   opacity: isPast ? 0.5 : 1
                 }}
               >
                 <div style={{ fontWeight: 'bold' }}>{day}</div>
-                {!isPast && (
+                {!isPast && calendarType === 'schedule' && (
                   <div style={{ fontSize: '10px', marginTop: '5px' }}>
                     {status === 'full' ? '10명 할당' : status === 'partial' ? '부분 할당' : '미할당'}
+                  </div>
+                )}
+                {!isPast && calendarType === 'orders' && dayOrders.length > 0 && (
+                  <div style={{ fontSize: '10px', marginTop: '5px' }}>
+                    {dayOrders.length}개 주문
                   </div>
                 )}
               </div>
@@ -466,6 +577,113 @@ const AdminScheduleManagement: React.FC = () => {
                   className="btn btn-secondary"
                 >
                   취소
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Order Calendar Modal */}
+        {selectedDateForOrders && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0,0,0,0.8)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000
+          }}>
+            <div style={{
+              background: '#1a1a1a',
+              color: '#fff',
+              padding: '30px',
+              borderRadius: '12px',
+              maxWidth: '800px',
+              width: '90%',
+              maxHeight: '80vh',
+              overflow: 'auto',
+              border: '2px solid #d4af37'
+            }}>
+              <h3>{selectedDateForOrders} 주문 목록</h3>
+              {getOrdersForDate(selectedDateForOrders).length === 0 ? (
+                <p>이 날짜에 주문이 없습니다.</p>
+              ) : (
+                <div style={{ marginTop: '20px' }}>
+                  {getOrdersForDate(selectedDateForOrders).map(order => (
+                    <div key={order.id} style={{
+                      background: '#2a2a2a',
+                      padding: '15px',
+                      borderRadius: '8px',
+                      marginBottom: '15px',
+                      border: '1px solid #d4af37'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '10px' }}>
+                        <div>
+                          <h4>주문 #{order.id}</h4>
+                          <p>{order.customer_name && `고객: ${order.customer_name}`}</p>
+                          <p>{order.dinner_name && `디너: ${order.dinner_name}`}</p>
+                          <p>주소: {order.delivery_address}</p>
+                          <p>상태: {
+                            order.status === 'delivered' ? '배달 완료' : 
+                            order.status === 'cancelled' ? '취소됨' :
+                            order.status === 'cooking' ? '조리 중' :
+                            order.status === 'out_for_delivery' ? '배달 중' :
+                            order.status === 'ready' ? '준비 완료' : '주문 접수'
+                          }</p>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                          {order.status === 'pending' && (
+                            <button
+                              className="btn btn-primary"
+                              onClick={() => updateOrderStatus(order.id, 'cooking')}
+                              style={{ fontSize: '12px', padding: '5px 10px' }}
+                            >
+                              조리 시작
+                            </button>
+                          )}
+                          {order.status === 'cooking' && (
+                            <button
+                              className="btn btn-primary"
+                              onClick={() => updateOrderStatus(order.id, 'ready')}
+                              style={{ fontSize: '12px', padding: '5px 10px' }}
+                            >
+                              조리 완료
+                            </button>
+                          )}
+                          {order.status === 'ready' && (
+                            <button
+                              className="btn btn-primary"
+                              onClick={() => updateOrderStatus(order.id, 'out_for_delivery')}
+                              style={{ fontSize: '12px', padding: '5px 10px' }}
+                            >
+                              배달 시작
+                            </button>
+                          )}
+                          {order.status === 'out_for_delivery' && (
+                            <button
+                              className="btn btn-primary"
+                              onClick={() => updateOrderStatus(order.id, 'delivered')}
+                              style={{ fontSize: '12px', padding: '5px 10px' }}
+                            >
+                              배달 완료
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+                <button
+                  onClick={() => setSelectedDateForOrders(null)}
+                  className="btn btn-secondary"
+                >
+                  닫기
                 </button>
               </div>
             </div>

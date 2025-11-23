@@ -15,6 +15,7 @@ const Register: React.FC = () => {
     securityAnswer: ''
   });
   const [error, setError] = useState('');
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const { register } = useAuth();
   const navigate = useNavigate();
 
@@ -40,15 +41,8 @@ const Register: React.FC = () => {
         formData.securityQuestion,
         formData.securityAnswer
       );
-      // Navigate based on role
-      const loggedInUser = JSON.parse(localStorage.getItem('user') || '{}');
-      if (loggedInUser.role === 'admin') {
-        navigate('/admin');
-      } else if (loggedInUser.role === 'employee') {
-        navigate('/employee');
-      } else {
-        navigate('/');
-      }
+      // Show welcome modal first
+      setShowWelcomeModal(true);
     } catch (err: any) {
       setError(err.message);
       // 승인 대기 메시지 표시
@@ -167,6 +161,57 @@ const Register: React.FC = () => {
           </p>
         </form>
       </div>
+
+      {/* Welcome Modal */}
+      {showWelcomeModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.8)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 9999
+        }}>
+          <div style={{
+            background: '#1a1a1a',
+            padding: '40px',
+            borderRadius: '12px',
+            maxWidth: '500px',
+            width: '90%',
+            textAlign: 'center',
+            color: '#fff',
+            border: '2px solid #FFD700'
+          }}>
+            <h2 style={{ color: '#FFD700', marginBottom: '20px' }}>🎉 환영합니다!</h2>
+            <p style={{ fontSize: '18px', marginBottom: '30px' }}>
+              회원가입이 완료되었습니다.
+              <br />
+              {formData.role === 'employee' ? '관리자 승인 후 로그인할 수 있습니다.' : '이제 로그인하여 서비스를 이용하실 수 있습니다.'}
+            </p>
+            <button
+              onClick={() => {
+                setShowWelcomeModal(false);
+                const loggedInUser = JSON.parse(localStorage.getItem('user') || '{}');
+                if (loggedInUser.role === 'admin') {
+                  navigate('/admin');
+                } else if (loggedInUser.role === 'employee') {
+                  navigate('/employee');
+                } else {
+                  navigate('/');
+                }
+              }}
+              className="btn btn-primary"
+              style={{ padding: '10px 30px', fontSize: '16px' }}
+            >
+              확인
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

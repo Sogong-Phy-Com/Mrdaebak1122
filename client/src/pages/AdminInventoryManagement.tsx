@@ -114,6 +114,27 @@ const AdminInventoryManagement: React.FC = () => {
     }
   };
 
+  const handleReceiveInventory = async (menuItemId: number) => {
+    if (!window.confirm('주문한 재고를 수령하시겠습니까? 수령 후 주문 재고가 현재 보유량에 추가되고 주문 재고는 0으로 초기화됩니다.')) {
+      return;
+    }
+
+    try {
+      setRestockMessage('');
+      const headers = getAuthHeaders();
+      await axios.post(`${API_URL}/inventory/${menuItemId}/receive`, {}, { headers });
+      
+      setOrderedInventory(prev => ({ ...prev, [menuItemId]: 0 }));
+      setRestockMessage('재고 수령이 완료되었습니다.');
+      setTimeout(() => setRestockMessage(''), 3000);
+      await fetchInventory();
+    } catch (err: any) {
+      const errorMsg = err.response?.data?.error || err.message || '재고 수령에 실패했습니다.';
+      setRestockMessage(errorMsg);
+      setTimeout(() => setRestockMessage(''), 5000);
+    }
+  };
+
   const handleBulkRestock = async () => {
     if (selectedItems.size === 0) {
       alert('보충할 항목을 선택해주세요.');
@@ -299,6 +320,15 @@ const AdminInventoryManagement: React.FC = () => {
                             >
                               보충
                             </button>
+                            {orderedInventory[item.menu_item_id] > 0 && (
+                              <button
+                                className="btn btn-success"
+                                onClick={() => handleReceiveInventory(item.menu_item_id)}
+                                style={{ marginTop: '5px' }}
+                              >
+                                수령
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>

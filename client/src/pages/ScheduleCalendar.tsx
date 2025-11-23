@@ -751,6 +751,58 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({ type: propType }) =
                               </span>
                             </div>
                           </div>
+                          {calendarType === 'orders' && (
+                            <div style={{ marginTop: '15px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                              {(() => {
+                                const dateStr = selectedDate ? selectedDate.toISOString().split('T')[0] : '';
+                                const assignment = workAssignments[dateStr];
+                                const tasks = assignment?.tasks || [];
+                                const canChangeStatus = isAdmin || (tasks.includes('조리') || tasks.includes('배달'));
+                                
+                                if (!canChangeStatus) return null;
+                                
+                                const getNextStatus = () => {
+                                  if (order.status === 'pending') return 'cooking';
+                                  if (order.status === 'cooking') return 'ready';
+                                  if (order.status === 'ready') return 'out_for_delivery';
+                                  if (order.status === 'out_for_delivery') return 'delivered';
+                                  return null;
+                                };
+                                
+                                const nextStatus = getNextStatus();
+                                if (!nextStatus) return null;
+                                
+                                const statusLabels: { [key: string]: string } = {
+                                  'cooking': '조리 시작',
+                                  'ready': '조리 완료',
+                                  'out_for_delivery': '배달 시작',
+                                  'delivered': '배달 완료'
+                                };
+                                
+                                return (
+                                  <button
+                                    className="btn btn-primary"
+                                    onClick={async () => {
+                                      try {
+                                        const headers = getAuthHeaders();
+                                        await axios.patch(`${API_URL}/employee/orders/${order.id}/status`, 
+                                          { status: nextStatus }, 
+                                          { headers }
+                                        );
+                                        await fetchOrders();
+                                        await fetchWorkAssignments();
+                                        alert('주문 상태가 변경되었습니다.');
+                                      } catch (err: any) {
+                                        alert(err.response?.data?.error || '주문 상태 변경에 실패했습니다.');
+                                      }
+                                    }}
+                                  >
+                                    {statusLabels[nextStatus]}
+                                  </button>
+                                );
+                              })()}
+                            </div>
+                          )}
                         </div>
                       );
                     })}
