@@ -6,7 +6,6 @@ import com.mrdabak.dinnerservice.model.*;
 import com.mrdabak.dinnerservice.repository.*;
 import com.mrdabak.dinnerservice.repository.order.OrderRepository;
 import com.mrdabak.dinnerservice.repository.order.OrderItemRepository;
-import com.mrdabak.dinnerservice.model.User;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,19 +24,16 @@ public class OrderService {
     private final MenuItemRepository menuItemRepository;
     private final InventoryService inventoryService;
     private final DeliverySchedulingService deliverySchedulingService;
-    private final UserRepository userRepository;
 
     public OrderService(OrderRepository orderRepository, OrderItemRepository orderItemRepository,
                        DinnerTypeRepository dinnerTypeRepository, MenuItemRepository menuItemRepository,
-                       InventoryService inventoryService, DeliverySchedulingService deliverySchedulingService,
-                       UserRepository userRepository) {
+                       InventoryService inventoryService, DeliverySchedulingService deliverySchedulingService) {
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
         this.dinnerTypeRepository = dinnerTypeRepository;
         this.menuItemRepository = menuItemRepository;
         this.inventoryService = inventoryService;
         this.deliverySchedulingService = deliverySchedulingService;
-        this.userRepository = userRepository;
     }
 
     public Order createOrder(Long userId, OrderRequest request) {
@@ -137,8 +133,10 @@ public class OrderService {
 
         InventoryService.InventoryReservationPlan inventoryPlan =
                 inventoryService.prepareReservations(request.getItems(), deliveryDateTime);
-        DeliverySchedulingService.DeliveryAssignmentPlan assignmentPlan =
-                deliverySchedulingService.prepareAssignment(request.getDeliveryAddress(), deliveryDateTime);
+        
+        // 주문 생성 시 자동 배달 스케줄 할당 제거 - 관리자가 나중에 할당하도록 함
+        // DeliverySchedulingService.DeliveryAssignmentPlan assignmentPlan =
+        //         deliverySchedulingService.prepareAssignment(request.getDeliveryAddress(), deliveryDateTime);
 
         // Apply loyalty discount (10% for returning customers) - read from order database
         long orderCount = orderRepository.findByUserIdOrderByCreatedAtDesc(userId).stream()
@@ -199,21 +197,13 @@ public class OrderService {
         }
 
         boolean inventoryCommitted = false;
-        boolean scheduleCommitted = false;
         try {
             inventoryService.commitReservations(savedOrder.getId(), inventoryPlan);
             inventoryCommitted = true;
-            deliverySchedulingService.commitAssignment(savedOrder.getId(), assignmentPlan);
-            scheduleCommitted = true;
+            // 주문 생성 시 자동 배달 스케줄 할당 제거 - 관리자가 나중에 할당하도록 함
+            // deliverySchedulingService.commitAssignment(savedOrder.getId(), assignmentPlan);
         } catch (RuntimeException e) {
             // Rollback in reverse order
-            try {
-                if (scheduleCommitted) {
-                    deliverySchedulingService.releaseAssignmentForOrder(savedOrder.getId());
-                }
-            } catch (Exception rollbackEx) {
-                System.err.println("[OrderService] Failed to rollback delivery schedule: " + rollbackEx.getMessage());
-            }
             try {
                 if (inventoryCommitted) {
                     inventoryService.releaseReservationsForOrder(savedOrder.getId());
