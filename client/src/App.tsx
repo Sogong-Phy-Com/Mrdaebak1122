@@ -119,6 +119,14 @@ function App() {
             }
           />
           <Route
+            path="/admin/approvals"
+            element={
+              <PrivateRoute requireRole="admin">
+                <AdminApprovalManagement />
+              </PrivateRoute>
+            }
+          />
+          <Route
             path="/admin/schedule-management"
             element={
               <PrivateRoute requireRole="admin">

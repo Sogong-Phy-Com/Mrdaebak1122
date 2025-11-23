@@ -1,7 +1,6 @@
 # Dependencies
 node_modules/
 client/node_modules/
-server/node_modules/
 
 # Environment variables
 .env
@@ -18,7 +17,6 @@ yarn-error.log*
 dist/
 build/
 client/build/
-server/dist/
 
 # IDE
 .DS_Store
@@ -35,7 +33,6 @@ server-java/.mvn/
 
 # Database files
 server-java/data/
-server/data/
 *.db
 *.db-shm
 *.db-wal
@@ -46,4 +43,4 @@ server/data/
 classdiagramcode.txt
 
 # Old server (Node.js - replaced by Java)
-# server/ 폴더는 이제 사용하지 않지만, 참고용으로 유지할 수 있습니다.
+# server/ 폴더는 삭제됨
