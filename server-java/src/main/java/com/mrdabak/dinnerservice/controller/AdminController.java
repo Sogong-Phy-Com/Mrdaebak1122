@@ -394,6 +394,32 @@ public class AdminController {
         }
     }
 
+    @GetMapping("/schedule/assignments")
+    public ResponseEntity<?> getScheduleAssignments(@RequestParam String date) {
+        try {
+            java.time.LocalDate workDate = java.time.LocalDate.parse(date);
+            
+            List<EmployeeWorkAssignment> cookingAssignments = employeeWorkAssignmentRepository.findByWorkDateAndTaskType(workDate, "COOKING");
+            List<EmployeeWorkAssignment> deliveryAssignments = employeeWorkAssignmentRepository.findByWorkDateAndTaskType(workDate, "DELIVERY");
+            
+            List<Integer> cookingEmployeeIds = cookingAssignments.stream()
+                .map(a -> a.getEmployeeId().intValue())
+                .collect(java.util.stream.Collectors.toList());
+            
+            List<Integer> deliveryEmployeeIds = deliveryAssignments.stream()
+                .map(a -> a.getEmployeeId().intValue())
+                .collect(java.util.stream.Collectors.toList());
+            
+            return ResponseEntity.ok(Map.of(
+                "date", date,
+                "cookingEmployees", cookingEmployeeIds,
+                "deliveryEmployees", deliveryEmployeeIds
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", "할당 조회 실패: " + e.getMessage()));
+        }
+    }
+
     @PostMapping("/schedule/assign")
     @org.springframework.transaction.annotation.Transactional(transactionManager = "scheduleTransactionManager")
     public ResponseEntity<?> assignEmployeesForDate(@RequestBody Map<String, Object> request) {

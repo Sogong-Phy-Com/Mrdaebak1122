@@ -203,53 +203,6 @@ const AdminInventoryManagement: React.FC = () => {
           {inventoryError && <div className="error">{inventoryError}</div>}
           {restockMessage && <div className="success">{restockMessage}</div>}
 
-          {/* 일괄 보충 섹션 */}
-          <div style={{ 
-            marginBottom: '20px', 
-            padding: '15px', 
-            background: '#2a2a2a', 
-            borderRadius: '8px',
-            border: '1px solid #d4af37'
-          }}>
-            <h3 style={{ marginTop: 0, marginBottom: '15px', color: '#FFD700' }}>일괄 보충</h3>
-            <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-              <button
-                className="btn btn-secondary"
-                onClick={selectAllItems}
-                style={{ fontSize: '14px' }}
-              >
-                {selectedItems.size === inventoryItems.length ? '전체 해제' : '전체 선택'}
-              </button>
-              <span style={{ color: '#fff' }}>
-                선택된 항목: {selectedItems.size}개
-              </span>
-              <input
-                type="number"
-                min={0}
-                placeholder="일괄 보충 수량"
-                value={bulkRestockValue === '' ? '' : bulkRestockValue}
-                onChange={(e) => {
-                  const value = e.target.value === '' ? '' : Number(e.target.value);
-                  setBulkRestockValue(value);
-                }}
-                style={{ 
-                  padding: '8px', 
-                  borderRadius: '4px', 
-                  border: '1px solid #d4af37',
-                  background: '#1a1a1a',
-                  color: '#fff',
-                  width: '150px'
-                }}
-              />
-              <button
-                className="btn btn-primary"
-                onClick={handleBulkRestock}
-                disabled={selectedItems.size === 0 || bulkRestockValue === '' || bulkRestockValue === 0}
-              >
-                선택 항목 일괄 보충
-              </button>
-            </div>
-          </div>
 
           <div className="users-table">
             {inventoryLoading ? (
@@ -258,14 +211,6 @@ const AdminInventoryManagement: React.FC = () => {
               <table>
                 <thead>
                   <tr>
-                    <th>
-                      <input
-                        type="checkbox"
-                        checked={selectedItems.size === inventoryItems.length && inventoryItems.length > 0}
-                        onChange={selectAllItems}
-                        style={{ cursor: 'pointer' }}
-                      />
-                    </th>
                     <th>메뉴</th>
                     <th>카테고리</th>
                     <th>현재 보유량</th>
@@ -287,14 +232,6 @@ const AdminInventoryManagement: React.FC = () => {
                   ) : (
                     inventoryItems.map(item => (
                       <tr key={item.menu_item_id}>
-                        <td>
-                          <input
-                            type="checkbox"
-                            checked={selectedItems.has(item.menu_item_id)}
-                            onChange={() => toggleItemSelection(item.menu_item_id)}
-                            style={{ cursor: 'pointer' }}
-                          />
-                        </td>
                         <td>
                           <div className="text-strong">{item.menu_item_name || `메뉴 ${item.menu_item_id}`}</div>
                           <div className="text-muted">{item.menu_item_name_en}</div>

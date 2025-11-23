@@ -64,8 +64,38 @@ const AdminScheduleManagement: React.FC = () => {
   };
 
   const fetchDayAssignments = async () => {
-    // This would fetch assignments for the current month
-    // For now, we'll use local state
+    try {
+      const headers = getAuthHeaders();
+      const year = currentYear;
+      const month = currentMonth;
+      const firstDay = new Date(year, month, 1);
+      const lastDay = new Date(year, month + 1, 0);
+      
+      const assignments: { [key: string]: DayAssignment } = {};
+      
+      // 해당 월의 모든 날짜에 대해 할당 조회
+      for (let day = 1; day <= lastDay.getDate(); day++) {
+        const date = new Date(year, month, day);
+        const dateStr = date.toISOString().split('T')[0];
+        
+        try {
+          const response = await axios.get(`${API_URL}/admin/schedule/assignments?date=${dateStr}`, { headers });
+          if (response.data && response.data.cookingEmployees && response.data.deliveryEmployees) {
+            assignments[dateStr] = {
+              date: dateStr,
+              cookingEmployees: response.data.cookingEmployees || [],
+              deliveryEmployees: response.data.deliveryEmployees || []
+            };
+          }
+        } catch (err: any) {
+          // Ignore errors for individual dates
+        }
+      }
+      
+      setDayAssignments(assignments);
+    } catch (err: any) {
+      console.error('할당 조회 실패:', err);
+    }
   };
 
   const getDaysInMonth = (year: number, month: number): number => {
@@ -201,7 +231,7 @@ const AdminScheduleManagement: React.FC = () => {
         <h2>스케줄 관리</h2>
         {error && <div className="error">{error}</div>}
 
-        {/* Tab Menu for Calendar Views */}
+        {/* Tab Menu for Calendar Views - Only Schedule and Order Calendar */}
         <div style={{ 
           display: 'flex', 
           gap: '10px', 
@@ -210,14 +240,14 @@ const AdminScheduleManagement: React.FC = () => {
           paddingBottom: '10px'
         }}>
           <button
-            className="btn btn-secondary"
-            onClick={() => navigate('/schedule?type=schedule')}
+            className="btn btn-primary"
+            onClick={() => {}}
             style={{
               borderBottom: '3px solid #FFD700',
               borderRadius: '4px 4px 0 0'
             }}
           >
-            📅 스케줄 캘린더
+            📅 스케줄 캘린더 (작업 할당)
           </button>
           <button
             className="btn btn-secondary"
