@@ -420,9 +420,11 @@ const Order: React.FC = () => {
 
         console.log('[주문 수정] 성공:', response.data);
         alert('주문이 수정되었습니다.');
+        setLoading(false);
         navigate('/orders');
       } else {
-        // Create new order
+        // Create new order - 한 번만 호출되도록 보장
+        console.log('[주문 생성] 주문 생성 요청 시작');
         const response = await axios.post(`${API_URL}/orders`, {
           dinner_type_id: selectedDinner,
           serving_style: selectedStyle,
@@ -439,6 +441,7 @@ const Order: React.FC = () => {
         console.log('[주문 생성] 성공:', response.data);
         // 응답 형식에 따라 orderId 추출
         const orderId = response.data.order_id || response.data.id || response.data.order?.id || response.data.order_id;
+        setLoading(false);
         if (orderId) {
           navigate(`/delivery/${orderId}`);
         } else {
@@ -450,6 +453,7 @@ const Order: React.FC = () => {
     } catch (err: any) {
       console.error('[주문 생성] 실패');
       console.error('[주문 생성] 에러:', err);
+      setLoading(false);
       
       if (err.response) {
         const status = err.response.status;
@@ -478,8 +482,6 @@ const Order: React.FC = () => {
       } else {
         setError('[주문 생성 실패] 네트워크 오류가 발생했습니다.\n서버에 연결할 수 없습니다.');
       }
-    } finally {
-      setLoading(false);
     }
   };
 

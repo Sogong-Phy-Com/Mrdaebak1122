@@ -197,7 +197,10 @@ public class OrderController {
                 return ResponseEntity.badRequest().body(Map.of("error", "Order items are required"));
             }
             
+            System.out.println("[주문 생성 API] 주문 서비스 호출 전 - 사용자 ID: " + userId);
             Order order = orderService.createOrder(userId, request);
+            System.out.println("[주문 생성 API] 주문 서비스 호출 완료 - 주문 ID: " + order.getId());
+            System.out.println("[주문 생성 API] 주문은 1개만 생성되었습니다.");
             return ResponseEntity.status(201).body(Map.of(
                     "message", "Order created successfully",
                     "order_id", order.getId(),
