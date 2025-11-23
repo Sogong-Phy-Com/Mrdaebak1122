@@ -2,9 +2,13 @@
 FROM node:18-alpine AS frontend-build
 WORKDIR /app/client
 
+# Set npm configuration for better performance
+ENV NPM_CONFIG_PROGRESS=false
+ENV NPM_CONFIG_LOGLEVEL=warn
+
 # Copy client package files
 COPY client/package*.json ./
-RUN npm install --legacy-peer-deps
+RUN npm install --legacy-peer-deps --prefer-offline --no-audit
 
 # Copy client source and build
 COPY client ./
@@ -16,7 +20,7 @@ WORKDIR /app
 
 # Copy pom.xml and download dependencies
 COPY server-java/pom.xml ./pom.xml
-RUN mvn dependency:go-offline -B
+RUN mvn dependency:go-offline -B -DskipTests
 
 # Copy source code
 COPY server-java/src ./src
