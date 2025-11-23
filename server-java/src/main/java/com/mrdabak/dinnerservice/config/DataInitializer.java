@@ -38,9 +38,12 @@ public class DataInitializer implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
+        System.out.println("[DataInitializer] Starting data initialization...");
         // Wait for Hibernate to finish initializing
         try {
+            System.out.println("[DataInitializer] Waiting for Hibernate to initialize...");
             Thread.sleep(3000);
+            System.out.println("[DataInitializer] Hibernate initialization wait complete");
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
@@ -125,30 +128,39 @@ public class DataInitializer implements CommandLineRunner {
         }
         // Wait a bit to ensure Hibernate has finished initializing
         try {
+            System.out.println("[DataInitializer] Waiting before user data initialization...");
             Thread.sleep(2000);
+            System.out.println("[DataInitializer] Wait complete, starting user data initialization");
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
         
         // Update existing users' approvalStatus if null
         try {
+            System.out.println("[DataInitializer] Updating user approval status...");
             updateUserApprovalStatus();
+            System.out.println("[DataInitializer] Creating default accounts...");
             createDefaultAccounts();
+            System.out.println("[DataInitializer] User data initialization complete");
         } catch (Exception e) {
             System.err.println("[DataInitializer] Error initializing user data: " + e.getMessage());
             e.printStackTrace();
         }
 
         try {
+            System.out.println("[DataInitializer] Checking if data already exists...");
             if (dinnerTypeRepository.count() > 0) {
+                System.out.println("[DataInitializer] Data already initialized, skipping seed data");
                 return; // Data already initialized
             }
+            System.out.println("[DataInitializer] No existing data found, starting seed data insertion");
         } catch (Exception e) {
             System.err.println("[DataInitializer] Error checking dinner types: " + e.getMessage());
             // Continue to initialize data
         }
 
         // Insert menu items
+        System.out.println("[DataInitializer] Inserting menu items...");
         MenuItem wine = new MenuItem(null, "와인", "Wine", 15000, "drink");
         MenuItem champagneItem = new MenuItem(null, "샴페인", "Champagne", 50000, "drink");
         MenuItem coffee = new MenuItem(null, "커피", "Coffee", 5000, "drink");
@@ -204,7 +216,8 @@ public class DataInitializer implements CommandLineRunner {
         dinnerMenuItemRepository.save(new DinnerMenuItem(null, champagneDinner.getId(), wine.getId(), 1));
         dinnerMenuItemRepository.save(new DinnerMenuItem(null, champagneDinner.getId(), steak.getId(), 1));
 
-        System.out.println("Initial data seeded successfully");
+        System.out.println("[DataInitializer] Initial data seeded successfully");
+        System.out.println("[DataInitializer] Data initialization complete");
     }
 
     @Transactional("transactionManager")

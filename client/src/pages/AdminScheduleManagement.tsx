@@ -41,6 +41,7 @@ const AdminScheduleManagement: React.FC = () => {
   const [loadingAssignments, setLoadingAssignments] = useState(false);
   const [error, setError] = useState('');
   const [calendarType, setCalendarType] = useState<'schedule' | 'orders'>('schedule');
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [orders, setOrders] = useState<Order[]>([]);
   const [selectedDateForOrders, setSelectedDateForOrders] = useState<string | null>(null);
 
