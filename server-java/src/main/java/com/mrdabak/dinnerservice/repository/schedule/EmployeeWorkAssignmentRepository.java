@@ -19,6 +19,9 @@ public interface EmployeeWorkAssignmentRepository extends JpaRepository<Employee
     @Query("SELECT e FROM EmployeeWorkAssignment e WHERE e.workDate = :workDate AND e.taskType = :taskType")
     List<EmployeeWorkAssignment> findByWorkDateAndTaskType(@Param("workDate") LocalDate workDate, @Param("taskType") String taskType);
     
+    @Query("SELECT e FROM EmployeeWorkAssignment e WHERE e.employeeId = :employeeId AND e.workDate >= :startDate AND e.workDate <= :endDate")
+    List<EmployeeWorkAssignment> findByEmployeeIdAndWorkDateBetween(@Param("employeeId") Long employeeId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+    
     void deleteByWorkDateAndEmployeeIdAndTaskType(LocalDate workDate, Long employeeId, String taskType);
     
     void deleteByWorkDate(LocalDate workDate);

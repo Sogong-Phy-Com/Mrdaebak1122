@@ -383,6 +383,8 @@ public class EmployeeController {
     @GetMapping("/schedule/assignments")
     public ResponseEntity<?> getEmployeeScheduleAssignments(
             @RequestParam(required = false) String date,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate,
             Authentication authentication) {
         if (authentication == null || authentication.getName() == null) {
             return ResponseEntity.status(401).body(Map.of("error", "인증이 필요합니다."));
@@ -390,8 +392,41 @@ public class EmployeeController {
         
         try {
             Long employeeId = Long.parseLong(authentication.getName());
-            java.time.LocalDate targetDate;
             
+            // 날짜 범위로 조회하는 경우 (월 전체 할당 조회)
+            if (startDate != null && endDate != null && !startDate.trim().isEmpty() && !endDate.trim().isEmpty()) {
+                java.time.LocalDate start = java.time.LocalDate.parse(startDate);
+                java.time.LocalDate end = java.time.LocalDate.parse(endDate);
+                
+                List<EmployeeWorkAssignment> assignments = employeeWorkAssignmentRepository.findByEmployeeIdAndWorkDateBetween(employeeId, start, end);
+                
+                Map<String, Map<String, Object>> assignmentsByDate = new HashMap<>();
+                for (EmployeeWorkAssignment assignment : assignments) {
+                    String dateStr = assignment.getWorkDate().toString();
+                    if (!assignmentsByDate.containsKey(dateStr)) {
+                        assignmentsByDate.put(dateStr, new HashMap<>());
+                        assignmentsByDate.get(dateStr).put("date", dateStr);
+                        assignmentsByDate.get(dateStr).put("isWorking", true);
+                        assignmentsByDate.get(dateStr).put("tasks", new java.util.ArrayList<String>());
+                    }
+                    @SuppressWarnings("unchecked")
+                    List<String> tasks = (List<String>) assignmentsByDate.get(dateStr).get("tasks");
+                    if ("COOKING".equals(assignment.getTaskType())) {
+                        if (!tasks.contains("조리")) {
+                            tasks.add("조리");
+                        }
+                    } else if ("DELIVERY".equals(assignment.getTaskType())) {
+                        if (!tasks.contains("배달")) {
+                            tasks.add("배달");
+                        }
+                    }
+                }
+                
+                return ResponseEntity.ok(assignmentsByDate);
+            }
+            
+            // 단일 날짜로 조회하는 경우
+            java.time.LocalDate targetDate;
             if (date != null && !date.trim().isEmpty()) {
                 targetDate = java.time.LocalDate.parse(date);
             } else {

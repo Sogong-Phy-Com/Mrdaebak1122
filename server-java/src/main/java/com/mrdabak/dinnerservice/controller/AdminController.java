@@ -439,23 +439,29 @@ public class AdminController {
             // 기존 할당 삭제
             employeeWorkAssignmentRepository.deleteByWorkDate(workDate);
             
-            // 조리 담당 직원 할당 저장
+            // 모든 할당을 리스트에 모아서 배치 저장
+            java.util.List<EmployeeWorkAssignment> assignmentsToSave = new java.util.ArrayList<>();
+            
+            // 조리 담당 직원 할당 준비
             for (Integer empId : cookingEmployees) {
                 EmployeeWorkAssignment assignment = new EmployeeWorkAssignment();
                 assignment.setEmployeeId(Long.valueOf(empId));
                 assignment.setWorkDate(workDate);
                 assignment.setTaskType("COOKING");
-                employeeWorkAssignmentRepository.save(assignment);
+                assignmentsToSave.add(assignment);
             }
             
-            // 배달 담당 직원 할당 저장
+            // 배달 담당 직원 할당 준비
             for (Integer empId : deliveryEmployees) {
                 EmployeeWorkAssignment assignment = new EmployeeWorkAssignment();
                 assignment.setEmployeeId(Long.valueOf(empId));
                 assignment.setWorkDate(workDate);
                 assignment.setTaskType("DELIVERY");
-                employeeWorkAssignmentRepository.save(assignment);
+                assignmentsToSave.add(assignment);
             }
+            
+            // 배치 저장 (한 번의 트랜잭션으로 모든 할당 저장)
+            employeeWorkAssignmentRepository.saveAll(assignmentsToSave);
 
             System.out.println("[AdminController] 직원 할당 저장 완료 - 날짜: " + dateStr + 
                 ", 조리: " + cookingEmployees.size() + "명, 배달: " + deliveryEmployees.size() + "명");

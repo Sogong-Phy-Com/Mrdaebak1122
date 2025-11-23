@@ -82,7 +82,7 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({ type: propType }) =
       fetchOrders();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentDate, selectedEmployeeId, isAdmin, calendarType]);
+  }, [currentDate.getMonth(), currentDate.getFullYear(), selectedEmployeeId, isAdmin, calendarType]);
 
   const getAuthHeaders = () => {
     const token = localStorage.getItem('token');
@@ -156,26 +156,30 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({ type: propType }) =
       const firstDay = new Date(year, month, 1);
       const lastDay = new Date(year, month + 1, 0);
       
-      const assignments: {[key: string]: {tasks: string[]}} = {};
+      const startDateStr = firstDay.toISOString().split('T')[0];
+      const endDateStr = lastDay.toISOString().split('T')[0];
       
-      // 해당 월의 모든 날짜에 대해 할당 조회
-      for (let day = 1; day <= lastDay.getDate(); day++) {
-        const date = new Date(year, month, day);
-        const dateStr = date.toISOString().split('T')[0];
-        
-        try {
-          const response = await axios.get(`${API_URL}/employee/schedule/assignments?date=${dateStr}`, { headers });
-          if (response.data && response.data.isWorking) {
-            assignments[dateStr] = {
-              tasks: response.data.tasks || []
-            };
-          }
-        } catch (err: any) {
-          // Ignore errors for individual dates
+      // 한 번의 API 호출로 월 전체 할당 조회
+      try {
+        const response = await axios.get(`${API_URL}/employee/schedule/assignments?startDate=${startDateStr}&endDate=${endDateStr}`, { headers });
+        if (response.data && typeof response.data === 'object') {
+          const assignments: {[key: string]: {tasks: string[]}} = {};
+          Object.keys(response.data).forEach((dateStr: string) => {
+            const data = response.data[dateStr];
+            if (data && data.isWorking && data.tasks) {
+              assignments[dateStr] = {
+                tasks: data.tasks || []
+              };
+            }
+          });
+          setWorkAssignments(assignments);
+        } else {
+          setWorkAssignments({});
         }
+      } catch (err: any) {
+        console.error('작업 할당 조회 실패:', err);
+        setWorkAssignments({});
       }
-      
-      setWorkAssignments(assignments);
     } catch (err: any) {
       console.error('작업 할당 조회 실패:', err);
       setWorkAssignments({});
