@@ -106,14 +106,28 @@ const Order: React.FC = () => {
   selectedDateObj.setHours(0, 0, 0, 0);
   const isDateValid = selectedDateObj >= today;
 
-  // Generate time slots (5 PM - 9 PM, 30 min intervals)
+  // Generate time slots (5 PM - 9 PM, 30 min intervals) with validation
   useEffect(() => {
     if (isDateValid) {
       const slots: string[] = [];
+      const now = new Date();
+      const isToday = selectedDateObj.getTime() === today.getTime();
+      
       for (let hour = 17; hour <= 21; hour++) {
         for (let minute = 0; minute < 60; minute += 30) {
           if (hour === 21 && minute > 0) break; // Stop at 9:00 PM
           const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+          
+          // 시간 유효성 검사: 지난 시간이거나 3시간 미만 남은 경우 제외
+          if (isToday) {
+            const deliveryDateTime = new Date(selectedYear, selectedMonth - 1, selectedDay, hour, minute);
+            const hoursUntilDelivery = (deliveryDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+            
+            if (deliveryDateTime <= now || hoursUntilDelivery < 3) {
+              continue; // 이 시간대는 제외
+            }
+          }
+          
           slots.push(timeStr);
         }
       }
@@ -122,7 +136,7 @@ const Order: React.FC = () => {
       setAvailableTimeSlots([]);
       setSelectedTime('');
     }
-  }, [isDateValid]);
+  }, [isDateValid, selectedYear, selectedMonth, selectedDay]);
 
   // Update deliveryTime when date and time are selected
   useEffect(() => {
@@ -738,18 +752,37 @@ const Order: React.FC = () => {
                 <div className="form-group">
                   <label>배달 시간 (5 PM - 9 PM, 30분 단위)</label>
                   <div className="time-slots-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '10px', marginTop: '10px' }}>
-                    {availableTimeSlots.map(time => (
-                      <button
-                        key={time}
-                        type="button"
-                        onClick={() => setSelectedTime(time)}
-                        className={`btn ${selectedTime === time ? 'btn-primary' : 'btn-secondary'}`}
-                        style={{ padding: '10px' }}
-                      >
-                        {time}
-                      </button>
-                    ))}
+                    {availableTimeSlots.map(time => {
+                      const now = new Date();
+                      const isToday = selectedDateObj.getTime() === today.getTime();
+                      const [hours, minutes] = time.split(':').map(Number);
+                      const deliveryDateTime = new Date(selectedYear, selectedMonth - 1, selectedDay, hours, minutes);
+                      const hoursUntilDelivery = (deliveryDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+                      const isTimeDisabled = isToday && (deliveryDateTime <= now || hoursUntilDelivery < 3);
+                      
+                      return (
+                        <button
+                          key={time}
+                          type="button"
+                          onClick={() => !isTimeDisabled && setSelectedTime(time)}
+                          className={`btn ${selectedTime === time ? 'btn-primary' : 'btn-secondary'} ${isTimeDisabled ? 'disabled' : ''}`}
+                          style={{ 
+                            padding: '10px',
+                            opacity: isTimeDisabled ? 0.5 : 1,
+                            cursor: isTimeDisabled ? 'not-allowed' : 'pointer'
+                          }}
+                          disabled={isTimeDisabled}
+                        >
+                          {time}
+                        </button>
+                      );
+                    })}
                   </div>
+                  {availableTimeSlots.length === 0 && isDateValid && (
+                    <div style={{ color: '#ff4444', fontSize: '12px', marginTop: '5px' }}>
+                      선택 가능한 시간대가 없습니다. (최소 3시간 전에 주문해야 합니다)
+                    </div>
+                  )}
                 </div>
               )}
 

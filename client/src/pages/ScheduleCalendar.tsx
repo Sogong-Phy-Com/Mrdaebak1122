@@ -119,7 +119,11 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({ type: propType }) =
       }
 
       const headers = getAuthHeaders();
-      const dateStr = currentDate.toISOString().split('T')[0];
+      // 로컬 날짜 문자열 생성 (UTC 변환 없이)
+      const year = currentDate.getFullYear();
+      const month = (currentDate.getMonth() + 1).toString().padStart(2, '0');
+      const day = currentDate.getDate().toString().padStart(2, '0');
+      const dateStr = `${year}-${month}-${day}`;
       let url = `${API_URL}/employee/delivery-schedule?date=${dateStr}`;
       
       if (isAdmin && selectedEmployeeId) {
@@ -156,8 +160,16 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({ type: propType }) =
       const firstDay = new Date(year, month, 1);
       const lastDay = new Date(year, month + 1, 0);
       
-      const startDateStr = firstDay.toISOString().split('T')[0];
-      const endDateStr = lastDay.toISOString().split('T')[0];
+      // 로컬 날짜 문자열 생성 (UTC 변환 없이)
+      const startYear = firstDay.getFullYear();
+      const startMonth = (firstDay.getMonth() + 1).toString().padStart(2, '0');
+      const startDay = firstDay.getDate().toString().padStart(2, '0');
+      const startDateStr = `${startYear}-${startMonth}-${startDay}`;
+      
+      const endYear = lastDay.getFullYear();
+      const endMonth = (lastDay.getMonth() + 1).toString().padStart(2, '0');
+      const endDay = lastDay.getDate().toString().padStart(2, '0');
+      const endDateStr = `${endYear}-${endMonth}-${endDay}`;
       
       // 한 번의 API 호출로 월 전체 할당 조회
       try {
@@ -286,7 +298,11 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({ type: propType }) =
   const getOrdersForDate = (date: Date | null): Order[] => {
     if (!date) return [];
     try {
-      const dateStr = date.toISOString().split('T')[0];
+      // 로컬 날짜 문자열 생성 (UTC 변환 없이)
+      const year = date.getFullYear();
+      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      const day = date.getDate().toString().padStart(2, '0');
+      const dateStr = `${year}-${month}-${day}`;
       return orders.filter(order => {
         if (!order || !order.delivery_time) return false;
         try {
@@ -318,13 +334,22 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({ type: propType }) =
   const getSchedulesForDate = (date: Date | null): DeliverySchedule[] => {
     if (!date) return [];
     try {
-      const dateStr = date.toISOString().split('T')[0];
+      // 로컬 날짜 문자열 생성 (UTC 변환 없이)
+      const year = date.getFullYear();
+      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      const day = date.getDate().toString().padStart(2, '0');
+      const dateStr = `${year}-${month}-${day}`;
       return schedules.filter(schedule => {
         if (!schedule || !schedule.departure_time) return false;
         try {
           const scheduleDate = new Date(schedule.departure_time);
           if (isNaN(scheduleDate.getTime())) return false;
-          return scheduleDate.toISOString().split('T')[0] === dateStr;
+          // 로컬 날짜로 변환 (UTC 변환 없이)
+          const scheduleYear = scheduleDate.getFullYear();
+          const scheduleMonth = (scheduleDate.getMonth() + 1).toString().padStart(2, '0');
+          const scheduleDay = scheduleDate.getDate().toString().padStart(2, '0');
+          const scheduleDateStr = `${scheduleYear}-${scheduleMonth}-${scheduleDay}`;
+          return scheduleDateStr === dateStr;
         } catch {
           return false;
         }
@@ -338,7 +363,11 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({ type: propType }) =
     if (!date || !user) return false;
     if (calendarType === 'schedule') {
       // For schedule calendar, check if employee has work assignments
-      const dateStr = date.toISOString().split('T')[0];
+      // 로컬 날짜 문자열 생성 (UTC 변환 없이)
+      const year = date.getFullYear();
+      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      const day = date.getDate().toString().padStart(2, '0');
+      const dateStr = `${year}-${month}-${day}`;
       const assignment = workAssignments[dateStr];
       if (assignment && assignment.tasks && assignment.tasks.length > 0) {
         return true;
@@ -575,7 +604,11 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({ type: propType }) =
                   if (!date) return '';
                   if (calendarType === 'schedule') {
                     // 해당 날에 할당된 작업이 있으면 빨간색
-                    const dateStr = date.toISOString().split('T')[0];
+                    // 로컬 날짜 문자열 생성 (UTC 변환 없이)
+                    const year = date.getFullYear();
+                    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+                    const day = date.getDate().toString().padStart(2, '0');
+                    const dateStr = `${year}-${month}-${day}`;
                     const assignment = workAssignments[dateStr];
                     if (assignment && assignment.tasks && assignment.tasks.length > 0) {
                       return 'red';
@@ -729,7 +762,14 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({ type: propType }) =
                   <div className="schedule-list">
                     {selectedOrders.map(order => {
                       const orderColor = getOrderColor(order, selectedDate);
-                      const dateStr = selectedDate ? selectedDate.toISOString().split('T')[0] : '';
+                      // 로컬 날짜 문자열 생성 (UTC 변환 없이)
+                      let dateStr = '';
+                      if (selectedDate) {
+                        const year = selectedDate.getFullYear();
+                        const month = (selectedDate.getMonth() + 1).toString().padStart(2, '0');
+                        const day = selectedDate.getDate().toString().padStart(2, '0');
+                        dateStr = `${year}-${month}-${day}`;
+                      }
                       const assignment = workAssignments[dateStr];
                       const tasks = assignment?.tasks || [];
                       return (
@@ -789,7 +829,14 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({ type: propType }) =
                                 // 관리자는 주문 상태 변경 불가, 할당받은 직원만 가능
                                 if (isAdmin) return null;
                                 
-                                const dateStr = selectedDate ? selectedDate.toISOString().split('T')[0] : '';
+                                // 로컬 날짜 문자열 생성 (UTC 변환 없이)
+                                let dateStr = '';
+                                if (selectedDate) {
+                                  const year = selectedDate.getFullYear();
+                                  const month = (selectedDate.getMonth() + 1).toString().padStart(2, '0');
+                                  const day = selectedDate.getDate().toString().padStart(2, '0');
+                                  dateStr = `${year}-${month}-${day}`;
+                                }
                                 const assignment = workAssignments[dateStr];
                                 const tasks = assignment?.tasks || [];
                                 const canChangeStatus = tasks.includes('조리') || tasks.includes('배달');

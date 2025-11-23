@@ -92,7 +92,30 @@ const AdminScheduleManagement: React.FC = () => {
         const filteredOrders = response.data.filter((order: Order) => {
           if (!order.delivery_time) return false;
           try {
-            const orderDate = new Date(order.delivery_time);
+            // delivery_time이 "YYYY-MM-DDTHH:mm" 형식이면 직접 파싱
+            let orderDate: Date;
+            if (order.delivery_time.includes('T')) {
+              const parts = order.delivery_time.split('T');
+              if (parts.length === 2) {
+                const datePart = parts[0].split('-');
+                const timePart = parts[1].split(':');
+                if (datePart.length === 3 && timePart.length >= 2) {
+                  orderDate = new Date(
+                    parseInt(datePart[0]),
+                    parseInt(datePart[1]) - 1, // month는 0부터 시작
+                    parseInt(datePart[2]),
+                    parseInt(timePart[0]),
+                    parseInt(timePart[1])
+                  );
+                } else {
+                  orderDate = new Date(order.delivery_time);
+                }
+              } else {
+                orderDate = new Date(order.delivery_time);
+              }
+            } else {
+              orderDate = new Date(order.delivery_time);
+            }
             if (isNaN(orderDate.getTime())) return false;
             return orderDate.getMonth() === currentMonth && orderDate.getFullYear() === currentYear;
           } catch {
@@ -152,6 +175,7 @@ const AdminScheduleManagement: React.FC = () => {
 
   const fetchDayAssignments = async () => {
     try {
+      setLoadingAssignments(true);
       const headers = getAuthHeaders();
       const year = currentYear;
       const month = currentMonth;
@@ -163,7 +187,8 @@ const AdminScheduleManagement: React.FC = () => {
       // 해당 월의 모든 날짜에 대해 할당 조회
       for (let day = 1; day <= lastDay.getDate(); day++) {
         const date = new Date(year, month, day);
-        const dateStr = date.toISOString().split('T')[0];
+        // 로컬 날짜 문자열 생성 (UTC 변환 없이)
+        const dateStr = `${year}-${(month + 1).toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
         
         try {
           const response = await axios.get(`${API_URL}/admin/schedule/assignments?date=${dateStr}`, { headers });
@@ -261,25 +286,26 @@ const AdminScheduleManagement: React.FC = () => {
       
       // 응답 확인 - 성공적으로 저장되었는지 확인
       if (response.status === 200 || response.status === 201) {
-        // 데이터베이스에 저장 완료 후 할당 정보 다시 불러오기
+        // 데이터베이스에 저장 완료 후 할당 정보 다시 불러오기 (로딩 유지)
         await fetchDayAssignments();
         
         // 할당 정보가 제대로 저장되었는지 확인
         const updatedAssignments = await axios.get(`${API_URL}/admin/schedule/assignments?date=${selectedDate}`, { headers });
-        if (updatedAssignments.data && updatedAssignments.data.date === selectedDate) {
+        if (updatedAssignments.data && (updatedAssignments.data.cookingEmployees || updatedAssignments.data.deliveryEmployees)) {
           alert('직원 할당이 저장되었습니다.');
           setSelectedDate(null);
         } else {
-          // 저장이 완료되지 않았으면 로딩 유지
+          // 저장이 완료되지 않았으면 로딩 유지하지 않고 에러 표시
           throw new Error('할당 정보가 데이터베이스에 저장되지 않았습니다. 다시 시도해주세요.');
         }
       } else {
         throw new Error('할당 저장에 실패했습니다.');
       }
     } catch (err: any) {
-      setError(err.response?.data?.error || err.message || '할당 저장에 실패했습니다.');
-      alert('할당 저장에 실패했습니다: ' + (err.response?.data?.error || err.message));
-      // 에러 발생 시에도 로딩은 유지하지 않음 (사용자가 다시 시도할 수 있도록)
+      console.error('할당 저장 실패:', err);
+      const errorMessage = err.response?.data?.error || err.message || '할당 저장에 실패했습니다.';
+      setError(errorMessage);
+      alert('할당 저장에 실패했습니다: ' + errorMessage);
     } finally {
       setLoading(false);
     }
@@ -444,7 +470,10 @@ const AdminScheduleManagement: React.FC = () => {
             const dateKey = getDateKey(currentYear, currentMonth, day);
             const isPast = isDateInPast(currentYear, currentMonth, day);
             const status = calendarType === 'schedule' ? getAssignmentStatus(dateKey) : null;
-            const isToday = dateKey === new Date().toISOString().split('T')[0];
+            // 로컬 날짜로 비교 (UTC 변환 없이)
+            const today = new Date();
+            const todayKey = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}-${today.getDate().toString().padStart(2, '0')}`;
+            const isToday = dateKey === todayKey;
             const dayOrders = calendarType === 'orders' ? getOrdersForDate(dateKey) : [];
 
             return (

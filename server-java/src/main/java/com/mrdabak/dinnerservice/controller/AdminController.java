@@ -468,12 +468,15 @@ public class AdminController {
 
             return ResponseEntity.ok(Map.of(
                 "message", "직원 할당이 저장되었습니다.", 
+                "date", dateStr,
                 "cookingEmployees", cookingEmployees.size(),
                 "deliveryEmployees", deliveryEmployees.size()
             ));
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.badRequest().body(Map.of("error", "직원 할당 저장 실패: " + e.getMessage()));
+            System.err.println("[AdminController] 할당 저장 실패: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(500).body(Map.of("error", "직원 할당 저장 실패: " + e.getMessage()));
         }
     }
 
