@@ -4,7 +4,6 @@ import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 import TopLogo from '../components/TopLogo';
 import ScheduleCalendar from './ScheduleCalendar';
-import './EmployeeDashboard.css';
 
 const API_URL = process.env.REACT_APP_API_URL || (window.location.protocol === 'https:' ? '/api' : 'http://localhost:5000/api');
 
