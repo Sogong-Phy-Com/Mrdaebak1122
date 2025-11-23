@@ -356,7 +356,7 @@ const AdminScheduleManagement: React.FC = () => {
 
         <h2>스케줄 관리 / 주문 관리</h2>
         {error && <div className="error">{error}</div>}
-        {loadingAssignments && (
+        {(loadingAssignments || loading) && (
           <div className="loading-overlay" style={{
             position: 'fixed',
             top: 0,
