@@ -225,7 +225,7 @@ const AdminInventoryManagement: React.FC = () => {
                 <tbody>
                   {inventoryItems.length === 0 ? (
                     <tr>
-                      <td colSpan={10} style={{ textAlign: 'center', padding: '20px' }}>
+                      <td colSpan={9} style={{ textAlign: 'center', padding: '20px' }}>
                         등록된 재고가 없습니다.
                       </td>
                     </tr>
