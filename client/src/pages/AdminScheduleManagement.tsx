@@ -286,16 +286,36 @@ const AdminScheduleManagement: React.FC = () => {
       
       // 응답 확인 - 성공적으로 저장되었는지 확인
       if (response.status === 200 || response.status === 201) {
-        // 데이터베이스에 저장 완료 후 할당 정보 다시 불러오기 (로딩 유지)
+        // 데이터베이스에 저장 완료 후 할당 정보 다시 불러오기
+        // 로딩 상태 유지하면서 할당 정보 다시 불러오기
+        setLoadingAssignments(true);
         await fetchDayAssignments();
         
-        // 할당 정보가 제대로 저장되었는지 확인
-        const updatedAssignments = await axios.get(`${API_URL}/admin/schedule/assignments?date=${selectedDate}`, { headers });
-        if (updatedAssignments.data && (updatedAssignments.data.cookingEmployees || updatedAssignments.data.deliveryEmployees)) {
-          alert('직원 할당이 저장되었습니다.');
-          setSelectedDate(null);
-        } else {
-          // 저장이 완료되지 않았으면 로딩 유지하지 않고 에러 표시
+        // 할당 정보가 제대로 저장되었는지 확인 (최대 3번 재시도)
+        let retryCount = 0;
+        let assignmentVerified = false;
+        while (retryCount < 3 && !assignmentVerified) {
+          try {
+            const updatedAssignments = await axios.get(`${API_URL}/admin/schedule/assignments?date=${selectedDate}`, { headers });
+            if (updatedAssignments.data && 
+                ((updatedAssignments.data.cookingEmployees && updatedAssignments.data.cookingEmployees.length > 0) || 
+                 (updatedAssignments.data.deliveryEmployees && updatedAssignments.data.deliveryEmployees.length > 0))) {
+              assignmentVerified = true;
+              alert('직원 할당이 저장되었습니다.');
+              setSelectedDate(null);
+              break;
+            }
+          } catch (err) {
+            console.log(`할당 확인 재시도 ${retryCount + 1}/3`);
+          }
+          if (!assignmentVerified && retryCount < 2) {
+            await new Promise(resolve => setTimeout(resolve, 1000)); // 1초 대기
+          }
+          retryCount++;
+        }
+        
+        if (!assignmentVerified) {
+          // 저장이 완료되지 않았으면 에러 표시
           throw new Error('할당 정보가 데이터베이스에 저장되지 않았습니다. 다시 시도해주세요.');
         }
       } else {
