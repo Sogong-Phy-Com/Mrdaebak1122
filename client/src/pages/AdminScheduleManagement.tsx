@@ -145,10 +145,14 @@ const AdminScheduleManagement: React.FC = () => {
           // "YYYY-MM-DDTHH:mm" 형식인 경우 날짜 부분만 추출
           orderDateStr = order.delivery_time.split('T')[0];
         } else {
-          // 다른 형식인 경우 Date 객체로 파싱
+          // 다른 형식인 경우 Date 객체로 파싱 (로컬 날짜로 변환)
           const orderDate = new Date(order.delivery_time);
           if (isNaN(orderDate.getTime())) return false;
-          orderDateStr = orderDate.toISOString().split('T')[0];
+          // 로컬 날짜 문자열 생성 (UTC 변환 없이)
+          const year = orderDate.getFullYear();
+          const month = (orderDate.getMonth() + 1).toString().padStart(2, '0');
+          const day = orderDate.getDate().toString().padStart(2, '0');
+          orderDateStr = `${year}-${month}-${day}`;
         }
         return orderDateStr === dateKey;
       } catch {
@@ -287,8 +291,6 @@ const AdminScheduleManagement: React.FC = () => {
       // 응답 확인 - 성공적으로 저장되었는지 확인
       if (response.status === 200 || response.status === 201) {
         // 데이터베이스에 저장 완료 후 할당 정보 다시 불러오기
-        // 로딩 상태 유지하면서 할당 정보 다시 불러오기
-        setLoadingAssignments(true);
         await fetchDayAssignments();
         
         // 할당 정보가 제대로 저장되었는지 확인 (최대 3번 재시도)
@@ -328,6 +330,7 @@ const AdminScheduleManagement: React.FC = () => {
       alert('할당 저장에 실패했습니다: ' + errorMessage);
     } finally {
       setLoading(false);
+      setLoadingAssignments(false);
     }
   };
 
