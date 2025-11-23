@@ -161,10 +161,33 @@ public class OrderService {
 
         // 주문 생성 시 직원 자동 할당 제거 - 관리자가 나중에 할당하도록 함
         // 주문은 하나만 생성되며, 직원 할당은 관리자가 스케줄 관리에서 할당
+        String threadId = Thread.currentThread().getName() + "-" + Thread.currentThread().getId();
         System.out.println("[OrderService] 주문 생성 시작 - 사용자 ID: " + userId + ", 디너 타입: " + request.getDinnerTypeId());
+        System.out.println("[OrderService] 스레드: " + threadId);
+        System.out.println("[OrderService] 배달 시간: " + request.getDeliveryTime());
+        System.out.println("[OrderService] 배달 주소: " + request.getDeliveryAddress());
+        
+        // 중복 주문 확인: 동일한 사용자가 동일한 배달 시간과 주소로 주문을 생성했는지 확인
+        List<Order> existingOrders = orderRepository.findByUserIdOrderByCreatedAtDesc(userId);
+        String deliveryTimeStr = request.getDeliveryTime();
+        String deliveryAddressStr = request.getDeliveryAddress();
+        
+        // 최근 동일한 주문이 있는지 확인
+        for (Order existingOrder : existingOrders) {
+            if (existingOrder.getDeliveryTime() != null && 
+                existingOrder.getDeliveryTime().equals(deliveryTimeStr) &&
+                existingOrder.getDeliveryAddress() != null &&
+                existingOrder.getDeliveryAddress().equals(deliveryAddressStr)) {
+                // 주문 생성 시간 확인 (created_at 필드가 있다면)
+                System.out.println("[OrderService] 경고: 동일한 주문이 이미 존재합니다 - 주문 ID: " + existingOrder.getId());
+                System.out.println("[OrderService] 기존 주문 배달 시간: " + existingOrder.getDeliveryTime());
+                System.out.println("[OrderService] 기존 주문 배달 주소: " + existingOrder.getDeliveryAddress());
+            }
+        }
         
         Order savedOrder = orderRepository.save(order);
         System.out.println("[OrderService] 주문 저장 완료 - 주문 ID: " + savedOrder.getId());
+        System.out.println("[OrderService] 스레드: " + threadId);
 
         // Add order items - save to order database
         for (OrderItemDto item : request.getItems()) {

@@ -148,7 +148,10 @@ public class OrderController {
             @Valid @RequestBody OrderRequest request, 
             Authentication authentication,
             @RequestHeader(value = "X-Request-ID", required = false) String requestId) {
+        String threadId = Thread.currentThread().getName() + "-" + Thread.currentThread().getId();
         System.out.println("========== [주문 생성 API] 요청 시작 ==========");
+        System.out.println("[주문 생성 API] 스레드: " + threadId);
+        System.out.println("[주문 생성 API] Request ID: " + (requestId != null ? requestId : "없음"));
         System.out.println("[주문 생성 API] Authentication 객체: " + (authentication != null ? "존재" : "null"));
         
         // SecurityContext에서 직접 확인
@@ -240,8 +243,16 @@ public class OrderController {
             }
             
             System.out.println("[주문 생성 API] 주문 서비스 호출 전 - 사용자 ID: " + userId);
+            System.out.println("[주문 생성 API] 스레드: " + threadId);
+            System.out.println("[주문 생성 API] Request ID: " + (requestId != null ? requestId : "없음"));
+            System.out.println("[주문 생성 API] 배달 시간: " + request.getDeliveryTime());
+            System.out.println("[주문 생성 API] 배달 주소: " + request.getDeliveryAddress());
+            
             Order order = orderService.createOrder(userId, request);
+            
             System.out.println("[주문 생성 API] 주문 서비스 호출 완료 - 주문 ID: " + order.getId());
+            System.out.println("[주문 생성 API] 스레드: " + threadId);
+            System.out.println("[주문 생성 API] Request ID: " + (requestId != null ? requestId : "없음"));
             System.out.println("[주문 생성 API] 주문은 1개만 생성되었습니다.");
             
             // 주문 생성 완료 후 30초 후에 임시 저장소에서 제거

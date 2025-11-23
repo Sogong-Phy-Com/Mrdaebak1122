@@ -356,6 +356,13 @@ const Order: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    e.stopPropagation(); // 이벤트 전파 중단
+    
+    console.log('[주문 생성] handleSubmit 호출됨');
+    console.log('[주문 생성] 현재 제출 ID:', orderSubmissionRef.current);
+    console.log('[주문 생성] isSubmitting:', isSubmitting);
+    console.log('[주문 생성] loading:', loading);
+    
     setError('');
 
     if (!selectedDinner) {
