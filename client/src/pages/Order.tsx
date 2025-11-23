@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
@@ -55,6 +55,7 @@ const Order: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const orderSubmissionRef = useRef<string | null>(null);
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [inventoryAvailable, setInventoryAvailable] = useState(true);
@@ -388,11 +389,16 @@ const Order: React.FC = () => {
     }
 
     // 중복 제출 방지
-    if (loading || isSubmitting) {
+    if (loading || isSubmitting || orderSubmissionRef.current) {
       console.log('[주문 생성] 이미 제출 중입니다. 중복 제출 방지');
+      e.preventDefault();
       return;
     }
 
+    // 고유한 제출 ID 생성
+    const submissionId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    orderSubmissionRef.current = submissionId;
+    
     setIsSubmitting(true);
     setLoading(true);
     setError(''); // 에러 초기화
@@ -428,52 +434,71 @@ const Order: React.FC = () => {
         navigate('/orders');
       } else {
         // Create new order - 한 번만 호출되도록 보장
-        console.log('[주문 생성] 주문 생성 요청 시작');
+        console.log('[주문 생성] 주문 생성 요청 시작 - 제출 ID:', orderSubmissionRef.current);
+        
+        // 제출 ID 확인 (다른 제출이 이미 진행 중이면 중단)
+        if (orderSubmissionRef.current !== submissionId) {
+          console.log('[주문 생성] 다른 제출이 이미 진행 중입니다. 중단합니다.');
+          setLoading(false);
+          setIsSubmitting(false);
+          return;
+        }
         
         // 주문 생성 전에 폼을 완전히 비활성화하여 중복 제출 방지
         const formElement = e.target as HTMLFormElement;
         if (formElement) {
           const inputs = formElement.querySelectorAll('input, button, select, textarea');
           inputs.forEach((input: any) => {
-            if (input !== e.target) {
-              input.disabled = true;
-            }
+            input.disabled = true;
           });
         }
         
-        const response = await axios.post(`${API_URL}/orders`, {
+        // 주문 데이터에 고유 ID 추가
+        const orderData = {
           dinner_type_id: selectedDinner,
           serving_style: selectedStyle,
           delivery_time: deliveryTime,
           delivery_address: deliveryAddress,
           items: orderItems,
-          payment_method: 'card'
-        }, {
+          payment_method: 'card',
+          _request_id: submissionId // 중복 방지를 위한 고유 ID
+        };
+        
+        const response = await axios.post(`${API_URL}/orders`, orderData, {
           headers: {
-            'Authorization': `Bearer ${token}`
+            'Authorization': `Bearer ${token}`,
+            'X-Request-ID': submissionId // 헤더에도 추가
           }
         });
 
         console.log('[주문 생성] 성공:', response.data);
+        
+        // 제출 ID 확인 (다른 제출이 이미 완료되었으면 중단)
+        if (orderSubmissionRef.current !== submissionId) {
+          console.log('[주문 생성] 다른 제출이 이미 완료되었습니다. 중단합니다.');
+          return;
+        }
+        
         // 응답 형식에 따라 orderId 추출
         const orderId = response.data.order_id || response.data.id || response.data.order?.id || response.data.order_id;
         
         // 주문 생성 성공 후 즉시 리다이렉트하여 추가 호출 방지
         if (orderId) {
+          // 제출 ID를 null로 설정하여 추가 제출 완전 차단
+          orderSubmissionRef.current = null;
           navigate(`/delivery/${orderId}`, { replace: true });
         } else {
           // orderId가 없어도 주문은 성공했을 수 있으므로 주문 목록으로 이동
           console.warn('[주문 생성] orderId를 찾을 수 없지만 주문은 성공했습니다:', response.data);
+          orderSubmissionRef.current = null;
           navigate('/orders', { replace: true });
         }
-        
-        // 리다이렉트 후 상태 업데이트 (컴포넌트가 언마운트되므로 실행되지 않을 수 있음)
-        setLoading(false);
-        setIsSubmitting(false);
       }
     } catch (err: any) {
       console.error('[주문 생성] 실패');
       console.error('[주문 생성] 에러:', err);
+      // 에러 발생 시 제출 ID 초기화
+      orderSubmissionRef.current = null;
       setLoading(false);
       setIsSubmitting(false);
       
