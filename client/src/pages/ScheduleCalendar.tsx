@@ -347,21 +347,39 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({ type: propType }) =
   const getOrderColor = (order: Order, date: Date | null): 'red' | 'green' => {
     if (!date) return 'green';
     
-    // 해당 날짜에 근무하는 직원인지 확인
-    const dateStr = date.toISOString().split('T')[0];
-    const assignment = workAssignments[dateStr];
-    
-    if (assignment && assignment.tasks && assignment.tasks.length > 0) {
-      // 해당 날에 할당된 작업이 있으면 빨간색
-      return 'red';
-    }
-    
     // 끝난 주문은 초록색
     if (order.status === 'delivered' || order.status === 'cancelled') {
       return 'green';
     }
     
-    // 기본적으로 빨간색 (주문이 있으면)
+    // 해당 날짜에 근무하는 직원인지 확인
+    const dateStr = date.toISOString().split('T')[0];
+    const assignment = workAssignments[dateStr];
+    
+    if (!assignment || !assignment.tasks || assignment.tasks.length === 0) {
+      // 할당된 작업이 없으면 초록색
+      return 'green';
+    }
+    
+    // 할당된 작업이 있는 경우, 작업 완료 여부 확인
+    const hasCookingTask = assignment.tasks.includes('조리');
+    const hasDeliveryTask = assignment.tasks.includes('배달');
+    
+    // 조리 작업이 할당된 경우: ready 상태 이상이면 초록색
+    if (hasCookingTask) {
+      if (order.status === 'ready' || order.status === 'out_for_delivery' || order.status === 'delivered') {
+        return 'green';
+      }
+    }
+    
+    // 배달 작업이 할당된 경우: delivered 상태면 초록색
+    if (hasDeliveryTask) {
+      if (order.status === 'delivered') {
+        return 'green';
+      }
+    }
+    
+    // 할당된 작업이 있지만 아직 완료되지 않았으면 빨간색
     return 'red';
   };
 
@@ -788,14 +806,29 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({ type: propType }) =
                                     onClick={async () => {
                                       try {
                                         const headers = getAuthHeaders();
+                                        
+                                        // 즉시 로컬 상태 업데이트하여 UI에 반영
+                                        setOrders(prevOrders => 
+                                          prevOrders.map(o => 
+                                            o.id === order.id ? { ...o, status: nextStatus } : o
+                                          )
+                                        );
+                                        
                                         await axios.patch(`${API_URL}/employee/orders/${order.id}/status`, 
                                           { status: nextStatus }, 
                                           { headers }
                                         );
-                                        await fetchOrders();
-                                        await fetchWorkAssignments();
-                                        alert('주문 상태가 변경되었습니다.');
+                                        
+                                        // 서버에서 최신 데이터 가져오기 (백그라운드)
+                                        fetchOrders().catch(console.error);
+                                        fetchWorkAssignments().catch(console.error);
                                       } catch (err: any) {
+                                        // 실패 시 이전 상태로 복원
+                                        setOrders(prevOrders => 
+                                          prevOrders.map(o => 
+                                            o.id === order.id ? { ...o, status: order.status } : o
+                                          )
+                                        );
                                         alert(err.response?.data?.error || '주문 상태 변경에 실패했습니다.');
                                       }
                                     }}

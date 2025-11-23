@@ -429,6 +429,18 @@ const Order: React.FC = () => {
       } else {
         // Create new order - 한 번만 호출되도록 보장
         console.log('[주문 생성] 주문 생성 요청 시작');
+        
+        // 주문 생성 전에 폼을 완전히 비활성화하여 중복 제출 방지
+        const formElement = e.target as HTMLFormElement;
+        if (formElement) {
+          const inputs = formElement.querySelectorAll('input, button, select, textarea');
+          inputs.forEach((input: any) => {
+            if (input !== e.target) {
+              input.disabled = true;
+            }
+          });
+        }
+        
         const response = await axios.post(`${API_URL}/orders`, {
           dinner_type_id: selectedDinner,
           serving_style: selectedStyle,
@@ -445,15 +457,19 @@ const Order: React.FC = () => {
         console.log('[주문 생성] 성공:', response.data);
         // 응답 형식에 따라 orderId 추출
         const orderId = response.data.order_id || response.data.id || response.data.order?.id || response.data.order_id;
-        setLoading(false);
-        setIsSubmitting(false);
+        
+        // 주문 생성 성공 후 즉시 리다이렉트하여 추가 호출 방지
         if (orderId) {
-          navigate(`/delivery/${orderId}`);
+          navigate(`/delivery/${orderId}`, { replace: true });
         } else {
           // orderId가 없어도 주문은 성공했을 수 있으므로 주문 목록으로 이동
           console.warn('[주문 생성] orderId를 찾을 수 없지만 주문은 성공했습니다:', response.data);
-          navigate('/orders');
+          navigate('/orders', { replace: true });
         }
+        
+        // 리다이렉트 후 상태 업데이트 (컴포넌트가 언마운트되므로 실행되지 않을 수 있음)
+        setLoading(false);
+        setIsSubmitting(false);
       }
     } catch (err: any) {
       console.error('[주문 생성] 실패');
