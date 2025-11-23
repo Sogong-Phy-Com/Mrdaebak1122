@@ -647,43 +647,13 @@ const AdminScheduleManagement: React.FC = () => {
                             order.status === 'ready' ? '준비 완료' : '주문 접수'
                           }</p>
                         </div>
+                        {/* 관리자는 주문 상태 변경 불가 - 할당받은 직원만 변경 가능 */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                          {order.status === 'pending' && (
-                            <button
-                              className="btn btn-primary"
-                              onClick={() => updateOrderStatus(order.id, 'cooking')}
-                              style={{ fontSize: '12px', padding: '5px 10px' }}
-                            >
-                              조리 시작
-                            </button>
-                          )}
-                          {order.status === 'cooking' && (
-                            <button
-                              className="btn btn-primary"
-                              onClick={() => updateOrderStatus(order.id, 'ready')}
-                              style={{ fontSize: '12px', padding: '5px 10px' }}
-                            >
-                              조리 완료
-                            </button>
-                          )}
-                          {order.status === 'ready' && (
-                            <button
-                              className="btn btn-primary"
-                              onClick={() => updateOrderStatus(order.id, 'out_for_delivery')}
-                              style={{ fontSize: '12px', padding: '5px 10px' }}
-                            >
-                              배달 시작
-                            </button>
-                          )}
-                          {order.status === 'out_for_delivery' && (
-                            <button
-                              className="btn btn-primary"
-                              onClick={() => updateOrderStatus(order.id, 'delivered')}
-                              style={{ fontSize: '12px', padding: '5px 10px' }}
-                            >
-                              배달 완료
-                            </button>
-                          )}
+                          <p style={{ fontSize: '12px', color: '#999', fontStyle: 'italic' }}>
+                            관리자는 주문 상태를 변경할 수 없습니다.
+                            <br />
+                            할당받은 직원만 상태를 변경할 수 있습니다.
+                          </p>
                         </div>
                       </div>
                     </div>

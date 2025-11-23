@@ -267,40 +267,42 @@ public class EmployeeController {
             Order order = orderRepository.findById(id)
                     .orElseThrow(() -> new RuntimeException("주문을 찾을 수 없습니다: " + id));
 
-            // 권한 체크: 관리자가 아니면 관리자가 할당한 작업에 해당하는 직원만 상태 변경 가능
-            if (!isAdmin) {
-                // 주문의 배달 시간에서 날짜 추출
-                LocalDate orderDate = null;
+            // 권한 체크: 관리자는 주문 상태 변경 불가, 할당받은 직원만 상태 변경 가능
+            if (isAdmin) {
+                return ResponseEntity.status(403).body(Map.of("error", "관리자는 주문 상태를 변경할 수 없습니다. 할당받은 직원만 상태를 변경할 수 있습니다."));
+            }
+            
+            // 주문의 배달 시간에서 날짜 추출
+            LocalDate orderDate = null;
+            try {
+                LocalDateTime deliveryDateTime = LocalDateTime.parse(order.getDeliveryTime(), DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+                orderDate = deliveryDateTime.toLocalDate();
+            } catch (Exception e) {
                 try {
-                    LocalDateTime deliveryDateTime = LocalDateTime.parse(order.getDeliveryTime(), DateTimeFormatter.ISO_LOCAL_DATE_TIME);
-                    orderDate = deliveryDateTime.toLocalDate();
-                } catch (Exception e) {
-                    try {
-                        // 다른 형식 시도
-                        orderDate = LocalDate.parse(order.getDeliveryTime().split("T")[0]);
-                    } catch (Exception e2) {
-                        return ResponseEntity.status(400).body(Map.of("error", "주문의 배달 시간 형식이 올바르지 않습니다."));
-                    }
+                    // 다른 형식 시도
+                    orderDate = LocalDate.parse(order.getDeliveryTime().split("T")[0]);
+                } catch (Exception e2) {
+                    return ResponseEntity.status(400).body(Map.of("error", "주문의 배달 시간 형식이 올바르지 않습니다."));
                 }
-                
-                // 해당 날짜에 관리자가 할당한 작업 확인
-                List<EmployeeWorkAssignment> assignments = employeeWorkAssignmentRepository.findByEmployeeIdAndWorkDate(employeeId, orderDate);
-                
-                boolean hasCookingAssignment = assignments.stream()
-                    .anyMatch(a -> "COOKING".equalsIgnoreCase(a.getTaskType()));
-                boolean hasDeliveryAssignment = assignments.stream()
-                    .anyMatch(a -> "DELIVERY".equalsIgnoreCase(a.getTaskType()));
-                
-                if ("cooking".equals(status) || "ready".equals(status)) {
-                    // 조리 관련 상태는 조리 작업이 할당된 직원만 변경 가능
-                    if (!hasCookingAssignment) {
-                        return ResponseEntity.status(403).body(Map.of("error", "이 주문의 조리 담당 직원만 상태를 변경할 수 있습니다."));
-                    }
-                } else if ("out_for_delivery".equals(status) || "delivered".equals(status)) {
-                    // 배달 관련 상태는 배달 작업이 할당된 직원만 변경 가능
-                    if (!hasDeliveryAssignment) {
-                        return ResponseEntity.status(403).body(Map.of("error", "이 주문의 배달 담당 직원만 상태를 변경할 수 있습니다."));
-                    }
+            }
+            
+            // 해당 날짜에 관리자가 할당한 작업 확인
+            List<EmployeeWorkAssignment> assignments = employeeWorkAssignmentRepository.findByEmployeeIdAndWorkDate(employeeId, orderDate);
+            
+            boolean hasCookingAssignment = assignments.stream()
+                .anyMatch(a -> "COOKING".equalsIgnoreCase(a.getTaskType()));
+            boolean hasDeliveryAssignment = assignments.stream()
+                .anyMatch(a -> "DELIVERY".equalsIgnoreCase(a.getTaskType()));
+            
+            if ("cooking".equals(status) || "ready".equals(status)) {
+                // 조리 관련 상태는 조리 작업이 할당된 직원만 변경 가능
+                if (!hasCookingAssignment) {
+                    return ResponseEntity.status(403).body(Map.of("error", "이 주문의 조리 담당 직원만 상태를 변경할 수 있습니다."));
+                }
+            } else if ("out_for_delivery".equals(status) || "delivered".equals(status)) {
+                // 배달 관련 상태는 배달 작업이 할당된 직원만 변경 가능
+                if (!hasDeliveryAssignment) {
+                    return ResponseEntity.status(403).body(Map.of("error", "이 주문의 배달 담당 직원만 상태를 변경할 수 있습니다."));
                 }
             }
 

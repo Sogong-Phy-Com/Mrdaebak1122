@@ -754,10 +754,13 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({ type: propType }) =
                           {calendarType === 'orders' && (
                             <div style={{ marginTop: '15px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                               {(() => {
+                                // 관리자는 주문 상태 변경 불가, 할당받은 직원만 가능
+                                if (isAdmin) return null;
+                                
                                 const dateStr = selectedDate ? selectedDate.toISOString().split('T')[0] : '';
                                 const assignment = workAssignments[dateStr];
                                 const tasks = assignment?.tasks || [];
-                                const canChangeStatus = isAdmin || (tasks.includes('조리') || tasks.includes('배달'));
+                                const canChangeStatus = tasks.includes('조리') || tasks.includes('배달');
                                 
                                 if (!canChangeStatus) return null;
                                 

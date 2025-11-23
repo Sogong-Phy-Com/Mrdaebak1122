@@ -477,39 +477,7 @@ public class AdminController {
         }
     }
 
-    @PatchMapping("/orders/{orderId}/status")
-    public ResponseEntity<?> updateOrderStatus(@PathVariable Long orderId,
-                                               @RequestBody Map<String, String> request) {
-        try {
-            if (orderId == null) {
-                return ResponseEntity.badRequest().body(Map.of("error", "주문 ID는 필수입니다."));
-            }
-
-            String status = request.get("status");
-            if (status == null || status.trim().isEmpty()) {
-                return ResponseEntity.badRequest().body(Map.of("error", "상태 값은 필수입니다."));
-            }
-
-            status = status.trim().toLowerCase();
-            if (!List.of("pending", "cooking", "ready", "out_for_delivery", "delivered", "cancelled").contains(status)) {
-                return ResponseEntity.badRequest().body(Map.of("error", "유효하지 않은 상태입니다."));
-            }
-
-            Order order = orderRepository.findById(orderId)
-                    .orElseThrow(() -> new RuntimeException("주문을 찾을 수 없습니다: " + orderId));
-
-            // 관리자는 모든 주문 상태 변경 가능
-            order.setStatus(status);
-            orderRepository.save(order);
-
-            return ResponseEntity.ok(Map.of(
-                    "message", "주문 상태가 변경되었습니다.",
-                    "orderId", orderId,
-                    "status", status
-            ));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
-    }
+    // 관리자는 주문 상태 변경 불가 - 할당받은 직원만 변경 가능
+    // 이 엔드포인트는 제거되었습니다. 주문 상태 변경은 /api/employee/orders/{id}/status를 사용하세요.
 }
 
