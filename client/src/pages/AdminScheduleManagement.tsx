@@ -37,6 +37,7 @@ const AdminScheduleManagement: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [dayAssignments, setDayAssignments] = useState<{ [key: string]: DayAssignment }>({});
   const [loading, setLoading] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [loadingAssignments, setLoadingAssignments] = useState(false);
   const [error, setError] = useState('');
   const [calendarType, setCalendarType] = useState<'schedule' | 'orders'>('schedule');
@@ -84,7 +85,6 @@ const AdminScheduleManagement: React.FC = () => {
 
   const fetchOrders = async () => {
     try {
-      setLoadingAssignments(true);
       const headers = getAuthHeaders();
       const response = await axios.get(`${API_URL}/employee/orders`, { headers });
       if (response.data && Array.isArray(response.data)) {
@@ -129,8 +129,6 @@ const AdminScheduleManagement: React.FC = () => {
     } catch (err: any) {
       console.error('주문 목록 조회 실패:', err);
       setOrders([]);
-    } finally {
-      setLoadingAssignments(false);
     }
   };
 
@@ -179,7 +177,6 @@ const AdminScheduleManagement: React.FC = () => {
 
   const fetchDayAssignments = async () => {
     try {
-      setLoadingAssignments(true);
       const headers = getAuthHeaders();
       const year = currentYear;
       const month = currentMonth;
@@ -330,7 +327,6 @@ const AdminScheduleManagement: React.FC = () => {
       alert('할당 저장에 실패했습니다: ' + errorMessage);
     } finally {
       setLoading(false);
-      setLoadingAssignments(false);
     }
   };
 
@@ -379,32 +375,6 @@ const AdminScheduleManagement: React.FC = () => {
 
         <h2>스케줄 관리 / 주문 관리</h2>
         {error && <div className="error">{error}</div>}
-        {(loadingAssignments || loading) && (
-          <div className="loading-overlay" style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: 'rgba(0, 0, 0, 0.7)',
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            zIndex: 9999,
-            pointerEvents: 'all'
-          }}>
-            <div style={{
-              background: '#1a1a1a',
-              padding: '30px',
-              borderRadius: '10px',
-              textAlign: 'center',
-              color: '#fff'
-            }}>
-              <div style={{ fontSize: '18px', marginBottom: '10px' }}>로딩 중...</div>
-              <div>직원 작업 할당 정보를 불러오는 중입니다.</div>
-            </div>
-          </div>
-        )}
 
         {/* Tab Menu for Calendar Views - Only Schedule and Order Calendar */}
         <div style={{ 

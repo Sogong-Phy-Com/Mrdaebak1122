@@ -209,7 +209,7 @@ const AdminInventoryManagement: React.FC = () => {
   };
 
   return (
-    <div className="admin-dashboard">
+    <div className="employee-dashboard">
       <TopLogo />
       <div className="container">
         <div style={{ marginBottom: '20px' }}>
@@ -218,66 +218,58 @@ const AdminInventoryManagement: React.FC = () => {
           </button>
         </div>
 
-        <div className="admin-section">
-          <h2>재고 관리</h2>
-          {inventoryError && <div className="error">{inventoryError}</div>}
-          {restockMessage && <div className="success">{restockMessage}</div>}
-
-
-          <div className="users-table">
-            {inventoryLoading ? (
-              <div className="loading">재고를 불러오는 중...</div>
+        <h2>재고 관리</h2>
+        {inventoryError && <div className="error">{inventoryError}</div>}
+        {restockMessage && <div className="success">{restockMessage}</div>}
+        
+        {inventoryLoading ? (
+          <div className="loading">로딩 중...</div>
+        ) : (
+          <div className="inventory-list">
+            {inventoryItems.length === 0 ? (
+              <div className="no-orders">
+                <p>재고 정보가 없습니다.</p>
+              </div>
             ) : (
-              <table>
+              <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '20px' }}>
                 <thead>
-                  <tr>
-                    <th>메뉴</th>
-                    <th>카테고리</th>
-                    <th>현재 보유량</th>
-                    <th>주문 재고</th>
-                    <th>이번주 예약 수량</th>
-                    <th>예비 수량</th>
-                    <th>보충일</th>
-                    <th>비고</th>
-                    <th>보충</th>
+                  <tr style={{ background: '#d4af37', color: '#000' }}>
+                    <th style={{ padding: '10px', border: '1px solid #000' }}>메뉴 항목</th>
+                    <th style={{ padding: '10px', border: '1px solid #000' }}>카테고리</th>
+                    <th style={{ padding: '10px', border: '1px solid #000' }}>현재 보유량</th>
+                    <th style={{ padding: '10px', border: '1px solid #000' }}>주문 재고</th>
+                    <th style={{ padding: '10px', border: '1px solid #000' }}>이번주 예약 수량</th>
+                    <th style={{ padding: '10px', border: '1px solid #000' }}>예비 수량</th>
+                    <th style={{ padding: '10px', border: '1px solid #000' }}>보충일</th>
+                    <th style={{ padding: '10px', border: '1px solid #000' }}>비고</th>
+                    <th style={{ padding: '10px', border: '1px solid #000' }}>보충</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {inventoryItems.length === 0 ? (
-                    <tr>
-                      <td colSpan={9} style={{ textAlign: 'center', padding: '20px' }}>
-                        등록된 재고가 없습니다.
-                      </td>
-                    </tr>
-                  ) : (
-                    inventoryItems.map(item => (
-                      <tr key={item.menu_item_id}>
-                        <td>
-                          <div className="text-strong">{item.menu_item_name || `메뉴 ${item.menu_item_id}`}</div>
-                          <div className="text-muted">{item.menu_item_name_en}</div>
+                  {inventoryItems.map(item => {
+                    const currentCapacity = item.capacity_per_window || 0;
+                    const weeklyReserved = item.weekly_reserved || item.reserved || 0;
+                    const spareQuantity = Math.max(0, currentCapacity - weeklyReserved);
+                    const orderedQty = orderedInventory[item.menu_item_id] || 0;
+                    
+                    return (
+                      <tr key={item.menu_item_id} style={{ background: spareQuantity < 5 ? '#ffcccc' : 'transparent' }}>
+                        <td style={{ padding: '10px', border: '1px solid #d4af37' }}>
+                          {item.menu_item_name || `메뉴 ${item.menu_item_id}`} {item.menu_item_name_en && `(${item.menu_item_name_en})`}
                         </td>
-                        <td>{item.category || '-'}</td>
-                        <td>{item.capacity_per_window?.toLocaleString()}개</td>
-                        <td>
-                          {orderedInventory[item.menu_item_id] ? `${orderedInventory[item.menu_item_id].toLocaleString()}개` : '0개'}
+                        <td style={{ padding: '10px', border: '1px solid #d4af37' }}>{item.category || '-'}</td>
+                        <td style={{ padding: '10px', border: '1px solid #d4af37' }}>{currentCapacity.toLocaleString()}</td>
+                        <td style={{ padding: '10px', border: '1px solid #d4af37' }}>{orderedQty.toLocaleString()}</td>
+                        <td style={{ padding: '10px', border: '1px solid #d4af37' }}>{weeklyReserved.toLocaleString()}</td>
+                        <td style={{ padding: '10px', border: '1px solid #d4af37', fontWeight: spareQuantity < 5 ? 'bold' : 'normal' }}>
+                          {spareQuantity.toLocaleString()}
                         </td>
-                        <td>{item.weekly_reserved || item.reserved || 0}개</td>
-                        <td>
-                          {(() => {
-                            const currentCapacity = item.capacity_per_window || 0;
-                            const weeklyReserved = item.weekly_reserved || item.reserved || 0;
-                            const spareQuantity = Math.max(0, currentCapacity - weeklyReserved);
-                            return `${spareQuantity.toLocaleString()}개`;
-                          })()}
-                        </td>
-                        <td>
+                        <td style={{ padding: '10px', border: '1px solid #d4af37' }}>
                           {(() => {
                             const today = new Date();
                             const dayOfWeek = today.getDay();
-                            // Monday = 1, Friday = 5
                             if (dayOfWeek === 1) return '월요일';
                             if (dayOfWeek === 5) return '금요일';
-                            // Calculate next restock day
                             const daysUntilMonday = (1 - dayOfWeek + 7) % 7 || 7;
                             const daysUntilFriday = (5 - dayOfWeek + 7) % 7 || 7;
                             const nextRestockDay = Math.min(daysUntilMonday, daysUntilFriday);
@@ -286,9 +278,9 @@ const AdminInventoryManagement: React.FC = () => {
                             return '-';
                           })()}
                         </td>
-                        <td>{item.notes || '-'}</td>
-                        <td>
-                          <div className="restock-controls">
+                        <td style={{ padding: '10px', border: '1px solid #d4af37' }}>{item.notes || '-'}</td>
+                        <td style={{ padding: '10px', border: '1px solid #d4af37' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
                             <input
                               type="number"
                               min={0}
@@ -301,6 +293,7 @@ const AdminInventoryManagement: React.FC = () => {
                                   [item.menu_item_id]: value
                                 }));
                               }}
+                              style={{ padding: '5px', width: '100%' }}
                             />
                             <input
                               type="text"
@@ -312,18 +305,20 @@ const AdminInventoryManagement: React.FC = () => {
                                   [item.menu_item_id]: e.target.value
                                 }))
                               }
+                              style={{ padding: '5px', width: '100%' }}
                             />
                             <button
                               className="btn btn-primary"
                               onClick={() => handleRestock(item.menu_item_id)}
+                              style={{ padding: '5px', fontSize: '12px' }}
                             >
                               보충
                             </button>
-                            {orderedInventory[item.menu_item_id] > 0 && (
+                            {orderedQty > 0 && (
                               <button
                                 className="btn btn-success"
                                 onClick={() => handleReceiveInventory(item.menu_item_id)}
-                                style={{ marginTop: '5px' }}
+                                style={{ padding: '5px', fontSize: '12px' }}
                               >
                                 수령
                               </button>
@@ -331,13 +326,13 @@ const AdminInventoryManagement: React.FC = () => {
                           </div>
                         </td>
                       </tr>
-                    ))
-                  )}
+                    );
+                  })}
                 </tbody>
               </table>
             )}
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
