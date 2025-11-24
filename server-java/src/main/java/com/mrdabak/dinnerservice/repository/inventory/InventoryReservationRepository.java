@@ -31,5 +31,14 @@ public interface InventoryReservationRepository extends JpaRepository<InventoryR
     
     @Query("SELECT r FROM InventoryReservation r WHERE r.consumed = false AND r.orderId = :orderId")
     List<InventoryReservation> findUnconsumedByOrderId(@Param("orderId") Long orderId);
+    
+    // 이번주 예약 수량 계산 (이번 주의 모든 예약 합산)
+    @Query("SELECT COALESCE(SUM(r.quantity), 0) FROM InventoryReservation r " +
+            "WHERE r.menuItemId = :menuItemId " +
+            "AND r.windowStart >= :weekStart " +
+            "AND r.windowStart < :weekEnd")
+    Integer sumWeeklyReservedByMenuItemId(@Param("menuItemId") Long menuItemId,
+                                         @Param("weekStart") LocalDateTime weekStart,
+                                         @Param("weekEnd") LocalDateTime weekEnd);
 }
 

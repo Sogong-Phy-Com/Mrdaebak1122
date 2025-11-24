@@ -58,7 +58,7 @@ public class InventoryService {
         for (Long menuItemId : aggregated.keySet()) {
             MenuInventory inventory = getInventory(menuItemId);
             inventoryMap.put(menuItemId, inventory);
-            validateCapacity(menuItemId, inventory, aggregated.get(menuItemId), window);
+            validateCapacity(menuItemId, inventory, aggregated.get(menuItemId), window, deliveryTime);
         }
 
         return new InventoryReservationPlan(window, aggregated, deliveryTime);
@@ -84,7 +84,7 @@ public class InventoryService {
             
             // Re-validate capacity (race condition prevention)
             MenuInventory inventory = getInventory(menuItemId);
-            validateCapacity(menuItemId, inventory, quantity, plan.window());
+            validateCapacity(menuItemId, inventory, quantity, plan.window(), plan.deliveryTime());
 
             // 주문 시 재고 예약 저장 (조리 시작 시 소진)
             InventoryReservation reservation = new InventoryReservation();
@@ -151,11 +151,22 @@ public class InventoryService {
                 return;
             }
 
-            // Mark reservations as consumed (조리 시작 시 재고 소진)
+            // Mark reservations as consumed and deduct from current stock (조리 시작 시 재고 소진)
             int count = 0;
             for (InventoryReservation reservation : reservations) {
                 reservation.setConsumed(true);
                 inventoryReservationRepository.save(reservation);
+                
+                // 현재 보유량에서 차감
+                MenuInventory inventory = getInventory(reservation.getMenuItemId());
+                int currentCapacity = inventory.getCapacityPerWindow() != null ? inventory.getCapacityPerWindow() : 0;
+                int quantityToDeduct = reservation.getQuantity() != null ? reservation.getQuantity() : 0;
+                int newCapacity = Math.max(0, currentCapacity - quantityToDeduct);
+                inventory.setCapacityPerWindow(newCapacity);
+                menuInventoryRepository.save(inventory);
+                
+                System.out.println("[InventoryService] 주문 " + orderId + " - 메뉴 아이템 " + reservation.getMenuItemId() + 
+                    " 재고 " + quantityToDeduct + "개 차감 (현재 보유량: " + currentCapacity + " -> " + newCapacity + ")");
                 count++;
             }
             System.out.println("[InventoryService] 주문 " + orderId + "의 재고 예약 " + count + "개가 소진되었습니다.");
@@ -193,18 +204,35 @@ public class InventoryService {
         }
 
         // Now get all inventories (including newly created ones)
+        // Calculate weekly reserved (this week's reservations)
+        LocalDate today = LocalDate.now();
+        LocalDate weekStart = today.with(java.time.DayOfWeek.MONDAY);
+        LocalDate weekEnd = weekStart.plusWeeks(1);
+        LocalDateTime weekStartDateTime = LocalDateTime.of(weekStart, LocalTime.MIN);
+        LocalDateTime weekEndDateTime = LocalDateTime.of(weekEnd, LocalTime.MIN);
+        
         return menuInventoryRepository.findAll().stream().map(inventory -> {
+            // 현재 날짜의 예약 수량
             Integer reserved = inventoryReservationRepository
                     .sumQuantityByMenuItemIdAndWindowStart(inventory.getMenuItemId(), currentWindow.start());
             if (reserved == null) {
                 reserved = 0;
             }
+            
+            // 이번주 예약 수량 (이번 주의 모든 예약 합산)
+            Integer weeklyReserved = inventoryReservationRepository
+                    .sumWeeklyReservedByMenuItemId(inventory.getMenuItemId(), weekStartDateTime, weekEndDateTime);
+            if (weeklyReserved == null) {
+                weeklyReserved = 0;
+            }
+            
             return new InventorySnapshot(
                     inventory,
                     reserved,
                     inventory.getCapacityPerWindow() - reserved,
                     currentWindow.start(),
-                    currentWindow.end()
+                    currentWindow.end(),
+                    weeklyReserved
             );
         }).toList();
     }
@@ -310,13 +338,29 @@ public class InventoryService {
     }
 
     private void validateCapacity(Long menuItemId, MenuInventory inventory, Integer requestedQuantity, RestockWindow window) {
+        validateCapacity(menuItemId, inventory, requestedQuantity, window, null);
+    }
+    
+    private void validateCapacity(Long menuItemId, MenuInventory inventory, Integer requestedQuantity, RestockWindow window, LocalDateTime deliveryTime) {
         Integer alreadyReserved = inventoryReservationRepository
                 .sumQuantityByMenuItemIdAndWindowStart(menuItemId, window.start());
         if (alreadyReserved == null) {
             alreadyReserved = 0;
         }
         int projected = alreadyReserved + requestedQuantity;
-        if (projected > inventory.getCapacityPerWindow()) {
+        
+        // 3일 이하 예약은 현재 보유량 초과 불가, 3일 이상은 초과 가능
+        boolean allowExceedCapacity = false;
+        if (deliveryTime != null) {
+            LocalDate deliveryDate = deliveryTime.toLocalDate();
+            LocalDate today = LocalDate.now();
+            long daysUntilDelivery = java.time.temporal.ChronoUnit.DAYS.between(today, deliveryDate);
+            allowExceedCapacity = daysUntilDelivery >= 3;
+        }
+        
+        int maxCapacity = allowExceedCapacity ? Integer.MAX_VALUE : inventory.getCapacityPerWindow();
+        
+        if (projected > maxCapacity) {
             String menuName = menuItemRepository.findById(menuItemId)
                     .map(item -> item.getName() + "(" + item.getNameEn() + ")")
                     .orElse("menu item " + menuItemId);
@@ -325,7 +369,7 @@ public class InventoryService {
                     menuName,
                     requestedQuantity,
                     alreadyReserved,
-                    inventory.getCapacityPerWindow()
+                    maxCapacity
             ));
         }
     }
@@ -377,6 +421,7 @@ public class InventoryService {
                                     int reserved,
                                     int remaining,
                                     LocalDateTime windowStart,
-                                    LocalDateTime windowEnd) { }
+                                    LocalDateTime windowEnd,
+                                    int weeklyReserved) { }
 }
 

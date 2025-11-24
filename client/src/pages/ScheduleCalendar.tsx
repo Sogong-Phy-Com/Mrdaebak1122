@@ -21,6 +21,15 @@ interface DeliverySchedule {
   status: string;
 }
 
+interface OrderItem {
+  id: number;
+  menu_item_id: number;
+  quantity: number;
+  name?: string;
+  name_en?: string;
+  price?: number;
+}
+
 interface Order {
   id: number;
   customer_name?: string;
@@ -33,6 +42,7 @@ interface Order {
   delivery_employee_id?: number;
   cooking_employee_name?: string;
   delivery_employee_name?: string;
+  items?: OrderItem[];
 }
 
 interface User {
@@ -659,7 +669,7 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({ type: propType }) =
               const isClickable = date && !isPast && (calendarType === 'schedule' ? hasMySchedules : (dayOrders.length > 0 || daySchedules.length > 0));
               
               // For schedule calendar: red if employee has work, green if not
-              // For orders calendar: show order count (no background color)
+              // For orders calendar: red if there are incomplete tasks, green if all tasks completed
               const getDayColor = () => {
                 if (!date) return '';
                 if (calendarType === 'schedule') {
@@ -675,7 +685,22 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({ type: propType }) =
                   }
                   return hasMySchedules ? 'red' : 'green';
                 } else {
-                  // Orders calendar: no background color
+                  // Orders calendar: check if there are incomplete tasks
+                  const year = date.getFullYear();
+                  const month = (date.getMonth() + 1).toString().padStart(2, '0');
+                  const day = date.getDate().toString().padStart(2, '0');
+                  const dateStr = `${year}-${month}-${day}`;
+                  const assignment = workAssignments[dateStr];
+                  const dayOrders = getOrdersForDate(date);
+                  
+                  if (assignment && assignment.tasks && assignment.tasks.length > 0 && dayOrders.length > 0) {
+                    // Check if all assigned tasks are completed
+                    const allCompleted = dayOrders.every(order => {
+                      const isCompleted = order.status === 'delivered' || order.status === 'cancelled';
+                      return isCompleted;
+                    });
+                    return allCompleted ? 'green' : 'red';
+                  }
                   return '';
                 }
               };
@@ -828,6 +853,16 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({ type: propType }) =
                             {order.customer_name && `고객: ${order.customer_name}`}
                             {order.dinner_name && ` | ${order.dinner_name}`}
                           </p>
+                          <p style={{ color: '#fff', margin: '5px 0', fontSize: '12px' }}>
+                            배달 주소: {order.delivery_address || '주소 없음'}
+                          </p>
+                          {order.items && order.items.length > 0 && (
+                            <p style={{ color: '#fff', margin: '5px 0', fontSize: '12px' }}>
+                              주문 구성: {order.items.map((item: any) => 
+                                `${item.name || item.name_en || '항목'} ${item.quantity}개`
+                              ).join(', ')}
+                            </p>
+                          )}
                           <p style={{ color: '#fff', margin: '5px 0', fontSize: '12px' }}>
                             배달 시간: {formatTime(order.delivery_time || '')}
                           </p>

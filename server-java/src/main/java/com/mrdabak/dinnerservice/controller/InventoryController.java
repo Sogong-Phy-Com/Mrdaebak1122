@@ -47,8 +47,7 @@ public class InventoryController {
                 map.put("category", menuItem.getCategory());
             }
             // Calculate weekly reserved (sum of reservations for the week)
-            // For now, using reserved as weekly_reserved
-            map.put("weekly_reserved", snapshot.reserved());
+            map.put("weekly_reserved", snapshot.weeklyReserved());
             return map;
         }).toList();
         return ResponseEntity.ok(response);

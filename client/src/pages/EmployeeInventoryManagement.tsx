@@ -111,7 +111,7 @@ const EmployeeInventoryManagement: React.FC = () => {
                   <tr style={{ background: '#d4af37', color: '#000' }}>
                     <th style={{ padding: '10px', border: '1px solid #000' }}>메뉴 항목</th>
                     <th style={{ padding: '10px', border: '1px solid #000' }}>카테고리</th>
-                    <th style={{ padding: '10px', border: '1px solid #000' }}>창구당 용량</th>
+                    <th style={{ padding: '10px', border: '1px solid #000' }}>현재 보유량</th>
                     <th style={{ padding: '10px', border: '1px solid #000' }}>예약됨</th>
                     <th style={{ padding: '10px', border: '1px solid #000' }}>남은 재고</th>
                     <th style={{ padding: '10px', border: '1px solid #000' }}>시간대</th>

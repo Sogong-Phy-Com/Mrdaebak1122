@@ -245,12 +245,22 @@ const AdminInventoryManagement: React.FC = () => {
                     
                     // 예비 수량이 이번주 수량의 10%를 넘지 않으면 빨간색, 넘으면 초록색
                     const tenPercentThreshold = weeklyReserved * 0.1;
-                    const backgroundColor = spareQuantity <= tenPercentThreshold ? '#ffcccc' : '#ccffcc';
+                    const dotColor = spareQuantity <= tenPercentThreshold ? '#ff4444' : '#4CAF50';
                     
                     return (
-                      <tr key={item.menu_item_id} style={{ background: backgroundColor }}>
-                        <td style={{ padding: '10px', border: '1px solid #d4af37' }}>
-                          {item.menu_item_name || `메뉴 ${item.menu_item_id}`} {item.menu_item_name_en && `(${item.menu_item_name_en})`}
+                      <tr key={item.menu_item_id}>
+                        <td style={{ padding: '10px', border: '1px solid #d4af37', position: 'relative' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <div style={{
+                              width: '12px',
+                              height: '12px',
+                              borderRadius: '50%',
+                              background: dotColor,
+                              border: '1px solid #000',
+                              flexShrink: 0
+                            }}></div>
+                            <span>{item.menu_item_name || `메뉴 ${item.menu_item_id}`} {item.menu_item_name_en && `(${item.menu_item_name_en})`}</span>
+                          </div>
                         </td>
                         <td style={{ padding: '10px', border: '1px solid #d4af37' }}>{item.category || '-'}</td>
                         <td style={{ padding: '10px', border: '1px solid #d4af37' }}>{currentCapacity.toLocaleString()}</td>

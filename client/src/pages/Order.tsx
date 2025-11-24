@@ -167,6 +167,14 @@ const Order: React.FC = () => {
       }
 
       try {
+        // 3일 이하 예약은 현재 보유량 초과 불가, 3일 이상은 초과 가능
+        const deliveryDate = new Date(deliveryTime);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        deliveryDate.setHours(0, 0, 0, 0);
+        const daysUntilDelivery = Math.ceil((deliveryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+        const isWithin3Days = daysUntilDelivery <= 3;
+        
         const menuItemIds = orderItems.map(item => item.menu_item_id).join(',');
         const response = await axios.get(`${API_URL}/inventory/check-availability`, {
           params: {
@@ -175,8 +183,32 @@ const Order: React.FC = () => {
           }
         });
 
-        const allAvailable = orderItems.every(item => response.data[item.menu_item_id] === true);
-        setInventoryAvailable(allAvailable);
+        // 3일 이하 예약인 경우 현재 보유량 초과 불가 검증
+        if (isWithin3Days) {
+          // 재고 정보를 가져와서 현재 보유량 확인
+          try {
+            const inventoryResponse = await axios.get(`${API_URL}/inventory`);
+            const allAvailable = orderItems.every(item => {
+              const inventoryItem = inventoryResponse.data.find((inv: any) => inv.menu_item_id === item.menu_item_id);
+              if (!inventoryItem) return false;
+              
+              const currentStock = inventoryItem.capacity_per_window || 0;
+              const weeklyReserved = inventoryItem.weekly_reserved || 0;
+              const availableStock = currentStock - weeklyReserved;
+              
+              // 3일 이하 예약은 현재 보유량을 초과할 수 없음
+              return availableStock >= item.quantity && response.data[item.menu_item_id] === true;
+            });
+            setInventoryAvailable(allAvailable);
+          } catch (invErr) {
+            console.error('Inventory fetch failed:', invErr);
+            setInventoryAvailable(false);
+          }
+        } else {
+          // 3일 이상 예약은 초과 가능하므로 기본 검증만 수행
+          const allAvailable = orderItems.every(item => response.data[item.menu_item_id] === true);
+          setInventoryAvailable(allAvailable);
+        }
       } catch (err) {
         console.error('Inventory check failed:', err);
         setInventoryAvailable(false);
