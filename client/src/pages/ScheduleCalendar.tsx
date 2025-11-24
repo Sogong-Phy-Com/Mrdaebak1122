@@ -543,6 +543,37 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({ type: propType }) =
       <div className="container">
         {error && <div className="error">{error}</div>}
 
+        {/* Color Legend for Schedule Calendar */}
+        {calendarType === 'schedule' && !isAdmin && (
+          <div style={{ 
+            marginBottom: '20px', 
+            padding: '15px', 
+            background: '#1a1a1a', 
+            borderRadius: '8px',
+            border: '1px solid #d4af37'
+          }}>
+            <h3 style={{ color: '#d4af37', marginBottom: '10px', fontSize: '16px' }}>색상 범례</h3>
+            <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ width: '20px', height: '20px', background: '#ff4444', borderRadius: '4px' }}></div>
+                <span style={{ color: '#fff' }}>출근일 (할당된 작업 있음)</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ width: '20px', height: '20px', background: '#4CAF50', borderRadius: '4px' }}></div>
+                <span style={{ color: '#fff' }}>휴식일 (할당된 작업 없음)</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ width: '20px', height: '20px', background: '#4CAF50', borderRadius: '4px', border: '2px solid #fff' }}></div>
+                <span style={{ color: '#fff' }}>작업 완료</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ width: '20px', height: '20px', background: '#ff4444', borderRadius: '4px', border: '2px solid #fff' }}></div>
+                <span style={{ color: '#fff' }}>작업 진행 중</span>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Employee Filter (Admin only) */}
         {isAdmin && (
           <div className="employee-filter">
@@ -785,11 +816,23 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({ type: propType }) =
                                 {order.dinner_name && ` | ${order.dinner_name}`}
                               </p>
                               {calendarType === 'schedule' && tasks.length > 0 && (
-                                <p className="employee-name" style={{ fontSize: '14px', marginTop: '8px', color: '#FFD700', fontWeight: 'bold' }}>
-                                  {tasks.includes('조리') && tasks.includes('배달') ? '🔧 조리 / 🚚 배달 담당' : 
-                                   tasks.includes('조리') ? '🔧 조리 담당' : 
-                                   tasks.includes('배달') ? '🚚 배달 담당' : ''}
-                                </p>
+                                <div style={{ marginTop: '8px' }}>
+                                  <p className="employee-name" style={{ fontSize: '14px', color: '#FFD700', fontWeight: 'bold' }}>
+                                    {tasks.includes('조리') && tasks.includes('배달') ? '🔧 조리 / 🚚 배달 담당' : 
+                                     tasks.includes('조리') ? '🔧 조리 담당' : 
+                                     tasks.includes('배달') ? '🚚 배달 담당' : ''}
+                                  </p>
+                                  {orderColor === 'green' && (
+                                    <p style={{ fontSize: '12px', color: '#4CAF50', marginTop: '4px', fontWeight: 'bold' }}>
+                                      ✓ 작업 완료
+                                    </p>
+                                  )}
+                                  {orderColor === 'red' && (
+                                    <p style={{ fontSize: '12px', color: '#ff4444', marginTop: '4px', fontWeight: 'bold' }}>
+                                      ⏳ 작업 진행 중
+                                    </p>
+                                  )}
+                                </div>
                               )}
                             </div>
                             <span 
