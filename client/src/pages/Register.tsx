@@ -55,6 +55,11 @@ const Register: React.FC = () => {
   return (
     <div className="register-page">
       <div className="register-container">
+        <div style={{ marginBottom: '20px' }}>
+          <button onClick={() => navigate('/login')} className="btn btn-secondary">
+            ← 로그인으로
+          </button>
+        </div>
         <h1>회원가입</h1>
         <form onSubmit={handleSubmit} className="register-form">
           <div className="form-group">

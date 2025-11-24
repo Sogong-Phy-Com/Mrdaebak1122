@@ -4,9 +4,15 @@ import com.mrdabak.dinnerservice.dto.AuthRequest;
 import com.mrdabak.dinnerservice.dto.AuthResponse;
 import com.mrdabak.dinnerservice.dto.UserDto;
 import com.mrdabak.dinnerservice.model.User;
+import com.mrdabak.dinnerservice.model.Order;
+import com.mrdabak.dinnerservice.model.OrderItem;
+import com.mrdabak.dinnerservice.model.DinnerType;
+import com.mrdabak.dinnerservice.model.MenuItem;
 import com.mrdabak.dinnerservice.repository.UserRepository;
 import com.mrdabak.dinnerservice.repository.order.OrderRepository;
-import com.mrdabak.dinnerservice.model.Order;
+import com.mrdabak.dinnerservice.repository.order.OrderItemRepository;
+import com.mrdabak.dinnerservice.repository.DinnerTypeRepository;
+import com.mrdabak.dinnerservice.repository.MenuItemRepository;
 import com.mrdabak.dinnerservice.service.JwtService;
 import com.mrdabak.dinnerservice.service.DeliverySchedulingService;
 import com.mrdabak.dinnerservice.service.TravelTimeEstimator;
@@ -23,6 +29,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -40,6 +47,9 @@ public class AdminController {
     private final EmployeeWorkAssignmentRepository employeeWorkAssignmentRepository;
     private final TravelTimeEstimator travelTimeEstimator;
     private final OrderService orderService;
+    private final OrderItemRepository orderItemRepository;
+    private final DinnerTypeRepository dinnerTypeRepository;
+    private final MenuItemRepository menuItemRepository;
 
     public AdminController(UserRepository userRepository, PasswordEncoder passwordEncoder, 
                           JwtService jwtService, OrderRepository orderRepository,
@@ -47,7 +57,10 @@ public class AdminController {
                           DeliveryScheduleRepository deliveryScheduleRepository,
                           EmployeeWorkAssignmentRepository employeeWorkAssignmentRepository,
                           TravelTimeEstimator travelTimeEstimator,
-                          OrderService orderService) {
+                          OrderService orderService,
+                          OrderItemRepository orderItemRepository,
+                          DinnerTypeRepository dinnerTypeRepository,
+                          MenuItemRepository menuItemRepository) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
@@ -57,6 +70,9 @@ public class AdminController {
         this.employeeWorkAssignmentRepository = employeeWorkAssignmentRepository;
         this.travelTimeEstimator = travelTimeEstimator;
         this.orderService = orderService;
+        this.orderItemRepository = orderItemRepository;
+        this.dinnerTypeRepository = dinnerTypeRepository;
+        this.menuItemRepository = menuItemRepository;
     }
 
     @PostMapping("/create-employee")
@@ -472,11 +488,75 @@ public class AdminController {
                 "cookingEmployees", cookingEmployees.size(),
                 "deliveryEmployees", deliveryEmployees.size()
             ));
+        } catch (IllegalArgumentException e) {
+            System.err.println("[AdminController] 할당 저장 실패 (잘못된 입력): " + e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("error", "잘못된 입력: " + e.getMessage()));
         } catch (Exception e) {
-            e.printStackTrace();
             System.err.println("[AdminController] 할당 저장 실패: " + e.getMessage());
             e.printStackTrace();
-            return ResponseEntity.status(500).body(Map.of("error", "직원 할당 저장 실패: " + e.getMessage()));
+            // 예외 메시지가 너무 짧거나 의미 없는 경우 더 자세한 정보 제공
+            String errorMessage = e.getMessage();
+            if (errorMessage == null || errorMessage.length() < 3) {
+                errorMessage = "알 수 없는 오류가 발생했습니다. 자세한 내용은 서버 로그를 확인하세요.";
+            }
+            return ResponseEntity.status(500).body(Map.of("error", "직원 할당 저장 실패: " + errorMessage));
+        }
+    }
+
+    @GetMapping("/users/{userId}/orders")
+    public ResponseEntity<?> getCustomerOrders(@PathVariable Long userId) {
+        try {
+            // Verify user exists
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+            
+            // Get orders for this user
+            List<Order> orders = orderRepository.findByUserIdOrderByCreatedAtDesc(userId);
+            
+            // Convert to DTOs with order items
+            List<Map<String, Object>> orderDtos = orders.stream().map(order -> {
+                Map<String, Object> orderMap = new HashMap<>();
+                orderMap.put("id", order.getId());
+                orderMap.put("user_id", order.getUserId());
+                orderMap.put("dinner_type_id", order.getDinnerTypeId());
+                orderMap.put("serving_style", order.getServingStyle());
+                orderMap.put("delivery_time", order.getDeliveryTime());
+                orderMap.put("delivery_address", order.getDeliveryAddress());
+                orderMap.put("total_price", order.getTotalPrice());
+                orderMap.put("status", order.getStatus());
+                orderMap.put("payment_status", order.getPaymentStatus());
+                orderMap.put("created_at", order.getCreatedAt());
+                
+                // Add dinner type information
+                DinnerType dinner = dinnerTypeRepository.findById(order.getDinnerTypeId()).orElse(null);
+                if (dinner != null) {
+                    orderMap.put("dinner_name", dinner.getName());
+                    orderMap.put("dinner_name_en", dinner.getNameEn());
+                }
+                
+                // Add order items
+                List<OrderItem> items = orderItemRepository.findByOrderId(order.getId());
+                List<Map<String, Object>> itemDtos = items.stream().map(item -> {
+                    MenuItem menuItem = menuItemRepository.findById(item.getMenuItemId()).orElse(null);
+                    Map<String, Object> itemMap = new HashMap<>();
+                    itemMap.put("id", item.getId());
+                    itemMap.put("menu_item_id", item.getMenuItemId());
+                    itemMap.put("quantity", item.getQuantity());
+                    if (menuItem != null) {
+                        itemMap.put("name", menuItem.getName());
+                        itemMap.put("name_en", menuItem.getNameEn());
+                        itemMap.put("price", menuItem.getPrice());
+                    }
+                    return itemMap;
+                }).toList();
+                orderMap.put("items", itemDtos);
+                
+                return orderMap;
+            }).toList();
+            
+            return ResponseEntity.ok(orderDtos);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", "주문 내역 조회 실패: " + e.getMessage()));
         }
     }
 

@@ -60,6 +60,10 @@ const Order: React.FC = () => {
   const [transcript, setTranscript] = useState('');
   const [inventoryAvailable, setInventoryAvailable] = useState(true);
   const [availableTimeSlots, setAvailableTimeSlots] = useState<string[]>([]);
+  const [showOrderConfirmation, setShowOrderConfirmation] = useState(false);
+  const [orderPassword, setOrderPassword] = useState('');
+  const [userCardInfo, setUserCardInfo] = useState<any>(null);
+  const [pendingOrderData, setPendingOrderData] = useState<any>(null);
 
   useEffect(() => {
     fetchDinners();
@@ -68,7 +72,21 @@ const Order: React.FC = () => {
     if (modifyOrderId) {
       fetchOrderForModification(Number(modifyOrderId));
     }
+    fetchUserCardInfo();
   }, [modifyOrderId]);
+
+  const fetchUserCardInfo = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+      const response = await axios.get(`${API_URL}/auth/me`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      setUserCardInfo(response.data);
+    } catch (err) {
+      console.error('카드 정보 조회 실패:', err);
+    }
+  };
 
   useEffect(() => {
     if (selectedDinner) {
@@ -457,10 +475,42 @@ const Order: React.FC = () => {
       return;
     }
 
+    // 카드 정보 확인
+    if (!userCardInfo?.hasCard) {
+      alert('주문을 하려면 카드 정보가 필요합니다. 내 정보에서 카드 정보를 등록해주세요.');
+      navigate('/profile');
+      return;
+    }
+
     // 중복 제출 방지
     if (loading || isSubmitting || orderSubmissionRef.current) {
       console.log('[주문 생성] 이미 제출 중입니다. 중복 제출 방지');
       e.preventDefault();
+      return;
+    }
+
+    // 주문 확인 영수증 표시
+    const orderData = {
+      dinner_type_id: selectedDinner,
+      serving_style: selectedStyle,
+      delivery_time: deliveryTime,
+      delivery_address: deliveryAddress,
+      items: orderItems,
+      payment_method: 'card'
+    };
+    setPendingOrderData(orderData);
+    setShowOrderConfirmation(true);
+    return;
+  };
+
+  const handleConfirmOrder = async () => {
+    if (!orderPassword) {
+      alert('비밀번호를 입력해주세요.');
+      return;
+    }
+
+    if (!pendingOrderData) {
+      alert('주문 정보가 없습니다.');
       return;
     }
 
@@ -481,14 +531,31 @@ const Order: React.FC = () => {
         return;
       }
 
+      // 비밀번호 확인
+      try {
+        await axios.post(`${API_URL}/auth/verify-password`, {
+          password: orderPassword
+        }, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+      } catch (err: any) {
+        if (err.response?.status === 401) {
+          alert('비밀번호가 올바르지 않습니다.');
+          setLoading(false);
+          setIsSubmitting(false);
+          return;
+        }
+        throw err;
+      }
+
       if (isModifying && modifyOrderId) {
         // Modify existing order
         const response = await axios.post(`${API_URL}/orders/${modifyOrderId}/modify`, {
-          dinner_type_id: selectedDinner,
-          serving_style: selectedStyle,
-          delivery_time: deliveryTime,
-          delivery_address: deliveryAddress,
-          items: orderItems,
+          dinner_type_id: pendingOrderData.dinner_type_id,
+          serving_style: pendingOrderData.serving_style,
+          delivery_time: pendingOrderData.delivery_time,
+          delivery_address: pendingOrderData.delivery_address,
+          items: pendingOrderData.items,
           payment_method: 'card'
         }, {
           headers: {
@@ -500,6 +567,9 @@ const Order: React.FC = () => {
         alert('주문이 수정되었습니다.');
         setLoading(false);
         setIsSubmitting(false);
+        setShowOrderConfirmation(false);
+        setOrderPassword('');
+        setPendingOrderData(null);
         navigate('/orders');
       } else {
         // Create new order - 한 번만 호출되도록 보장
@@ -513,23 +583,9 @@ const Order: React.FC = () => {
           return;
         }
         
-        // 주문 생성 전에 폼을 완전히 비활성화하여 중복 제출 방지
-        const formElement = e.target as HTMLFormElement;
-        if (formElement) {
-          const inputs = formElement.querySelectorAll('input, button, select, textarea');
-          inputs.forEach((input: any) => {
-            input.disabled = true;
-          });
-        }
-        
         // 주문 데이터에 고유 ID 추가
         const orderData = {
-          dinner_type_id: selectedDinner,
-          serving_style: selectedStyle,
-          delivery_time: deliveryTime,
-          delivery_address: deliveryAddress,
-          items: orderItems,
-          payment_method: 'card',
+          ...pendingOrderData,
           _request_id: submissionId // 중복 방지를 위한 고유 ID
         };
         
@@ -550,6 +606,11 @@ const Order: React.FC = () => {
         
         // 응답 형식에 따라 orderId 추출
         const orderId = response.data.order_id || response.data.id || response.data.order?.id || response.data.order_id;
+        
+        // 주문 확인 모달 닫기
+        setShowOrderConfirmation(false);
+        setOrderPassword('');
+        setPendingOrderData(null);
         
         // 주문 생성 성공 후 즉시 리다이렉트하여 추가 호출 방지
         if (orderId) {
@@ -606,6 +667,9 @@ const Order: React.FC = () => {
       } else {
         setError('[주문 생성 실패] 네트워크 오류가 발생했습니다.\n서버에 연결할 수 없습니다.');
       }
+      setShowOrderConfirmation(false);
+      setOrderPassword('');
+      setPendingOrderData(null);
     }
   };
 
@@ -912,6 +976,129 @@ const Order: React.FC = () => {
           )}
         </form>
       </div>
+
+      {/* 주문 확인 모달 */}
+      {showOrderConfirmation && pendingOrderData && (
+        <div className="modal-overlay" style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.8)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 10000
+        }} onClick={() => {
+          setShowOrderConfirmation(false);
+          setOrderPassword('');
+          setPendingOrderData(null);
+        }}>
+          <div style={{
+            background: '#1a1a1a',
+            border: '2px solid #d4af37',
+            borderRadius: '8px',
+            padding: '30px',
+            maxWidth: '600px',
+            width: '90%',
+            maxHeight: '90vh',
+            overflowY: 'auto',
+            color: '#fff'
+          }} onClick={(e) => e.stopPropagation()}>
+            <h2 style={{ color: '#d4af37', marginBottom: '20px' }}>주문 확인</h2>
+            
+            {/* 영수증 */}
+            <div style={{
+              background: '#2a2a2a',
+              padding: '20px',
+              borderRadius: '8px',
+              marginBottom: '20px',
+              border: '1px solid #d4af37'
+            }}>
+              <h3 style={{ color: '#d4af37', marginBottom: '15px' }}>주문 내역</h3>
+              <div style={{ marginBottom: '10px' }}>
+                <strong>디너:</strong> {dinners.find(d => d.id === pendingOrderData.dinner_type_id)?.name || '-'}
+              </div>
+              <div style={{ marginBottom: '10px' }}>
+                <strong>서빙 스타일:</strong> {servingStyles.find(s => s.name === pendingOrderData.serving_style)?.name_ko || pendingOrderData.serving_style}
+              </div>
+              <div style={{ marginBottom: '10px' }}>
+                <strong>배달 시간:</strong> {new Date(pendingOrderData.delivery_time).toLocaleString('ko-KR')}
+              </div>
+              <div style={{ marginBottom: '10px' }}>
+                <strong>배달 주소:</strong> {pendingOrderData.delivery_address}
+              </div>
+              <div style={{ marginBottom: '15px', paddingTop: '15px', borderTop: '1px solid #d4af37' }}>
+                <strong>주문 항목:</strong>
+                <div style={{ marginTop: '10px', marginLeft: '20px' }}>
+                  {pendingOrderData.items.map((item: any, idx: number) => {
+                    const menuItem = menuItems.find(m => m.id === item.menu_item_id);
+                    return (
+                      <div key={idx} style={{ marginBottom: '5px' }}>
+                        {menuItem?.name || `항목 ${item.menu_item_id}`} x {item.quantity}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              <div style={{
+                paddingTop: '15px',
+                borderTop: '2px solid #d4af37',
+                fontSize: '18px',
+                fontWeight: 'bold',
+                color: '#d4af37'
+              }}>
+                총 금액: {calculateTotal().toLocaleString()}원
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', marginBottom: '10px', color: '#FFD700' }}>
+                주문 확정을 위해 비밀번호를 입력해주세요
+              </label>
+              <input
+                type="password"
+                value={orderPassword}
+                onChange={(e) => setOrderPassword(e.target.value)}
+                placeholder="비밀번호를 입력하세요"
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  background: '#2a2a2a',
+                  border: '1px solid #d4af37',
+                  borderRadius: '4px',
+                  color: '#fff',
+                  fontSize: '16px'
+                }}
+                autoFocus
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button
+                className="btn btn-secondary"
+                onClick={() => {
+                  setShowOrderConfirmation(false);
+                  setOrderPassword('');
+                  setPendingOrderData(null);
+                }}
+                style={{ flex: 1 }}
+              >
+                취소
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={handleConfirmOrder}
+                disabled={!orderPassword || loading}
+                style={{ flex: 1 }}
+              >
+                {loading ? '주문 처리 중...' : '주문 확정'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

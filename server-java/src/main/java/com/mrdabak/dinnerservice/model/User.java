@@ -47,6 +47,18 @@ public class User {
     @Column(name = "security_answer")
     private String securityAnswer; // For password recovery
 
+    @Column(name = "card_number")
+    private String cardNumber; // Credit card number (encrypted in production)
+
+    @Column(name = "card_expiry")
+    private String cardExpiry; // Card expiry date (MM/YY)
+
+    @Column(name = "card_cvv")
+    private String cardCvv; // Card CVV (encrypted in production)
+
+    @Column(name = "card_holder_name")
+    private String cardHolderName; // Card holder name
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 

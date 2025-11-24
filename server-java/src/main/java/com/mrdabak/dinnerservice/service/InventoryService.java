@@ -102,9 +102,13 @@ public class InventoryService {
                 reservation.setExpiresAt(plan.deliveryTime().plusDays(3));
             }
             
-            inventoryReservationRepository.save(reservation);
-            System.out.println("[InventoryService] 주문 " + orderId + " - 메뉴 아이템 " + menuItemId + " 재고 " + quantity + "개 예약 완료");
+            InventoryReservation savedReservation = inventoryReservationRepository.save(reservation);
+            System.out.println("[InventoryService] 주문 " + orderId + " - 메뉴 아이템 " + menuItemId + " 재고 " + quantity + "개 예약 완료 (예약 ID: " + savedReservation.getId() + ")");
+            
+            // 이번주 예약 수량에 즉시 반영 확인
+            System.out.println("[InventoryService] 예약 저장 확인 - Order ID: " + orderId + ", Menu Item ID: " + menuItemId + ", Quantity: " + quantity);
         }
+        System.out.println("[InventoryService] 주문 " + orderId + "의 모든 재고 예약이 완료되었습니다.");
     }
     
     private boolean isAlcoholCategory(String category) {

@@ -86,6 +86,11 @@ const ForgotPassword: React.FC = () => {
   return (
     <div className="login-page">
       <div className="login-container">
+        <div style={{ marginBottom: '20px' }}>
+          <button onClick={() => navigate('/login')} className="btn btn-secondary">
+            ← 로그인으로
+          </button>
+        </div>
         <h1>비밀번호 찾기</h1>
         
         {step === 'email' && (

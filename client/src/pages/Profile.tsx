@@ -45,10 +45,19 @@ const Profile: React.FC = () => {
   const [editName, setEditName] = useState(user?.name || '');
   const [editPhone, setEditPhone] = useState(user?.phone || '');
   
+  // 카드 정보
+  const [showCardModal, setShowCardModal] = useState(false);
+  const [cardPassword, setCardPassword] = useState('');
+  const [cardNumber, setCardNumber] = useState('');
+  const [cardExpiry, setCardExpiry] = useState('');
+  const [cardCvv, setCardCvv] = useState('');
+  const [cardHolderName, setCardHolderName] = useState('');
+  const [userCardInfo, setUserCardInfo] = useState<any>(null);
 
   useEffect(() => {
     if (activeTab === 'info' && user?.role === 'customer') {
       fetchStats();
+      fetchUserCardInfo();
     } else if (activeTab === 'orders') {
       fetchAllOrders();
     }
@@ -57,6 +66,19 @@ const Profile: React.FC = () => {
       setEditPhone(user.phone || '');
     }
   }, [activeTab, user?.role, user]);
+
+  const fetchUserCardInfo = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+      const response = await axios.get(`${API_URL}/auth/me`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      setUserCardInfo(response.data);
+    } catch (err) {
+      console.error('카드 정보 조회 실패:', err);
+    }
+  };
 
   const fetchStats = async () => {
     try {
@@ -341,6 +363,30 @@ const Profile: React.FC = () => {
                     </div>
 
                     <div className="card">
+                      <h3 className="card-title">카드 정보</h3>
+                      {userCardInfo?.hasCard ? (
+                        <div className="info-item">
+                          <span className="info-label">카드 번호</span>
+                          <span className="info-value">{userCardInfo.cardNumber || '등록됨'}</span>
+                        </div>
+                      ) : (
+                        <div className="info-item">
+                          <span className="info-label">카드 정보</span>
+                          <span className="info-value" style={{ color: '#ff4444' }}>등록되지 않음</span>
+                        </div>
+                      )}
+                      <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid #d4af37' }}>
+                        <button
+                          className="btn btn-primary"
+                          style={{ width: '100%' }}
+                          onClick={() => setShowCardModal(true)}
+                        >
+                          {userCardInfo?.hasCard ? '카드 정보 변경' : '카드 정보 등록'}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="card">
                       <h3 className="card-title">주문 통계</h3>
                       <div className="stats-grid">
                         <div className="stat-item">
@@ -578,6 +624,153 @@ const Profile: React.FC = () => {
               </button>
               <button className="btn btn-primary" onClick={handleUpdateProfile} disabled={!editPassword}>
                 변경
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 카드 정보 입력 모달 */}
+      {showCardModal && (
+        <div className="modal-overlay" onClick={() => setShowCardModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px' }}>
+            <h3>카드 정보 {userCardInfo?.hasCard ? '변경' : '등록'}</h3>
+            <p style={{ color: '#FFD700', marginBottom: '20px' }}>카드 정보를 {userCardInfo?.hasCard ? '변경' : '등록'}하려면 비밀번호를 입력해주세요.</p>
+            <div className="form-group">
+              <label>비밀번호 확인</label>
+              <input
+                type="password"
+                value={cardPassword}
+                onChange={(e) => setCardPassword(e.target.value)}
+                placeholder="비밀번호를 입력하세요"
+              />
+            </div>
+            <div className="form-group">
+              <label>카드 번호</label>
+              <input
+                type="text"
+                value={cardNumber}
+                onChange={(e) => {
+                  const value = e.target.value.replace(/\D/g, '').slice(0, 16);
+                  setCardNumber(value);
+                }}
+                placeholder="1234 5678 9012 3456"
+                disabled={!cardPassword}
+                maxLength={16}
+              />
+            </div>
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <div className="form-group" style={{ flex: 1 }}>
+                <label>만료일 (MM/YY)</label>
+                <input
+                  type="text"
+                  value={cardExpiry}
+                  onChange={(e) => {
+                    let value = e.target.value.replace(/\D/g, '');
+                    if (value.length >= 2) {
+                      value = value.slice(0, 2) + '/' + value.slice(2, 4);
+                    }
+                    setCardExpiry(value);
+                  }}
+                  placeholder="MM/YY"
+                  disabled={!cardPassword}
+                  maxLength={5}
+                />
+              </div>
+              <div className="form-group" style={{ flex: 1 }}>
+                <label>CVV</label>
+                <input
+                  type="text"
+                  value={cardCvv}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/\D/g, '').slice(0, 3);
+                    setCardCvv(value);
+                  }}
+                  placeholder="123"
+                  disabled={!cardPassword}
+                  maxLength={3}
+                />
+              </div>
+            </div>
+            <div className="form-group">
+              <label>카드 소유자 이름</label>
+              <input
+                type="text"
+                value={cardHolderName}
+                onChange={(e) => setCardHolderName(e.target.value)}
+                placeholder="홍길동"
+                disabled={!cardPassword}
+              />
+            </div>
+            <div style={{ display: 'flex', gap: '12px', marginTop: '20px' }}>
+              <button className="btn btn-secondary" onClick={() => {
+                setShowCardModal(false);
+                setCardPassword('');
+                setCardNumber('');
+                setCardExpiry('');
+                setCardCvv('');
+                setCardHolderName('');
+              }}>
+                취소
+              </button>
+              <button className="btn btn-primary" onClick={async () => {
+                if (!cardPassword) {
+                  alert('비밀번호를 입력해주세요.');
+                  return;
+                }
+                if (!cardNumber || cardNumber.length < 16) {
+                  alert('카드 번호를 올바르게 입력해주세요.');
+                  return;
+                }
+                if (!cardExpiry || cardExpiry.length < 5) {
+                  alert('만료일을 올바르게 입력해주세요.');
+                  return;
+                }
+                if (!cardCvv || cardCvv.length < 3) {
+                  alert('CVV를 올바르게 입력해주세요.');
+                  return;
+                }
+                if (!cardHolderName) {
+                  alert('카드 소유자 이름을 입력해주세요.');
+                  return;
+                }
+
+                try {
+                  const token = localStorage.getItem('token');
+                  // Verify password first
+                  await axios.post(`${API_URL}/auth/verify-password`, {
+                    password: cardPassword
+                  }, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                  });
+
+                  // Update card information
+                  await axios.put(`${API_URL}/auth/update-card`, {
+                    cardNumber: cardNumber,
+                    cardExpiry: cardExpiry,
+                    cardCvv: cardCvv,
+                    cardHolderName: cardHolderName
+                  }, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                  });
+
+                  alert('카드 정보가 저장되었습니다.');
+                  setShowCardModal(false);
+                  setCardPassword('');
+                  setCardNumber('');
+                  setCardExpiry('');
+                  setCardCvv('');
+                  setCardHolderName('');
+                  await fetchUserCardInfo();
+                } catch (err: any) {
+                  if (err.response?.status === 401) {
+                    alert('비밀번호가 올바르지 않습니다.');
+                  } else {
+                    alert('카드 정보 저장에 실패했습니다.');
+                  }
+                }
+              }} disabled={!cardPassword}>
+                {userCardInfo?.hasCard ? '변경' : '등록'}
               </button>
             </div>
           </div>

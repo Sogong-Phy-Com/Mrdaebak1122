@@ -133,6 +133,76 @@ public class AuthController {
         }
     }
 
+    @PutMapping("/update-card")
+    public ResponseEntity<?> updateCard(@RequestBody Map<String, String> request, Authentication authentication) {
+        try {
+            if (authentication == null || authentication.getName() == null) {
+                return ResponseEntity.status(401).body(Map.of("error", "Authentication required"));
+            }
+
+            Long userId = Long.parseLong(authentication.getName());
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+
+            String cardNumber = request.get("cardNumber");
+            String cardExpiry = request.get("cardExpiry");
+            String cardCvv = request.get("cardCvv");
+            String cardHolderName = request.get("cardHolderName");
+            
+            if (cardNumber != null) {
+                user.setCardNumber(cardNumber);
+            }
+            if (cardExpiry != null) {
+                user.setCardExpiry(cardExpiry);
+            }
+            if (cardCvv != null) {
+                user.setCardCvv(cardCvv);
+            }
+            if (cardHolderName != null) {
+                user.setCardHolderName(cardHolderName);
+            }
+            
+            userRepository.save(user);
+
+            return ResponseEntity.ok(Map.of("message", "Card information updated successfully"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<?> getCurrentUser(Authentication authentication) {
+        try {
+            if (authentication == null || authentication.getName() == null) {
+                return ResponseEntity.status(401).body(Map.of("error", "Authentication required"));
+            }
+
+            Long userId = Long.parseLong(authentication.getName());
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+
+            Map<String, Object> userMap = new java.util.HashMap<>();
+            userMap.put("id", user.getId());
+            userMap.put("email", user.getEmail());
+            userMap.put("name", user.getName());
+            userMap.put("address", user.getAddress());
+            userMap.put("phone", user.getPhone());
+            userMap.put("role", user.getRole());
+            userMap.put("approvalStatus", user.getApprovalStatus());
+            // 카드 정보는 마지막 4자리만 반환 (보안)
+            if (user.getCardNumber() != null && user.getCardNumber().length() > 4) {
+                userMap.put("cardNumber", "****-****-****-" + user.getCardNumber().substring(user.getCardNumber().length() - 4));
+            } else {
+                userMap.put("cardNumber", user.getCardNumber());
+            }
+            userMap.put("hasCard", user.getCardNumber() != null && !user.getCardNumber().isEmpty());
+
+            return ResponseEntity.ok(userMap);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
     @PostMapping("/verify-password")
     public ResponseEntity<?> verifyPassword(@RequestBody Map<String, String> request, Authentication authentication) {
         try {

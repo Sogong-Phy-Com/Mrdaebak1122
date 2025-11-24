@@ -9,6 +9,11 @@ interface User {
   phone: string;
   role: string;
   approvalStatus?: string;
+  cardNumber?: string;
+  cardExpiry?: string;
+  cardCvv?: string;
+  cardHolderName?: string;
+  hasCard?: boolean;
 }
 
 interface AuthContextType {

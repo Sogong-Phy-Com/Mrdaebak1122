@@ -25,6 +25,10 @@ const AdminAccountManagement: React.FC = () => {
   const [pendingLoading, setPendingLoading] = useState(false);
   const [pendingError, setPendingError] = useState('');
   const [activeTab, setActiveTab] = useState<'accounts' | 'approvals'>('accounts');
+  const [accountTypeFilter, setAccountTypeFilter] = useState<'customer' | 'employee' | 'admin'>('customer');
+  const [selectedCustomerId, setSelectedCustomerId] = useState<number | null>(null);
+  const [customerOrders, setCustomerOrders] = useState<any[]>([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
 
   useEffect(() => {
     if (activeTab === 'accounts') {
@@ -139,6 +143,21 @@ const AdminAccountManagement: React.FC = () => {
     ? users
     : users.filter(user => user.role === filter);
 
+  const fetchCustomerOrders = async (customerId: number) => {
+    try {
+      setOrdersLoading(true);
+      const headers = getAuthHeaders();
+      // Admin can view all orders, so we'll use a different endpoint or pass customer ID
+      const response = await axios.get(`${API_URL}/admin/users/${customerId}/orders`, { headers });
+      setCustomerOrders(response.data || []);
+    } catch (err: any) {
+      console.error('고객 주문 내역 조회 실패:', err);
+      setCustomerOrders([]);
+    } finally {
+      setOrdersLoading(false);
+    }
+  };
+
   const stats = {
     total: users.length,
     customers: users.filter(u => u.role === 'customer').length,
@@ -183,89 +202,158 @@ const AdminAccountManagement: React.FC = () => {
 
           {activeTab === 'accounts' && (
             <>
-              <h2>회원 관리</h2>
+              <h2>계정 관리</h2>
               {userError && <div className="error">{userError}</div>}
 
-          <div className="stats-section">
-            <div className="stat-card">
-              <h3>전체 회원</h3>
-              <p className="stat-number">{stats.total}</p>
-            </div>
-            <div className="stat-card">
-              <h3>고객</h3>
-              <p className="stat-number">{stats.customers}</p>
-            </div>
-            <div className="stat-card">
-              <h3>직원</h3>
-              <p className="stat-number">{stats.employees}</p>
-            </div>
-            <div className="stat-card">
-              <h3>관리자</h3>
-              <p className="stat-number">{stats.admins}</p>
-            </div>
-          </div>
+              {/* 계정 타입 탭 */}
+              <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', borderBottom: '2px solid #d4af37', paddingBottom: '10px' }}>
+                <button
+                  className={`btn ${accountTypeFilter === 'customer' ? 'btn-primary' : 'btn-secondary'}`}
+                  onClick={() => {
+                    setAccountTypeFilter('customer');
+                    setSelectedCustomerId(null);
+                    setCustomerOrders([]);
+                  }}
+                >
+                  고객 계정
+                </button>
+                <button
+                  className={`btn ${accountTypeFilter === 'employee' ? 'btn-primary' : 'btn-secondary'}`}
+                  onClick={() => {
+                    setAccountTypeFilter('employee');
+                    setSelectedCustomerId(null);
+                    setCustomerOrders([]);
+                  }}
+                >
+                  직원 계정
+                </button>
+                <button
+                  className={`btn ${accountTypeFilter === 'admin' ? 'btn-primary' : 'btn-secondary'}`}
+                  onClick={() => {
+                    setAccountTypeFilter('admin');
+                    setSelectedCustomerId(null);
+                    setCustomerOrders([]);
+                  }}
+                >
+                  관리자 계정
+                </button>
+              </div>
 
-          <div className="filter-section">
-            <label>필터:</label>
-            <select
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              className="filter-select"
-            >
-              <option value="all">전체</option>
-              <option value="customer">고객</option>
-              <option value="employee">직원</option>
-              <option value="admin">관리자</option>
-            </select>
-          </div>
-
-          <div className="users-table">
-            {filteredUsers.length === 0 ? (
-              <p style={{ textAlign: 'center', padding: '20px' }}>회원이 없습니다.</p>
-            ) : (
-              <table>
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>이름</th>
-                    <th>이메일</th>
-                    <th>전화번호</th>
-                    <th>주소</th>
-                    <th>역할</th>
-                    <th>작업</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredUsers.map(user => (
-                    <tr key={user.id}>
-                      <td>{user.id}</td>
-                      <td>{user.name}</td>
-                      <td>{user.email}</td>
-                      <td>{user.phone}</td>
-                      <td>{user.address}</td>
-                      <td>
-                        <span className={`role-badge ${getRoleClass(user.role)}`}>
-                          {getRoleLabel(user.role)}
-                        </span>
-                      </td>
-                      <td>
-                        {user.role === 'employee' && (
-                          <button
-                            className="btn btn-primary"
-                            onClick={() => handlePromoteToAdmin(user.id)}
-                            disabled={promotingUserId === user.id}
-                            style={{ padding: '5px 10px', fontSize: '12px' }}
-                          >
-                            {promotingUserId === user.id ? '처리 중...' : '관리자 승급'}
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
+              {selectedCustomerId ? (
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                    <h3>주문 내역</h3>
+                    <button
+                      className="btn btn-secondary"
+                      onClick={() => {
+                        setSelectedCustomerId(null);
+                        setCustomerOrders([]);
+                      }}
+                    >
+                      ← 계정 목록으로
+                    </button>
+                  </div>
+                  {ordersLoading ? (
+                    <div className="loading">로딩 중...</div>
+                  ) : customerOrders.length === 0 ? (
+                    <div className="no-orders">
+                      <p>주문 내역이 없습니다.</p>
+                    </div>
+                  ) : (
+                    <div className="inventory-list">
+                      <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '20px' }}>
+                        <thead>
+                          <tr style={{ background: '#d4af37', color: '#000' }}>
+                            <th style={{ padding: '10px', border: '1px solid #000' }}>주문 ID</th>
+                            <th style={{ padding: '10px', border: '1px solid #000' }}>디너</th>
+                            <th style={{ padding: '10px', border: '1px solid #000' }}>배달 시간</th>
+                            <th style={{ padding: '10px', border: '1px solid #000' }}>배달 주소</th>
+                            <th style={{ padding: '10px', border: '1px solid #000' }}>총 금액</th>
+                            <th style={{ padding: '10px', border: '1px solid #000' }}>상태</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {customerOrders.map((order: any) => (
+                            <tr key={order.id}>
+                              <td style={{ padding: '10px', border: '1px solid #d4af37' }}>{order.id}</td>
+                              <td style={{ padding: '10px', border: '1px solid #d4af37' }}>{order.dinner_name || '-'}</td>
+                              <td style={{ padding: '10px', border: '1px solid #d4af37' }}>
+                                {new Date(order.delivery_time).toLocaleString('ko-KR')}
+                              </td>
+                              <td style={{ padding: '10px', border: '1px solid #d4af37' }}>{order.delivery_address}</td>
+                              <td style={{ padding: '10px', border: '1px solid #d4af37' }}>{order.total_price?.toLocaleString()}원</td>
+                              <td style={{ padding: '10px', border: '1px solid #d4af37' }}>{order.status}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="inventory-list">
+                  {users.filter(u => u.role === accountTypeFilter).length === 0 ? (
+                    <div className="no-orders">
+                      <p>{accountTypeFilter === 'customer' ? '고객' : accountTypeFilter === 'employee' ? '직원' : '관리자'} 계정이 없습니다.</p>
+                    </div>
+                  ) : (
+                    <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '20px' }}>
+                      <thead>
+                        <tr style={{ background: '#d4af37', color: '#000' }}>
+                          <th style={{ padding: '10px', border: '1px solid #000' }}>ID</th>
+                          <th style={{ padding: '10px', border: '1px solid #000' }}>이름</th>
+                          <th style={{ padding: '10px', border: '1px solid #000' }}>이메일</th>
+                          <th style={{ padding: '10px', border: '1px solid #000' }}>전화번호</th>
+                          <th style={{ padding: '10px', border: '1px solid #000' }}>주소</th>
+                          {accountTypeFilter === 'customer' && (
+                            <th style={{ padding: '10px', border: '1px solid #000' }}>주문 내역</th>
+                          )}
+                          {accountTypeFilter === 'employee' && (
+                            <th style={{ padding: '10px', border: '1px solid #000' }}>작업</th>
+                          )}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {users.filter(u => u.role === accountTypeFilter).map(user => (
+                          <tr key={user.id}>
+                            <td style={{ padding: '10px', border: '1px solid #d4af37' }}>{user.id}</td>
+                            <td style={{ padding: '10px', border: '1px solid #d4af37' }}>{user.name}</td>
+                            <td style={{ padding: '10px', border: '1px solid #d4af37' }}>{user.email}</td>
+                            <td style={{ padding: '10px', border: '1px solid #d4af37' }}>{user.phone}</td>
+                            <td style={{ padding: '10px', border: '1px solid #d4af37' }}>{user.address}</td>
+                            {accountTypeFilter === 'customer' && (
+                              <td style={{ padding: '10px', border: '1px solid #d4af37' }}>
+                                <button
+                                  className="btn btn-primary"
+                                  onClick={() => {
+                                    setSelectedCustomerId(user.id);
+                                    fetchCustomerOrders(user.id);
+                                  }}
+                                  style={{ padding: '5px 10px', fontSize: '12px' }}
+                                >
+                                  주문 내역 보기
+                                </button>
+                              </td>
+                            )}
+                            {accountTypeFilter === 'employee' && (
+                              <td style={{ padding: '10px', border: '1px solid #d4af37' }}>
+                                <button
+                                  className="btn btn-primary"
+                                  onClick={() => handlePromoteToAdmin(user.id)}
+                                  disabled={promotingUserId === user.id}
+                                  style={{ padding: '5px 10px', fontSize: '12px' }}
+                                >
+                                  {promotingUserId === user.id ? '처리 중...' : '관리자 승급'}
+                                </button>
+                              </td>
+                            )}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              )}
             </>
           )}
 

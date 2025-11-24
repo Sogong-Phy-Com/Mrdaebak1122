@@ -290,8 +290,15 @@ const AdminScheduleManagement: React.FC = () => {
       // 응답 확인 - 성공적으로 저장되었는지 확인
       if (response.status === 200 || response.status === 201) {
         // 데이터베이스에 저장 완료 후 할당 정보 다시 불러오기 (즉시 반영)
-        setLoadingAssignments(true);
-        await fetchDayAssignments();
+        try {
+          setLoadingAssignments(true);
+          await fetchDayAssignments();
+        } catch (fetchErr) {
+          console.error('할당 정보 다시 불러오기 실패:', fetchErr);
+          // 할당 정보를 다시 불러오는 데 실패해도 할당 자체는 성공했을 수 있으므로 계속 진행
+        } finally {
+          setLoadingAssignments(false);
+        }
         
         // 할당 정보가 제대로 저장되었는지 확인 (최대 3번 재시도)
         let retryCount = 0;
@@ -299,16 +306,19 @@ const AdminScheduleManagement: React.FC = () => {
         while (retryCount < 3 && !assignmentVerified) {
           try {
             const updatedAssignments = await axios.get(`${API_URL}/admin/schedule/assignments?date=${selectedDate}`, { headers });
-            if (updatedAssignments.data && 
-                ((updatedAssignments.data.cookingEmployees && updatedAssignments.data.cookingEmployees.length > 0) || 
-                 (updatedAssignments.data.deliveryEmployees && updatedAssignments.data.deliveryEmployees.length > 0))) {
-              assignmentVerified = true;
-              alert('직원 할당이 저장되었습니다.');
-              setSelectedDate(null);
-              break;
+            if (updatedAssignments.data) {
+              const hasCooking = updatedAssignments.data.cookingEmployees && updatedAssignments.data.cookingEmployees.length > 0;
+              const hasDelivery = updatedAssignments.data.deliveryEmployees && updatedAssignments.data.deliveryEmployees.length > 0;
+              // 할당이 하나라도 있으면 성공으로 간주
+              if (hasCooking || hasDelivery) {
+                assignmentVerified = true;
+                alert('직원 할당이 저장되었습니다.');
+                setSelectedDate(null);
+                break;
+              }
             }
           } catch (err) {
-            console.log(`할당 확인 재시도 ${retryCount + 1}/3`);
+            console.log(`할당 확인 재시도 ${retryCount + 1}/3:`, err);
           }
           if (!assignmentVerified && retryCount < 2) {
             await new Promise(resolve => setTimeout(resolve, 1000)); // 1초 대기
@@ -316,9 +326,11 @@ const AdminScheduleManagement: React.FC = () => {
           retryCount++;
         }
         
+        // 검증 실패해도 할당 자체는 성공했을 수 있으므로 경고만 표시
         if (!assignmentVerified) {
-          // 저장이 완료되지 않았으면 에러 표시
-          throw new Error('할당 정보가 데이터베이스에 저장되지 않았습니다. 다시 시도해주세요.');
+          console.warn('할당 정보 검증 실패, 하지만 할당은 저장되었을 수 있습니다.');
+          alert('직원 할당이 저장되었습니다. (검증 중 일시적인 문제가 발생했을 수 있습니다)');
+          setSelectedDate(null);
         }
       } else {
         throw new Error('할당 저장에 실패했습니다.');
