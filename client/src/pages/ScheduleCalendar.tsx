@@ -879,14 +879,19 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({ type: propType }) =
                                      tasks.includes('조리') ? '🔧 조리 담당' : 
                                      tasks.includes('배달') ? '🚚 배달 담당' : ''}
                                   </p>
-                                  {orderColor === 'green' && (
-                                    <p style={{ fontSize: '12px', color: '#4CAF50', marginTop: '4px', fontWeight: 'bold' }}>
+                                  {cardColor === 'gray' && (
+                                    <p style={{ fontSize: '12px', color: '#999999', marginTop: '4px', fontWeight: 'bold' }}>
                                       ✓ 작업 완료
                                     </p>
                                   )}
-                                  {orderColor === 'red' && (
-                                    <p style={{ fontSize: '12px', color: '#ff4444', marginTop: '4px', fontWeight: 'bold' }}>
+                                  {cardColor === 'orange' && (
+                                    <p style={{ fontSize: '12px', color: '#ff8800', marginTop: '4px', fontWeight: 'bold' }}>
                                       ⏳ 작업 진행 중
+                                    </p>
+                                  )}
+                                  {cardColor === 'red' && (
+                                    <p style={{ fontSize: '12px', color: '#ff4444', marginTop: '4px', fontWeight: 'bold' }}>
+                                      ⏳ 작업 대기 중
                                     </p>
                                   )}
                                 </div>
