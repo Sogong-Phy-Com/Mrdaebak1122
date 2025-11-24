@@ -27,7 +27,6 @@ const AdminInventoryManagement: React.FC = () => {
   const [inventoryError, setInventoryError] = useState('');
   const [restockValues, setRestockValues] = useState<Record<number, number | ''>>({});
   const [orderedInventory, setOrderedInventory] = useState<Record<number, number>>({});
-  const [restockNotes, setRestockNotes] = useState<Record<number, string>>({});
   const [restockMessage, setRestockMessage] = useState('');
   const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set());
   const [bulkRestockValue, setBulkRestockValue] = useState<number | ''>('');
@@ -55,16 +54,12 @@ const AdminInventoryManagement: React.FC = () => {
       if (response.data && Array.isArray(response.data)) {
         setInventoryItems(response.data);
         const defaultValues: Record<number, number | ''> = {};
-        const defaultNotes: Record<number, string> = {};
         const orderedInv: Record<number, number> = {};
         response.data.forEach((item: InventoryItem) => {
           defaultValues[item.menu_item_id] = ''; // Empty by default
-          // Clear all notes
-          defaultNotes[item.menu_item_id] = '';
           orderedInv[item.menu_item_id] = item.ordered_quantity || 0;
         });
         setRestockValues(defaultValues);
-        setRestockNotes(defaultNotes);
         setOrderedInventory(orderedInv);
       } else {
         setInventoryItems([]);
@@ -248,7 +243,7 @@ const AdminInventoryManagement: React.FC = () => {
                     const spareQuantity = Math.max(0, currentCapacity - weeklyReserved);
                     const orderedQty = orderedInventory[item.menu_item_id] || 0;
                     
-                    // 예비 수량이 이번주 예약 수량의 10%를 넘지 않으면 빨간색, 넘으면 초록색
+                    // 예비 수량이 이번주 수량의 10%를 넘지 않으면 빨간색, 넘으면 초록색
                     const tenPercentThreshold = weeklyReserved * 0.1;
                     const backgroundColor = spareQuantity <= tenPercentThreshold ? '#ffcccc' : '#ccffcc';
                     
@@ -261,7 +256,7 @@ const AdminInventoryManagement: React.FC = () => {
                         <td style={{ padding: '10px', border: '1px solid #d4af37' }}>{currentCapacity.toLocaleString()}</td>
                         <td style={{ padding: '10px', border: '1px solid #d4af37' }}>{orderedQty.toLocaleString()}</td>
                         <td style={{ padding: '10px', border: '1px solid #d4af37' }}>{weeklyReserved.toLocaleString()}</td>
-                        <td style={{ padding: '10px', border: '1px solid #d4af37' }}>
+                        <td style={{ padding: '10px', border: '1px solid #d4af37', fontWeight: spareQuantity < 5 ? 'bold' : 'normal' }}>
                           {spareQuantity.toLocaleString()}
                         </td>
                         <td style={{ padding: '10px', border: '1px solid #d4af37' }}>

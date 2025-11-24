@@ -519,9 +519,6 @@ const Order: React.FC = () => {
         // 응답 형식에 따라 orderId 추출
         const orderId = response.data.order_id || response.data.id || response.data.order?.id || response.data.order_id;
         
-        // 주문 완료 알림 표시
-        alert('주문이 완료되었습니다.');
-        
         // 주문 생성 성공 후 즉시 리다이렉트하여 추가 호출 방지
         if (orderId) {
           // 제출 ID를 null로 설정하여 추가 제출 완전 차단

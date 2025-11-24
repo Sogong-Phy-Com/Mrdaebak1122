@@ -180,7 +180,7 @@ public class InventoryService {
                 // Auto-create inventory if it doesn't exist
                 MenuInventory newInventory = new MenuInventory();
                 newInventory.setMenuItemId(menuItem.getId());
-                newInventory.setCapacityPerWindow(1); // 기본값 1
+                newInventory.setCapacityPerWindow(defaultCapacity);
                 newInventory.setSafetyStock(0);
                 newInventory.setNotes("auto-initialized");
                 try {
@@ -280,7 +280,7 @@ public class InventoryService {
     private MenuInventory autoCreateInventory(Long menuItemId) {
         MenuInventory inventory = new MenuInventory();
         inventory.setMenuItemId(menuItemId);
-        inventory.setCapacityPerWindow(1); // 기본값 1
+        inventory.setCapacityPerWindow(defaultCapacity);
         inventory.setSafetyStock(0);
         inventory.setNotes("auto-initialized");
         try {

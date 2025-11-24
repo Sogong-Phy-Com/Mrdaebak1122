@@ -37,9 +37,7 @@ const AdminScheduleManagement: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [dayAssignments, setDayAssignments] = useState<{ [key: string]: DayAssignment }>({});
   const [loading, setLoading] = useState(false);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [loadingAssignments, setLoadingAssignments] = useState(false);
-  const [loadingCalendar, setLoadingCalendar] = useState(false);
   const [error, setError] = useState('');
   const [calendarType, setCalendarType] = useState<'schedule' | 'orders'>('schedule');
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -49,11 +47,9 @@ const AdminScheduleManagement: React.FC = () => {
   useEffect(() => {
     fetchEmployees();
     if (calendarType === 'schedule') {
-      setLoadingCalendar(true);
-      fetchDayAssignments().finally(() => setLoadingCalendar(false));
+      fetchDayAssignments();
     } else {
-      setLoadingCalendar(true);
-      fetchOrders().finally(() => setLoadingCalendar(false));
+      fetchOrders();
     }
   }, [currentMonth, currentYear, calendarType]);
 
@@ -180,6 +176,7 @@ const AdminScheduleManagement: React.FC = () => {
 
   const fetchDayAssignments = async () => {
     try {
+      setLoadingAssignments(true);
       const headers = getAuthHeaders();
       const year = currentYear;
       const month = currentMonth;
@@ -211,6 +208,8 @@ const AdminScheduleManagement: React.FC = () => {
       setDayAssignments(assignments);
     } catch (err: any) {
       console.error('할당 조회 실패:', err);
+    } finally {
+      setLoadingAssignments(false);
     }
   };
 
@@ -290,14 +289,37 @@ const AdminScheduleManagement: React.FC = () => {
       
       // 응답 확인 - 성공적으로 저장되었는지 확인
       if (response.status === 200 || response.status === 201) {
-        // 데이터베이스에 저장 완료 후 할당 정보 다시 불러오기
-        setLoadingCalendar(true);
+        // 데이터베이스에 저장 완료 후 할당 정보 다시 불러오기 (즉시 반영)
+        setLoadingAssignments(true);
         await fetchDayAssignments();
-        setLoadingCalendar(false);
         
-        // 성공 메시지 표시
-        alert('직원 할당이 저장되었습니다.');
-        setSelectedDate(null);
+        // 할당 정보가 제대로 저장되었는지 확인 (최대 3번 재시도)
+        let retryCount = 0;
+        let assignmentVerified = false;
+        while (retryCount < 3 && !assignmentVerified) {
+          try {
+            const updatedAssignments = await axios.get(`${API_URL}/admin/schedule/assignments?date=${selectedDate}`, { headers });
+            if (updatedAssignments.data && 
+                ((updatedAssignments.data.cookingEmployees && updatedAssignments.data.cookingEmployees.length > 0) || 
+                 (updatedAssignments.data.deliveryEmployees && updatedAssignments.data.deliveryEmployees.length > 0))) {
+              assignmentVerified = true;
+              alert('직원 할당이 저장되었습니다.');
+              setSelectedDate(null);
+              break;
+            }
+          } catch (err) {
+            console.log(`할당 확인 재시도 ${retryCount + 1}/3`);
+          }
+          if (!assignmentVerified && retryCount < 2) {
+            await new Promise(resolve => setTimeout(resolve, 1000)); // 1초 대기
+          }
+          retryCount++;
+        }
+        
+        if (!assignmentVerified) {
+          // 저장이 완료되지 않았으면 에러 표시
+          throw new Error('할당 정보가 데이터베이스에 저장되지 않았습니다. 다시 시도해주세요.');
+        }
       } else {
         throw new Error('할당 저장에 실패했습니다.');
       }
@@ -387,6 +409,20 @@ const AdminScheduleManagement: React.FC = () => {
           </button>
         </div>
 
+        {loadingAssignments && (
+          <div style={{ 
+            textAlign: 'center', 
+            padding: '20px', 
+            background: '#1a1a1a', 
+            borderRadius: '8px',
+            marginBottom: '20px',
+            border: '1px solid #d4af37'
+          }}>
+            <div style={{ color: '#d4af37', fontSize: '16px' }}>로딩 중...</div>
+            <div style={{ color: '#fff', fontSize: '14px', marginTop: '5px' }}>스케줄 정보를 불러오는 중입니다.</div>
+          </div>
+        )}
+
         <div style={{ marginBottom: '20px', display: 'flex', gap: '10px', alignItems: 'center' }}>
           <button
             onClick={() => {
@@ -419,27 +455,11 @@ const AdminScheduleManagement: React.FC = () => {
           </button>
         </div>
 
-        {loadingCalendar && (
-          <div style={{ 
-            textAlign: 'center', 
-            padding: '20px', 
-            background: '#1a1a1a', 
-            borderRadius: '8px',
-            marginBottom: '20px',
-            border: '1px solid #d4af37'
-          }}>
-            <div style={{ color: '#d4af37', fontSize: '16px' }}>로딩 중...</div>
-            <div style={{ color: '#fff', fontSize: '14px', marginTop: '5px' }}>스케줄 정보를 불러오는 중입니다.</div>
-          </div>
-        )}
-
         <div style={{ 
           display: 'grid', 
           gridTemplateColumns: 'repeat(7, 1fr)', 
           gap: '5px',
-          marginBottom: '30px',
-          opacity: loadingCalendar ? 0.5 : 1,
-          pointerEvents: loadingCalendar ? 'none' : 'auto'
+          marginBottom: '30px'
         }}>
           {dayNames.map(day => (
             <div key={day} style={{ 

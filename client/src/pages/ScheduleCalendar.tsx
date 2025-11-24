@@ -429,13 +429,16 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({ type: propType }) =
   const handleDateClick = (date: Date | null) => {
     if (!date) return;
     if (calendarType === 'orders') {
-      // 주문 캘린더: 항상 대시보드 표시
+      // 주문 캘린더: 하단 대시보드에 표시
       const dayOrders = getOrdersForDate(date);
-      setSelectedDate(date);
-      setSelectedOrders(dayOrders);
-      setShowScheduleModal(true);
+      if (dayOrders.length > 0) {
+        setSelectedDate(date);
+        setSelectedOrders(dayOrders);
+        setSelectedSchedules([]);
+        // 모달 대신 하단 대시보드에 표시
+      }
     } else {
-      // 스케줄 캘린더: 기존 로직
+      // 스케줄 캘린더: 기존 모달 방식
       const dayOrders = getOrdersForDate(date);
       const daySchedules = getSchedulesForDate(date);
       if (dayOrders.length > 0 || daySchedules.length > 0) {
@@ -552,29 +555,6 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({ type: propType }) =
       <div className="container">
         {error && <div className="error">{error}</div>}
 
-        {/* Color Legend for Schedule Calendar */}
-        {calendarType === 'schedule' && !isAdmin && (
-          <div style={{ 
-            marginBottom: '20px', 
-            padding: '15px', 
-            background: '#1a1a1a', 
-            borderRadius: '8px',
-            border: '1px solid #d4af37'
-          }}>
-            <h3 style={{ color: '#d4af37', marginBottom: '10px', fontSize: '16px' }}>색상 범례</h3>
-            <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <div style={{ width: '20px', height: '20px', background: '#4CAF50', borderRadius: '4px' }}></div>
-                <span style={{ color: '#fff' }}>비번</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <div style={{ width: '20px', height: '20px', background: '#ff4444', borderRadius: '4px' }}></div>
-                <span style={{ color: '#fff' }}>출근일</span>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Employee Filter (Admin only) */}
         {isAdmin && (
           <div className="employee-filter">
@@ -594,162 +574,392 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({ type: propType }) =
           </div>
         )}
 
-        {/* Calendar Controls */}
+        {/* Calendar Controls - Same as Admin */}
         <div style={{ marginBottom: '20px', display: 'flex', gap: '10px', alignItems: 'center' }}>
-          <button
-            onClick={() => navigateMonth('prev')}
-            className="btn btn-secondary"
-          >
+          <button onClick={() => navigateMonth('prev')} className="btn btn-secondary">
             이전 달
           </button>
           <h3 style={{ margin: 0, minWidth: '150px', textAlign: 'center' }}>
             {monthYear}
           </h3>
-          <button
-            onClick={() => navigateMonth('next')}
-            className="btn btn-secondary"
-          >
+          <button onClick={() => navigateMonth('next')} className="btn btn-secondary">
             다음 달
-          </button>
-          <button onClick={goToToday} className="btn btn-primary">
-            오늘
           </button>
         </div>
 
-        {/* Calendar Grid */}
-        {loading ? (
-          <div className="loading">스케줄을 불러오는 중...</div>
-        ) : (
-          <div className="calendar-grid">
-            <div className="calendar-weekdays">
-              {['일', '월', '화', '수', '목', '금', '토'].map(day => (
-                <div key={day} className="calendar-weekday">{day}</div>
-              ))}
+        {/* Color Legend for Schedule Calendar */}
+        {calendarType === 'schedule' && !isAdmin && (
+          <div style={{ 
+            marginBottom: '20px', 
+            padding: '15px', 
+            background: '#1a1a1a', 
+            borderRadius: '8px',
+            border: '1px solid #d4af37',
+            display: 'flex',
+            gap: '20px',
+            alignItems: 'center',
+            flexWrap: 'wrap'
+          }}>
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+              <div style={{ 
+                width: '20px', 
+                height: '20px', 
+                background: '#4CAF50', 
+                border: '1px solid #000',
+                borderRadius: '4px'
+              }}></div>
+              <span style={{ color: '#fff' }}>비번</span>
             </div>
-            <div className="calendar-days">
-              {days.map((date: Date | null, index: number) => {
-                const dayOrders = getOrdersForDate(date);
-                const daySchedules = getSchedulesForDate(date);
-                const isToday = date && 
-                  date.toDateString() === new Date().toDateString() &&
-                  !isNaN(date.getTime());
-                const isCurrentMonth = date !== null;
-
-                const hasMySchedules = hasMySchedule(date);
-                const isClickable = date && (calendarType === 'schedule' ? hasMySchedules : (dayOrders.length > 0 || daySchedules.length > 0));
-                
-                // For schedule calendar: red if employee has work, green if not
-                // For orders calendar: show order count
-                const getDayColor = () => {
-                  if (!date) return '';
-                  if (calendarType === 'schedule') {
-                    // 해당 날에 할당된 작업이 있으면 빨간색
-                    // 로컬 날짜 문자열 생성 (UTC 변환 없이)
-                    const year = date.getFullYear();
-                    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-                    const day = date.getDate().toString().padStart(2, '0');
-                    const dateStr = `${year}-${month}-${day}`;
-                    const assignment = workAssignments[dateStr];
-                    if (assignment && assignment.tasks && assignment.tasks.length > 0) {
-                      return 'red';
-                    }
-                    return hasMySchedules ? 'red' : 'green';
-                  } else {
-                    // 주문 캘린더는 배경색 없음
-                    return '';
-                  }
-                };
-                const dayColor = getDayColor();
-
-                return (
-                  <div
-                    key={index}
-                    className={`calendar-day ${!isCurrentMonth ? 'other-month' : ''} ${isToday ? 'today' : ''} ${isClickable ? 'clickable' : ''} ${hasMySchedules ? 'has-my-schedule' : ''}`}
-                    onClick={() => isClickable && handleDateClick(date)}
-                    style={{
-                      backgroundColor: calendarType === 'orders' ? 'transparent' : (dayColor === 'red' ? '#ff4444' : dayColor === 'green' ? '#4CAF50' : ''),
-                      color: calendarType === 'orders' ? '#000' : (dayColor ? '#fff' : ''),
-                      fontWeight: calendarType === 'orders' ? 'normal' : (dayColor ? 'bold' : 'normal')
-                    }}
-                  >
-                    {date && (
-                      <>
-                        <div className="calendar-day-header">
-                          <div className="calendar-day-number">{date.getDate()}</div>
-                          {calendarType === 'orders' && dayOrders.length > 0 && (
-                            <div className="order-count-indicator" title={`${dayOrders.length}개 주문`} style={{
-                              fontSize: '12px',
-                              fontWeight: 'bold',
-                              color: '#000',
-                              marginTop: '2px'
-                            }}>
-                              {dayOrders.length}개
-                            </div>
-                          )}
-                          {calendarType === 'schedule' && hasMySchedules && (
-                            <div className="my-schedule-indicator" title="내 작업 일정" style={{
-                              width: '8px',
-                              height: '8px',
-                              background: '#FFD700',
-                              borderRadius: '50%',
-                              marginTop: '2px'
-                            }}></div>
-                          )}
-                        </div>
-                        <div className="calendar-day-schedules">
-                          {calendarType === 'schedule' ? (
-                            // Schedule calendar: show assignments
-                            <>
-                              {daySchedules.slice(0, 2).map(schedule => (
-                                <div
-                                  key={schedule.id}
-                                  className="schedule-item"
-                                  style={{ borderLeftColor: '#FFD700' }}
-                                  title={`배달 일정 - ${schedule.delivery_address || '주소 없음'}`}
-                                >
-                                  <div className="schedule-time">{formatTime(schedule.departure_time)}</div>
-                                  <div className="schedule-status" style={{ color: '#FFD700' }}>
-                                    배달
-                                  </div>
-                                </div>
-                              ))}
-                              {dayOrders.filter(order => 
-                                order.cooking_employee_id === user?.id || 
-                                order.delivery_employee_id === user?.id
-                              ).slice(0, 2 - daySchedules.length).map(order => {
-                                const isCooking = order.cooking_employee_id === user?.id;
-                                const isDelivery = order.delivery_employee_id === user?.id;
-                                return (
-                                  <div
-                                    key={order.id}
-                                    className="schedule-item"
-                                    style={{ borderLeftColor: '#FFD700' }}
-                                    title={`${isCooking ? '조리' : ''}${isCooking && isDelivery ? ' / ' : ''}${isDelivery ? '배달' : ''} - 주문 #${order.id}`}
-                                  >
-                                    <div className="schedule-time">{formatTime(order.delivery_time)}</div>
-                                    <div className="schedule-status" style={{ color: '#FFD700' }}>
-                                      {isCooking && isDelivery ? '조리/배달' : isCooking ? '조리' : '배달'}
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </>
-                          ) : (
-                            // Orders calendar: 주문 내용 숨김 (개수만 표시)
-                            null
-                          )}
-                        </div>
-                      </>
-                    )}
-                  </div>
-                );
-              })}
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+              <div style={{ 
+                width: '20px', 
+                height: '20px', 
+                background: '#ff4444', 
+                border: '1px solid #000',
+                borderRadius: '4px'
+              }}></div>
+              <span style={{ color: '#fff' }}>출근일</span>
             </div>
           </div>
         )}
 
-        {/* Schedule Modal */}
-        {showScheduleModal && selectedDate && (
+        {/* Calendar Grid - Same as Admin */}
+        {loading ? (
+          <div className="loading">스케줄을 불러오는 중...</div>
+        ) : (
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(7, 1fr)', 
+            gap: '5px',
+            marginBottom: '30px'
+          }}>
+            {['일', '월', '화', '수', '목', '금', '토'].map(day => (
+              <div key={day} style={{ 
+                padding: '10px', 
+                textAlign: 'center', 
+                fontWeight: 'bold',
+                background: '#d4af37',
+                color: '#000'
+              }}>
+                {day}
+              </div>
+            ))}
+            {days.map((date: Date | null, index: number) => {
+              if (date === null) {
+                return <div key={`empty-${index}`} style={{ padding: '20px' }} />;
+              }
+              const dayOrders = getOrdersForDate(date);
+              const daySchedules = getSchedulesForDate(date);
+              const isToday = date && 
+                date.toDateString() === new Date().toDateString() &&
+                !isNaN(date.getTime());
+              const isPast = date && date < new Date() && date.toDateString() !== new Date().toDateString();
+
+              const hasMySchedules = hasMySchedule(date);
+              const isClickable = date && !isPast && (calendarType === 'schedule' ? hasMySchedules : (dayOrders.length > 0 || daySchedules.length > 0));
+              
+              // For schedule calendar: red if employee has work, green if not
+              // For orders calendar: show order count (no background color)
+              const getDayColor = () => {
+                if (!date) return '';
+                if (calendarType === 'schedule') {
+                  // 해당 날에 할당된 작업이 있으면 빨간색
+                  // 로컬 날짜 문자열 생성 (UTC 변환 없이)
+                  const year = date.getFullYear();
+                  const month = (date.getMonth() + 1).toString().padStart(2, '0');
+                  const day = date.getDate().toString().padStart(2, '0');
+                  const dateStr = `${year}-${month}-${day}`;
+                  const assignment = workAssignments[dateStr];
+                  if (assignment && assignment.tasks && assignment.tasks.length > 0) {
+                    return 'red';
+                  }
+                  return hasMySchedules ? 'red' : 'green';
+                } else {
+                  // Orders calendar: no background color
+                  return '';
+                }
+              };
+              const dayColor = getDayColor();
+
+              return (
+                <div
+                  key={index}
+                  onClick={() => isClickable && handleDateClick(date)}
+                  style={{
+                    padding: '15px',
+                    textAlign: 'center',
+                    cursor: isPast ? 'not-allowed' : (isClickable ? 'pointer' : 'default'),
+                    background: isPast ? '#ccc' : 
+                      (dayColor === 'red' ? '#ff4444' : dayColor === 'green' ? '#4CAF50' : '#f5f5f5'),
+                    color: isPast ? '#666' : 
+                      (dayColor ? '#fff' : '#000'),
+                    border: isToday ? '2px solid #FFD700' : '1px solid #ddd',
+                    borderRadius: '4px',
+                    opacity: isPast ? 0.5 : 1
+                  }}
+                >
+                  <div style={{ fontWeight: 'bold' }}>{date.getDate()}</div>
+                  {calendarType === 'orders' && dayOrders.length > 0 && (
+                    <div style={{
+                      fontSize: '14px',
+                      fontWeight: 'bold',
+                      color: '#000',
+                      marginTop: '5px'
+                    }}>
+                      {dayOrders.length}개
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Orders Dashboard (Bottom) - Only for orders calendar */}
+        {calendarType === 'orders' && selectedDate && selectedOrders.length > 0 && (
+          <div style={{
+            position: 'fixed',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            background: '#1a1a1a',
+            borderTop: '2px solid #d4af37',
+            maxHeight: '50vh',
+            overflowY: 'auto',
+            zIndex: 1000,
+            padding: '20px'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+              <h3 style={{ color: '#d4af37', margin: 0 }}>
+                {selectedDate.toLocaleDateString('ko-KR', { 
+                  year: 'numeric', 
+                  month: 'long', 
+                  day: 'numeric',
+                  weekday: 'long'
+                })} 작업 목록
+              </h3>
+              <button 
+                onClick={() => {
+                  setSelectedDate(null);
+                  setSelectedOrders([]);
+                }}
+                className="btn btn-secondary"
+                style={{ padding: '5px 15px' }}
+              >
+                닫기
+              </button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {(() => {
+                // 로컬 날짜 문자열 생성
+                let dateStr = '';
+                if (selectedDate) {
+                  const year = selectedDate.getFullYear();
+                  const month = (selectedDate.getMonth() + 1).toString().padStart(2, '0');
+                  const day = selectedDate.getDate().toString().padStart(2, '0');
+                  dateStr = `${year}-${month}-${day}`;
+                }
+                const assignment = workAssignments[dateStr];
+                
+                // 주문 정렬: 배달 시간 순, 미완료 우선
+                const sortedOrders = [...selectedOrders].sort((a, b) => {
+                  // 완료된 주문은 하단으로
+                  const aCompleted = a.status === 'delivered' || a.status === 'cancelled';
+                  const bCompleted = b.status === 'delivered' || b.status === 'cancelled';
+                  if (aCompleted && !bCompleted) return 1;
+                  if (!aCompleted && bCompleted) return -1;
+                  
+                  // 배달 시간 순
+                  const aTime = new Date(a.delivery_time).getTime();
+                  const bTime = new Date(b.delivery_time).getTime();
+                  return aTime - bTime;
+                });
+                
+                return sortedOrders.map(order => {
+                  const tasks = assignment?.tasks || [];
+                  const hasCookingTask = tasks.includes('조리');
+                  const hasDeliveryTask = tasks.includes('배달');
+                  
+                  // 작업 상태에 따른 색깔 결정
+                  const getTaskColor = () => {
+                    const isCompleted = order.status === 'delivered' || order.status === 'cancelled';
+                    if (isCompleted) return '#808080'; // 회색 (완료)
+                    
+                    if (hasCookingTask) {
+                      if (order.status === 'pending') return '#ff4444'; // 빨간색 (조리 시작 전)
+                      if (order.status === 'cooking') return '#ff8800'; // 주황색 (조리 중)
+                      if (order.status === 'ready') return '#ff8800'; // 주황색 (조리 완료, 배달 대기)
+                      return '#808080'; // 회색 (기타)
+                    }
+                    
+                    if (hasDeliveryTask) {
+                      // 조리가 완료되지 않았으면 흐리게
+                      if (order.status !== 'ready' && order.status !== 'out_for_delivery' && order.status !== 'delivered') {
+                        return '#ff4444'; // 빨간색 (흐리게 표시는 opacity로)
+                      }
+                      if (order.status === 'ready') return '#ff4444'; // 빨간색 (배달 시작 전)
+                      if (order.status === 'out_for_delivery') return '#ff8800'; // 주황색 (배달 중)
+                      return '#808080'; // 회색 (기타)
+                    }
+                    
+                    return '#808080'; // 할당되지 않은 작업
+                  };
+                  
+                  const taskColor = getTaskColor();
+                  const isCompleted = order.status === 'delivered' || order.status === 'cancelled';
+                  const isDeliveryTaskWaiting = hasDeliveryTask && order.status !== 'ready' && order.status !== 'out_for_delivery' && order.status !== 'delivered';
+                  
+                  return (
+                    <div
+                      key={order.id}
+                      style={{
+                        background: taskColor,
+                        padding: '15px',
+                        borderRadius: '8px',
+                        border: '1px solid #d4af37',
+                        opacity: isDeliveryTaskWaiting ? 0.5 : 1,
+                        order: isCompleted ? 999 : 0 // 완료된 작업은 하단으로
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                        <div>
+                          <h4 style={{ color: '#fff', margin: 0 }}>주문 #{order.id}</h4>
+                          <p style={{ color: '#fff', margin: '5px 0', fontSize: '14px' }}>
+                            {order.customer_name && `고객: ${order.customer_name}`}
+                            {order.dinner_name && ` | ${order.dinner_name}`}
+                          </p>
+                          <p style={{ color: '#fff', margin: '5px 0', fontSize: '12px' }}>
+                            배달 시간: {formatTime(order.delivery_time || '')}
+                          </p>
+                          {hasCookingTask && (
+                            <p style={{ color: '#FFD700', margin: '5px 0', fontSize: '12px', fontWeight: 'bold' }}>
+                              🔧 조리 담당
+                            </p>
+                          )}
+                          {hasDeliveryTask && (
+                            <p style={{ color: '#FFD700', margin: '5px 0', fontSize: '12px', fontWeight: 'bold' }}>
+                              🚚 배달 담당
+                            </p>
+                          )}
+                        </div>
+                        <span style={{
+                          background: '#000',
+                          color: '#fff',
+                          padding: '5px 10px',
+                          borderRadius: '4px',
+                          fontSize: '12px'
+                        }}>
+                          {order.status === 'delivered' ? '배달 완료' : 
+                           order.status === 'cancelled' ? '취소됨' :
+                           order.status === 'cooking' ? '조리 중' :
+                           order.status === 'out_for_delivery' ? '배달 중' :
+                           order.status === 'ready' ? '준비 완료' : '주문 접수'}
+                        </span>
+                      </div>
+                      {!isAdmin && (hasCookingTask || hasDeliveryTask) && (
+                        <div style={{ marginTop: '10px' }}>
+                          {(() => {
+                            const getNextStatus = () => {
+                              if (order.status === 'pending' && hasCookingTask) return 'cooking';
+                              if (order.status === 'cooking' && hasCookingTask) return 'ready';
+                              if (order.status === 'ready' && hasDeliveryTask) return 'out_for_delivery';
+                              if (order.status === 'out_for_delivery' && hasDeliveryTask) return 'delivered';
+                              return null;
+                            };
+                            
+                            const nextStatus = getNextStatus();
+                            if (!nextStatus) return null;
+                            
+                            // 배달 작업인데 조리가 완료되지 않았으면 버튼 비활성화
+                            if (hasDeliveryTask && order.status !== 'ready' && order.status !== 'out_for_delivery' && order.status !== 'delivered') {
+                              return (
+                                <button className="btn btn-secondary" disabled style={{ width: '100%' }}>
+                                  조리 완료 대기 중
+                                </button>
+                              );
+                            }
+                            
+                            const statusLabels: { [key: string]: string } = {
+                              'cooking': '조리 시작',
+                              'ready': '조리 완료',
+                              'out_for_delivery': '배달 시작',
+                              'delivered': '배달 완료'
+                            };
+                            
+                            return (
+                              <button
+                                className="btn btn-primary"
+                                onClick={async () => {
+                                  try {
+                                    const headers = getAuthHeaders();
+                                    const statusMessages: { [key: string]: string } = {
+                                      'cooking': '조리를 시작합니다',
+                                      'ready': '조리를 완료했습니다',
+                                      'out_for_delivery': '배달을 시작합니다',
+                                      'delivered': '배달을 완료했습니다'
+                                    };
+                                    const message = statusMessages[nextStatus] || '주문 상태가 변경되었습니다';
+                                    
+                                    setOrders(prevOrders => 
+                                      prevOrders.map(o => 
+                                        o.id === order.id ? { ...o, status: nextStatus } : o
+                                      )
+                                    );
+                                    
+                                    alert(message);
+                                    
+                                    await axios.patch(`${API_URL}/employee/orders/${order.id}/status`, 
+                                      { status: nextStatus }, 
+                                      { headers }
+                                    );
+                                    
+                                    // 완료된 작업은 하단으로 이동하기 위해 재정렬
+                                    await fetchOrders();
+                                    await fetchWorkAssignments();
+                                    
+                                    // 선택된 주문 목록도 업데이트
+                                    setSelectedOrders(prev => {
+                                      const updated = prev.map(o => 
+                                        o.id === order.id ? { ...o, status: nextStatus } : o
+                                      );
+                                      // 완료된 작업은 하단으로
+                                      return updated.sort((a, b) => {
+                                        const aCompleted = a.status === 'delivered' || a.status === 'cancelled';
+                                        const bCompleted = b.status === 'delivered' || b.status === 'cancelled';
+                                        if (aCompleted && !bCompleted) return 1;
+                                        if (!aCompleted && bCompleted) return -1;
+                                        const aTime = new Date(a.delivery_time).getTime();
+                                        const bTime = new Date(b.delivery_time).getTime();
+                                        return aTime - bTime;
+                                      });
+                                    });
+                                  } catch (err: any) {
+                                    setOrders(prevOrders => 
+                                      prevOrders.map(o => 
+                                        o.id === order.id ? { ...o, status: order.status } : o
+                                      )
+                                    );
+                                    alert(err.response?.data?.error || '주문 상태 변경에 실패했습니다.');
+                                  }
+                                }}
+                                style={{ width: '100%' }}
+                              >
+                                {statusLabels[nextStatus]}
+                              </button>
+                            );
+                          })()}
+                        </div>
+                      )}
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+          </div>
+        )}
+
+        {/* Schedule Modal - Only for schedule calendar */}
+        {showScheduleModal && selectedDate && calendarType === 'schedule' && (
           <div className="schedule-modal-overlay" onClick={() => setShowScheduleModal(false)}>
             <div className="schedule-modal" onClick={(e) => e.stopPropagation()}>
               <div className="schedule-modal-header">
@@ -769,102 +979,27 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({ type: propType }) =
                 </button>
               </div>
               <div className="schedule-modal-content">
-                {calendarType === 'orders' ? (
-                  // 주문 캘린더 대시보드
-                  selectedOrders.length === 0 ? (
-                    <p className="no-schedules">이 날짜에 주문이 없습니다.</p>
-                  ) : (
-                    <div className="schedule-list">
-                      {(() => {
-                        // 로컬 날짜 문자열 생성
-                        let dateStr = '';
-                        if (selectedDate) {
-                          const year = selectedDate.getFullYear();
-                          const month = (selectedDate.getMonth() + 1).toString().padStart(2, '0');
-                          const day = selectedDate.getDate().toString().padStart(2, '0');
-                          dateStr = `${year}-${month}-${day}`;
-                        }
-                        const assignment = workAssignments[dateStr];
-                        
-                        // 주문 정렬: 배달 시간 순, 미완료 우선
-                        const sortedOrders = [...selectedOrders].sort((a, b) => {
-                          // 완료 여부 확인 함수
-                          const isCompleted = (order: Order) => {
-                            const tasks = assignment?.tasks || [];
-                            const hasCookingTask = tasks.includes('조리');
-                            const hasDeliveryTask = tasks.includes('배달');
-                            
-                            if (hasCookingTask && hasDeliveryTask) {
-                              return order.status === 'delivered';
-                            } else if (hasCookingTask) {
-                              return order.status === 'ready' || order.status === 'out_for_delivery' || order.status === 'delivered';
-                            } else if (hasDeliveryTask) {
-                              return order.status === 'delivered';
-                            }
-                            return order.status === 'delivered' || order.status === 'cancelled';
-                          };
-                          
-                          const aCompleted = isCompleted(a);
-                          const bCompleted = isCompleted(b);
-                          
-                          // 미완료가 먼저
-                          if (aCompleted !== bCompleted) {
-                            return aCompleted ? 1 : -1;
-                          }
-                          
-                          // 배달 시간 순
-                          const aTime = new Date(a.delivery_time || '').getTime();
-                          const bTime = new Date(b.delivery_time || '').getTime();
-                          return aTime - bTime;
-                        });
-                        
-                        return sortedOrders.map(order => {
-                          const tasks = assignment?.tasks || [];
-                          const hasCookingTask = tasks.includes('조리');
-                          const hasDeliveryTask = tasks.includes('배달');
-                          
-                          // 주문 캘린더 대시보드용 색상 결정
-                          let cardColor = 'gray'; // 기본값: 회색 (완료)
-                          let cardOpacity = 1;
-                          
-                          if (hasCookingTask) {
-                            if (order.status === 'pending' || order.status === 'cooking') {
-                              cardColor = 'red'; // 조리 시작 전 또는 조리 중
-                            } else if (order.status === 'ready') {
-                              cardColor = 'orange'; // 조리 완료되었지만 아직 배달 전
-                            } else if (order.status === 'delivered' || order.status === 'cancelled') {
-                              cardColor = 'gray'; // 완료
-                            }
-                          }
-                          
-                          if (hasDeliveryTask) {
-                            // 조리가 완료되지 않았으면 흐리게
-                            if (order.status !== 'ready' && order.status !== 'out_for_delivery' && order.status !== 'delivered') {
-                              cardColor = 'red';
-                              cardOpacity = 0.5; // 흐리게
-                            } else if (order.status === 'out_for_delivery') {
-                              cardColor = 'orange'; // 배달 중
-                              cardOpacity = 1;
-                            } else if (order.status === 'delivered' || order.status === 'cancelled') {
-                              cardColor = 'gray'; // 완료
-                            }
-                          }
-                          
-                          // 색상 매핑
-                          const backgroundColor = cardColor === 'red' ? '#ff4444' : 
-                                                  cardColor === 'orange' ? '#ff8800' : 
-                                                  '#999999';
-                          
-                          return (
-                            <div 
-                              key={order.id} 
-                              className="schedule-card"
-                              style={{
-                                backgroundColor: backgroundColor,
-                                opacity: cardOpacity,
-                                marginBottom: cardColor === 'gray' ? '10px' : '20px' // 완료된 작업은 하단으로
-                              }}
-                            >
+                {selectedOrders.length === 0 && selectedSchedules.length === 0 ? (
+                  <p className="no-schedules">이 날짜에 주문이 없습니다.</p>
+                ) : (
+                  <div className="schedule-list">
+                    {selectedOrders.map(order => {
+                      const orderColor = getOrderColor(order, selectedDate);
+                      // 로컬 날짜 문자열 생성 (UTC 변환 없이)
+                      let dateStr = '';
+                      if (selectedDate) {
+                        const year = selectedDate.getFullYear();
+                        const month = (selectedDate.getMonth() + 1).toString().padStart(2, '0');
+                        const day = selectedDate.getDate().toString().padStart(2, '0');
+                        dateStr = `${year}-${month}-${day}`;
+                      }
+                      const assignment = workAssignments[dateStr];
+                      const tasks = assignment?.tasks || [];
+                      return (
+                        <div 
+                          key={order.id} 
+                          className={`schedule-card ${orderColor === 'red' ? 'my-schedule-card' : 'other-schedule-card'}`}
+                        >
                           <div className="schedule-header">
                             <div>
                               <h4>주문 #{order.id || 'N/A'}</h4>
@@ -872,34 +1007,17 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({ type: propType }) =
                                 {order.customer_name && `고객: ${order.customer_name}`}
                                 {order.dinner_name && ` | ${order.dinner_name}`}
                               </p>
-                              {tasks.length > 0 && (
-                                <div style={{ marginTop: '8px' }}>
-                                  <p className="employee-name" style={{ fontSize: '14px', color: '#FFD700', fontWeight: 'bold' }}>
-                                    {tasks.includes('조리') && tasks.includes('배달') ? '🔧 조리 / 🚚 배달 담당' : 
-                                     tasks.includes('조리') ? '🔧 조리 담당' : 
-                                     tasks.includes('배달') ? '🚚 배달 담당' : ''}
-                                  </p>
-                                  {cardColor === 'gray' && (
-                                    <p style={{ fontSize: '12px', color: '#999999', marginTop: '4px', fontWeight: 'bold' }}>
-                                      ✓ 작업 완료
-                                    </p>
-                                  )}
-                                  {cardColor === 'orange' && (
-                                    <p style={{ fontSize: '12px', color: '#ff8800', marginTop: '4px', fontWeight: 'bold' }}>
-                                      ⏳ 작업 진행 중
-                                    </p>
-                                  )}
-                                  {cardColor === 'red' && (
-                                    <p style={{ fontSize: '12px', color: '#ff4444', marginTop: '4px', fontWeight: 'bold' }}>
-                                      ⏳ 작업 대기 중
-                                    </p>
-                                  )}
-                                </div>
+                              {calendarType === 'schedule' && tasks.length > 0 && (
+                                <p className="employee-name" style={{ fontSize: '14px', marginTop: '8px', color: '#FFD700', fontWeight: 'bold' }}>
+                                  {tasks.includes('조리') && tasks.includes('배달') ? '🔧 조리 / 🚚 배달 담당' : 
+                                   tasks.includes('조리') ? '🔧 조리 담당' : 
+                                   tasks.includes('배달') ? '🚚 배달 담당' : ''}
+                                </p>
                               )}
                             </div>
                             <span 
                               className="status-badge"
-                              style={{ backgroundColor: backgroundColor }}
+                              style={{ backgroundColor: orderColor === 'red' ? '#ff4444' : '#4CAF50' }}
                             >
                               {order.status === 'delivered' ? '배달 완료' : 
                                order.status === 'cancelled' ? '취소됨' :
@@ -928,186 +1046,108 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({ type: propType }) =
                               </span>
                             </div>
                           </div>
-                          <div style={{ marginTop: '15px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                            {(() => {
-                              // 관리자는 주문 상태 변경 불가, 할당받은 직원만 가능
-                              if (isAdmin) return null;
-                              
-                              const canChangeStatus = hasCookingTask || hasDeliveryTask;
-                                
-                                // 할당받지 않은 작업이면 버튼 비활성화
-                                if (!canChangeStatus) {
-                                  return (
-                                    <button className="btn btn-secondary" disabled>
-                                      할당되지 않은 작업입니다
-                                    </button>
-                                  );
-                                }
-                                
-                                const getNextStatus = () => {
-                                  if (order.status === 'pending') return 'cooking';
-                                  if (order.status === 'cooking') return 'ready';
-                                  if (order.status === 'ready') return 'out_for_delivery';
-                                  if (order.status === 'out_for_delivery') return 'delivered';
-                                  return null;
-                                };
-                                
-                                const nextStatus = getNextStatus();
-                                if (!nextStatus) return null;
-                                
-                                const statusLabels: { [key: string]: string } = {
-                                  'cooking': '조리 시작',
-                                  'ready': '조리 완료',
-                                  'out_for_delivery': '배달 시작',
-                                  'delivered': '배달 완료'
-                                };
-                                
-                                return (
-                                  <button
-                                    className="btn btn-primary"
-                                    onClick={async () => {
-                                      try {
-                                        const headers = getAuthHeaders();
-                                        
-                                        // 상태 변경 메시지 표시
-                                        const statusMessages: { [key: string]: string } = {
-                                          'cooking': '조리를 시작합니다',
-                                          'ready': '조리를 완료했습니다',
-                                          'out_for_delivery': '배달을 시작합니다',
-                                          'delivered': '배달을 완료했습니다'
-                                        };
-                                        const message = statusMessages[nextStatus] || '주문 상태가 변경되었습니다';
-                                        
-                                        // 즉시 로컬 상태 업데이트하여 UI에 반영
-                                        setOrders(prevOrders => 
-                                          prevOrders.map(o => 
-                                            o.id === order.id ? { ...o, status: nextStatus } : o
-                                          )
-                                        );
-                                        
-                                        await axios.patch(`${API_URL}/employee/orders/${order.id}/status`, 
-                                          { status: nextStatus }, 
-                                          { headers }
-                                        );
-                                        
-                                        // 팝업 알림 표시
-                                        alert(message);
-                                        
-                                        // 팝업 닫고 주문 캘린더로 돌아가기
-                                        setShowScheduleModal(false);
-                                        setSelectedDate(null);
-                                        setSelectedOrders([]);
-                                        
-                                        // 서버에서 최신 데이터 가져오기 (백그라운드)
-                                        fetchOrders().catch(console.error);
-                                        fetchWorkAssignments().catch(console.error);
-                                      } catch (err: any) {
-                                        // 실패 시 이전 상태로 복원
-                                        setOrders(prevOrders => 
-                                          prevOrders.map(o => 
-                                            o.id === order.id ? { ...o, status: order.status } : o
-                                          )
-                                        );
-                                        alert(err.response?.data?.error || '주문 상태 변경에 실패했습니다.');
-                                      }
-                                    }}
-                                  >
-                                    {statusLabels[nextStatus]}
+                          {!isAdmin && (() => {
+                            // 로컬 날짜 문자열 생성 (UTC 변환 없이)
+                            let dateStr = '';
+                            if (selectedDate) {
+                              const year = selectedDate.getFullYear();
+                              const month = (selectedDate.getMonth() + 1).toString().padStart(2, '0');
+                              const day = selectedDate.getDate().toString().padStart(2, '0');
+                              dateStr = `${year}-${month}-${day}`;
+                            }
+                            const assignment = workAssignments[dateStr];
+                            const tasks = assignment?.tasks || [];
+                            const canChangeStatus = tasks.includes('조리') || tasks.includes('배달');
+                            
+                            // 할당받지 않은 작업이면 버튼 비활성화
+                            if (!canChangeStatus) {
+                              return (
+                                <div style={{ marginTop: '15px' }}>
+                                  <button className="btn btn-secondary" disabled>
+                                    할당되지 않은 작업입니다
                                   </button>
-                                );
-                              })()}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    })()}
-                  </div>
-                  )
-                ) : (
-                  // 스케줄 캘린더 모달 (기존 로직)
-                  selectedOrders.length === 0 && selectedSchedules.length === 0 ? (
-                    <p className="no-schedules">이 날짜에 주문이 없습니다.</p>
-                  ) : (
-                    <div className="schedule-list">
-                      {selectedOrders.map(order => {
-                        const orderColor = getOrderColor(order, selectedDate);
-                        // 로컬 날짜 문자열 생성 (UTC 변환 없이)
-                        let dateStr = '';
-                        if (selectedDate) {
-                          const year = selectedDate.getFullYear();
-                          const month = (selectedDate.getMonth() + 1).toString().padStart(2, '0');
-                          const day = selectedDate.getDate().toString().padStart(2, '0');
-                          dateStr = `${year}-${month}-${day}`;
-                        }
-                        const assignment = workAssignments[dateStr];
-                        const tasks = assignment?.tasks || [];
-                        return (
-                          <div 
-                            key={order.id} 
-                            className={`schedule-card ${orderColor === 'red' ? 'my-schedule-card' : 'other-schedule-card'}`}
-                          >
-                            <div className="schedule-header">
-                              <div>
-                                <h4>주문 #{order.id || 'N/A'}</h4>
-                                <p className="employee-name">
-                                  {order.customer_name && `고객: ${order.customer_name}`}
-                                  {order.dinner_name && ` | ${order.dinner_name}`}
-                                </p>
-                                {tasks.length > 0 && (
-                                  <div style={{ marginTop: '8px' }}>
-                                    <p className="employee-name" style={{ fontSize: '14px', color: '#FFD700', fontWeight: 'bold' }}>
-                                      {tasks.includes('조리') && tasks.includes('배달') ? '🔧 조리 / 🚚 배달 담당' : 
-                                       tasks.includes('조리') ? '🔧 조리 담당' : 
-                                       tasks.includes('배달') ? '🚚 배달 담당' : ''}
-                                    </p>
-                                    {orderColor === 'green' && (
-                                      <p style={{ fontSize: '12px', color: '#4CAF50', marginTop: '4px', fontWeight: 'bold' }}>
-                                        ✓ 작업 완료
-                                      </p>
-                                    )}
-                                    {orderColor === 'red' && (
-                                      <p style={{ fontSize: '12px', color: '#ff4444', marginTop: '4px', fontWeight: 'bold' }}>
-                                        ⏳ 작업 진행 중
-                                      </p>
-                                    )}
-                                  </div>
-                                )}
+                                </div>
+                              );
+                            }
+                            
+                            const getNextStatus = () => {
+                              if (order.status === 'pending') return 'cooking';
+                              if (order.status === 'cooking') return 'ready';
+                              if (order.status === 'ready') return 'out_for_delivery';
+                              if (order.status === 'out_for_delivery') return 'delivered';
+                              return null;
+                            };
+                            
+                            const nextStatus = getNextStatus();
+                            if (!nextStatus) return null;
+                            
+                            const statusLabels: { [key: string]: string } = {
+                              'cooking': '조리 시작',
+                              'ready': '조리 완료',
+                              'out_for_delivery': '배달 시작',
+                              'delivered': '배달 완료'
+                            };
+                            
+                            return (
+                              <div style={{ marginTop: '15px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                                <button
+                                  className="btn btn-primary"
+                                  onClick={async () => {
+                                    try {
+                                      const headers = getAuthHeaders();
+                                      
+                                      // 상태 변경 메시지 표시
+                                      const statusMessages: { [key: string]: string } = {
+                                        'cooking': '조리를 시작합니다',
+                                        'ready': '조리를 완료했습니다',
+                                        'out_for_delivery': '배달을 시작합니다',
+                                        'delivered': '배달을 완료했습니다'
+                                      };
+                                      const message = statusMessages[nextStatus] || '주문 상태가 변경되었습니다';
+                                      
+                                      // 즉시 로컬 상태 업데이트하여 UI에 반영
+                                      setOrders(prevOrders => 
+                                        prevOrders.map(o => 
+                                          o.id === order.id ? { ...o, status: nextStatus } : o
+                                        )
+                                      );
+                                      
+                                      await axios.patch(`${API_URL}/employee/orders/${order.id}/status`, 
+                                        { status: nextStatus }, 
+                                        { headers }
+                                      );
+                                      
+                                      // 팝업 알림 표시
+                                      alert(message);
+                                      
+                                      // 팝업 닫고 주문 캘린더로 돌아가기
+                                      setShowScheduleModal(false);
+                                      setSelectedDate(null);
+                                      setSelectedOrders([]);
+                                      
+                                      // 서버에서 최신 데이터 가져오기 (백그라운드)
+                                      fetchOrders().catch(console.error);
+                                      fetchWorkAssignments().catch(console.error);
+                                    } catch (err: any) {
+                                      // 실패 시 이전 상태로 복원
+                                      setOrders(prevOrders => 
+                                        prevOrders.map(o => 
+                                          o.id === order.id ? { ...o, status: order.status } : o
+                                        )
+                                      );
+                                      alert(err.response?.data?.error || '주문 상태 변경에 실패했습니다.');
+                                    }
+                                  }}
+                                >
+                                  {statusLabels[nextStatus]}
+                                </button>
                               </div>
-                              <span 
-                                className="status-badge"
-                                style={{ backgroundColor: orderColor === 'red' ? '#ff4444' : '#4CAF50' }}
-                              >
-                                {order.status === 'delivered' ? '배달 완료' : 
-                                 order.status === 'cancelled' ? '취소됨' :
-                                 order.status === 'cooking' ? '조리 중' :
-                                 order.status === 'out_for_delivery' ? '배달 중' :
-                                 order.status === 'ready' ? '준비 완료' : '주문 접수'}
-                              </span>
-                            </div>
-                            <div className="schedule-details">
-                              <div className="detail-item">
-                                <span className="detail-label">배달 주소:</span>
-                                <span className="detail-value">{order.delivery_address || '주소 없음'}</span>
-                              </div>
-                              <div className="detail-item">
-                                <span className="detail-label">배달 시간:</span>
-                                <span className="detail-value">{formatTime(order.delivery_time || '')}</span>
-                              </div>
-                              <div className="detail-item">
-                                <span className="detail-label">상태:</span>
-                                <span className="detail-value">
-                                  {order.status === 'delivered' ? '배달 완료' : 
-                                   order.status === 'cancelled' ? '취소됨' :
-                                   order.status === 'cooking' ? '조리 중' :
-                                   order.status === 'out_for_delivery' ? '배달 중' :
-                                   order.status === 'ready' ? '준비 완료' : '주문 접수'}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                      {selectedSchedules.map(schedule => (
+                            );
+                          })()}
+                        </div>
+                      );
+                    })}
+                    {selectedSchedules.map(schedule => (
                       <div 
                         key={`schedule-${schedule.id}`} 
                         className={`schedule-card ${schedule.employee_id === user?.id ? 'my-schedule-card' : ''}`}
