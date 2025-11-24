@@ -1022,7 +1022,7 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({ type: propType }) =
                       })}
                     })()}
                   </div>
-                  )
+                )
                 ) : (
                   // 스케줄 캘린더 모달 (기존 로직)
                   selectedOrders.length === 0 && selectedSchedules.length === 0 ? (
