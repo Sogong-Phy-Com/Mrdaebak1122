@@ -39,6 +39,7 @@ const AdminScheduleManagement: React.FC = () => {
   const [loading, setLoading] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [loadingAssignments, setLoadingAssignments] = useState(false);
+  const [loadingCalendar, setLoadingCalendar] = useState(false);
   const [error, setError] = useState('');
   const [calendarType, setCalendarType] = useState<'schedule' | 'orders'>('schedule');
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -48,9 +49,11 @@ const AdminScheduleManagement: React.FC = () => {
   useEffect(() => {
     fetchEmployees();
     if (calendarType === 'schedule') {
-      fetchDayAssignments();
+      setLoadingCalendar(true);
+      fetchDayAssignments().finally(() => setLoadingCalendar(false));
     } else {
-      fetchOrders();
+      setLoadingCalendar(true);
+      fetchOrders().finally(() => setLoadingCalendar(false));
     }
   }, [currentMonth, currentYear, calendarType]);
 
@@ -288,7 +291,9 @@ const AdminScheduleManagement: React.FC = () => {
       // 응답 확인 - 성공적으로 저장되었는지 확인
       if (response.status === 200 || response.status === 201) {
         // 데이터베이스에 저장 완료 후 할당 정보 다시 불러오기
+        setLoadingCalendar(true);
         await fetchDayAssignments();
+        setLoadingCalendar(false);
         
         // 성공 메시지 표시
         alert('직원 할당이 저장되었습니다.');
@@ -414,11 +419,27 @@ const AdminScheduleManagement: React.FC = () => {
           </button>
         </div>
 
+        {loadingCalendar && (
+          <div style={{ 
+            textAlign: 'center', 
+            padding: '20px', 
+            background: '#1a1a1a', 
+            borderRadius: '8px',
+            marginBottom: '20px',
+            border: '1px solid #d4af37'
+          }}>
+            <div style={{ color: '#d4af37', fontSize: '16px' }}>로딩 중...</div>
+            <div style={{ color: '#fff', fontSize: '14px', marginTop: '5px' }}>스케줄 정보를 불러오는 중입니다.</div>
+          </div>
+        )}
+
         <div style={{ 
           display: 'grid', 
           gridTemplateColumns: 'repeat(7, 1fr)', 
           gap: '5px',
-          marginBottom: '30px'
+          marginBottom: '30px',
+          opacity: loadingCalendar ? 0.5 : 1,
+          pointerEvents: loadingCalendar ? 'none' : 'auto'
         }}>
           {dayNames.map(day => (
             <div key={day} style={{ 

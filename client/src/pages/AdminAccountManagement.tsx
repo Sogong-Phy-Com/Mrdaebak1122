@@ -118,7 +118,8 @@ const AdminAccountManagement: React.FC = () => {
   };
 
   const handlePromoteToAdmin = async (userId: number) => {
-    if (!window.confirm('이 직원을 관리자로 승급시키시겠습니까?')) {
+    const user = users.find(u => u.id === userId);
+    if (!window.confirm(`이 직원(${user?.name || user?.email || 'ID: ' + userId})을 관리자로 승급하시겠습니까?`)) {
       return;
     }
     

@@ -80,18 +80,15 @@ const AdminInventoryManagement: React.FC = () => {
 
   const handleRestock = async (menuItemId: number) => {
     const restockValue = restockValues[menuItemId];
-    const currentCapacity = inventoryItems.find(item => item.menu_item_id === menuItemId)?.capacity_per_window || 0;
     
-    // If restock value is empty or 0, just update ordered inventory
+    // 보충 수량이 비어있으면 주문 불가
     if (restockValue === '' || restockValue === 0) {
-      // Just update ordered inventory to 0
-      setOrderedInventory(prev => ({ ...prev, [menuItemId]: 0 }));
-      setRestockValues(prev => ({ ...prev, [menuItemId]: '' }));
+      alert('보충 수량을 입력해주세요.');
       return;
     }
     
-    // Calculate ordered inventory (restock value - current capacity)
-    const ordered = Math.max(0, Number(restockValue) - currentCapacity);
+    // 보충 수량을 주문 재고로 설정
+    const ordered = Number(restockValue);
     
     try {
       setRestockMessage('');
@@ -241,19 +238,22 @@ const AdminInventoryManagement: React.FC = () => {
                     <th style={{ padding: '10px', border: '1px solid #000' }}>이번주 예약 수량</th>
                     <th style={{ padding: '10px', border: '1px solid #000' }}>예비 수량</th>
                     <th style={{ padding: '10px', border: '1px solid #000' }}>보충일</th>
-                    <th style={{ padding: '10px', border: '1px solid #000' }}>비고</th>
                     <th style={{ padding: '10px', border: '1px solid #000' }}>보충</th>
                   </tr>
                 </thead>
                 <tbody>
                   {inventoryItems.map(item => {
-                    const currentCapacity = item.capacity_per_window || 0;
+                    const currentCapacity = item.capacity_per_window || 1; // 기본값 1
                     const weeklyReserved = item.weekly_reserved || item.reserved || 0;
                     const spareQuantity = Math.max(0, currentCapacity - weeklyReserved);
                     const orderedQty = orderedInventory[item.menu_item_id] || 0;
                     
+                    // 예비 수량이 이번주 예약 수량의 10%를 넘지 않으면 빨간색, 넘으면 초록색
+                    const tenPercentThreshold = weeklyReserved * 0.1;
+                    const backgroundColor = spareQuantity <= tenPercentThreshold ? '#ffcccc' : '#ccffcc';
+                    
                     return (
-                      <tr key={item.menu_item_id} style={{ background: spareQuantity < 5 ? '#ffcccc' : 'transparent' }}>
+                      <tr key={item.menu_item_id} style={{ background: backgroundColor }}>
                         <td style={{ padding: '10px', border: '1px solid #d4af37' }}>
                           {item.menu_item_name || `메뉴 ${item.menu_item_id}`} {item.menu_item_name_en && `(${item.menu_item_name_en})`}
                         </td>
@@ -261,7 +261,7 @@ const AdminInventoryManagement: React.FC = () => {
                         <td style={{ padding: '10px', border: '1px solid #d4af37' }}>{currentCapacity.toLocaleString()}</td>
                         <td style={{ padding: '10px', border: '1px solid #d4af37' }}>{orderedQty.toLocaleString()}</td>
                         <td style={{ padding: '10px', border: '1px solid #d4af37' }}>{weeklyReserved.toLocaleString()}</td>
-                        <td style={{ padding: '10px', border: '1px solid #d4af37', fontWeight: spareQuantity < 5 ? 'bold' : 'normal' }}>
+                        <td style={{ padding: '10px', border: '1px solid #d4af37' }}>
                           {spareQuantity.toLocaleString()}
                         </td>
                         <td style={{ padding: '10px', border: '1px solid #d4af37' }}>
@@ -278,7 +278,6 @@ const AdminInventoryManagement: React.FC = () => {
                             return '-';
                           })()}
                         </td>
-                        <td style={{ padding: '10px', border: '1px solid #d4af37' }}>{item.notes || '-'}</td>
                         <td style={{ padding: '10px', border: '1px solid #d4af37' }}>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
                             <input
@@ -295,24 +294,12 @@ const AdminInventoryManagement: React.FC = () => {
                               }}
                               style={{ padding: '5px', width: '100%' }}
                             />
-                            <input
-                              type="text"
-                              placeholder="비고 작성"
-                              value={restockNotes[item.menu_item_id] ?? ''}
-                              onChange={(e) =>
-                                setRestockNotes(prev => ({
-                                  ...prev,
-                                  [item.menu_item_id]: e.target.value
-                                }))
-                              }
-                              style={{ padding: '5px', width: '100%' }}
-                            />
                             <button
                               className="btn btn-primary"
                               onClick={() => handleRestock(item.menu_item_id)}
                               style={{ padding: '5px', fontSize: '12px' }}
                             >
-                              보충
+                              주문
                             </button>
                             {orderedQty > 0 && (
                               <button
