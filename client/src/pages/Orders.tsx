@@ -334,16 +334,6 @@ const Orders: React.FC = () => {
 
                   <div className="order-action" style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginTop: '12px' }}>
                     <button
-                      className="btn btn-primary"
-                      style={{ flex: 1, minWidth: '140px' }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(`/delivery/${order.id}`);
-                      }}
-                    >
-                      {order.status === 'delivered' || order.status === 'cancelled' ? '주문 상세 보기' : '배달 현황 보기'}
-                    </button>
-                    <button
                       className="btn btn-secondary"
                       style={{ flex: 1, minWidth: '140px' }}
                       disabled={!canCancel(order)}
@@ -358,24 +348,13 @@ const Orders: React.FC = () => {
                     </button>
                     <button
                       className="btn btn-secondary"
-                      style={{ flex: 1, minWidth: '140px' }}
-                      disabled={!canModify(order)}
-                      title={!canModify(order) && order.status === 'pending' ? '관리자 승인 완료 후 수정 가능합니다.' : undefined}
+                      style={{ flex: 1, minWidth: '140px', borderStyle: 'dashed' }}
                       onClick={(e) => {
                         e.stopPropagation();
-                        if (canModify(order)) {
-                          handleModifyOrder(order);
-                        }
+                        setDetailOrder(order);
                       }}
                     >
-                      주문 수정
-                    </button>
-                    <button
-                      className="btn btn-outline"
-                      style={{ flex: 1, minWidth: '140px' }}
-                      onClick={(e) => handleReorder(order, e)}
-                    >
-                      재주문
+                      세부내역 참조
                     </button>
                   </div>
                 </div>
@@ -384,6 +363,59 @@ const Orders: React.FC = () => {
           )}
         </div>
       </div>
+
+      {detailOrder && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0,0,0,0.8)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000
+          }}
+          onClick={() => setDetailOrder(null)}
+        >
+          <div
+            style={{
+              background: '#1a1a1a',
+              padding: '24px',
+              borderRadius: '12px',
+              width: '90%',
+              maxWidth: '600px',
+              border: '1px solid var(--border-color)',
+              color: '#fff'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3>주문 #{detailOrder.id} 세부내역</h3>
+            <p style={{ marginBottom: '10px' }}>디너: {detailOrder.dinner_name}</p>
+            <p style={{ marginBottom: '10px' }}>배달 주소: {detailOrder.delivery_address}</p>
+            <p style={{ marginBottom: '10px' }}>배달 시간: {new Date(detailOrder.delivery_time).toLocaleString('ko-KR')}</p>
+            <p style={{ marginBottom: '10px' }}>서빙 스타일: {getStyleLabel(detailOrder.serving_style)}</p>
+            <p style={{ marginBottom: '10px' }}>총 금액: {detailOrder.total_price.toLocaleString()}원</p>
+            <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '12px', marginTop: '12px' }}>
+              <h4>주문 항목</h4>
+              <ul>
+                {detailOrder.items?.map((item) => (
+                  <li key={item.id}>
+                    {item.name} x {item.quantity} - {item.price ? (item.price * item.quantity).toLocaleString() : ''}원
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px' }}>
+              <button className="btn btn-secondary" onClick={() => setDetailOrder(null)}>
+                닫기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

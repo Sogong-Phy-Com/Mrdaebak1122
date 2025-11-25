@@ -214,7 +214,12 @@ const Register: React.FC = () => {
                 type="checkbox"
                 name="loyaltyConsent"
                 checked={formData.loyaltyConsent}
-                onChange={handleChange}
+                onChange={(e) => {
+                  handleChange(e);
+                  if (e.target.checked) {
+                    alert('단골 할인 프로그램에 동의하시면 5회 이상 주문 시 10% 할인 혜택을 받으실 수 있습니다.');
+                  }
+                }}
               />
               단골 할인 안내 및 주문 이력 기반 혜택 제공에 동의합니다.
             </label>

@@ -564,8 +564,9 @@ public class AdminController {
     public ResponseEntity<?> getCustomerOrders(@PathVariable Long userId) {
         try {
             // Verify user exists
-            User user = userRepository.findById(userId)
-                    .orElseThrow(() -> new RuntimeException("User not found"));
+            if (!userRepository.existsById(userId)) {
+                throw new RuntimeException("User not found");
+            }
             
             // Get orders for this user
             List<Order> orders = orderRepository.findByUserIdOrderByCreatedAtDesc(userId);
@@ -619,5 +620,61 @@ public class AdminController {
 
     // 관리자는 주문 상태 변경 불가 - 할당받은 직원만 변경 가능
     // 이 엔드포인트는 제거되었습니다. 주문 상태 변경은 /api/employee/orders/{id}/status를 사용하세요.
+
+
+    @GetMapping("/orders/pending")
+    public ResponseEntity<?> getPendingOrders() {
+        try {
+            List<Order> pendingOrders = orderRepository.findAll().stream()
+                    .filter(order -> "PENDING".equalsIgnoreCase(order.getAdminApprovalStatus()))
+                    .collect(java.util.stream.Collectors.toList());
+            
+            List<Map<String, Object>> orderDtos = pendingOrders.stream().map(order -> {
+                Map<String, Object> orderMap = new HashMap<>();
+                orderMap.put("id", order.getId());
+                orderMap.put("user_id", order.getUserId());
+                orderMap.put("dinner_type_id", order.getDinnerTypeId());
+                orderMap.put("serving_style", order.getServingStyle());
+                orderMap.put("delivery_time", order.getDeliveryTime());
+                orderMap.put("delivery_address", order.getDeliveryAddress());
+                orderMap.put("total_price", order.getTotalPrice());
+                orderMap.put("status", order.getStatus());
+                orderMap.put("payment_status", order.getPaymentStatus());
+                orderMap.put("admin_approval_status", order.getAdminApprovalStatus());
+                orderMap.put("created_at", order.getCreatedAt());
+                
+                // Add user info
+                User user = userRepository.findById(order.getUserId()).orElse(null);
+                if (user != null) {
+                    orderMap.put("user_name", user.getName());
+                    orderMap.put("user_email", user.getEmail());
+                    orderMap.put("user_phone", user.getPhone());
+                }
+                
+                // Add order items
+                List<OrderItem> items = orderItemRepository.findByOrderId(order.getId());
+                List<Map<String, Object>> itemDtos = items.stream().map(item -> {
+                    MenuItem menuItem = menuItemRepository.findById(item.getMenuItemId()).orElse(null);
+                    Map<String, Object> itemMap = new HashMap<>();
+                    itemMap.put("id", item.getId());
+                    itemMap.put("menu_item_id", item.getMenuItemId());
+                    itemMap.put("quantity", item.getQuantity());
+                    if (menuItem != null) {
+                        itemMap.put("name", menuItem.getName());
+                        itemMap.put("name_en", menuItem.getNameEn());
+                        itemMap.put("price", menuItem.getPrice());
+                    }
+                    return itemMap;
+                }).toList();
+                orderMap.put("items", itemDtos);
+                
+                return orderMap;
+            }).toList();
+            
+            return ResponseEntity.ok(orderDtos);
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", "Failed to fetch pending orders: " + e.getMessage()));
+        }
+    }
 }
 
