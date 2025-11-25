@@ -27,6 +27,7 @@ interface Order {
   dinner_name?: string;
   cooking_employee_id?: number;
   delivery_employee_id?: number;
+  admin_approval_status?: string;
 }
 
 const AdminScheduleManagement: React.FC = () => {
@@ -121,7 +122,10 @@ const AdminScheduleManagement: React.FC = () => {
             return false;
           }
         });
-        setOrders(filteredOrders);
+        const approvedOnly = filteredOrders.filter((order: Order) =>
+          (order.admin_approval_status || '').toUpperCase() === 'APPROVED'
+        );
+        setOrders(approvedOnly);
       } else {
         setOrders([]);
       }

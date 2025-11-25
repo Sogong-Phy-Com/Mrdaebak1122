@@ -82,6 +82,7 @@ public class OrderController {
             orderMap.put("status", order.getStatus());
             orderMap.put("payment_status", order.getPaymentStatus());
             orderMap.put("created_at", order.getCreatedAt());
+            orderMap.put("admin_approval_status", order.getAdminApprovalStatus());
 
             List<OrderItem> items = orderItemRepository.findByOrderId(order.getId());
             List<Map<String, Object>> itemDtos = items.stream().map(item -> {

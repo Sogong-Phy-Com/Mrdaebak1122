@@ -134,6 +134,37 @@ public class DataInitializer implements CommandLineRunner {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
+
+        // Ensure consent and admin approval columns exist
+        try (Connection connection = dataSource.getConnection()) {
+            connection.setAutoCommit(true);
+            DatabaseMetaData metaData = connection.getMetaData();
+            try (Statement stmt = connection.createStatement()) {
+                if (!hasColumn(metaData, "users", "consent_name")) {
+                    stmt.execute("ALTER TABLE users ADD COLUMN consent_name INTEGER DEFAULT 0");
+                    System.out.println("[DataInitializer] Added 'consent_name' column to users table");
+                }
+                if (!hasColumn(metaData, "users", "consent_address")) {
+                    stmt.execute("ALTER TABLE users ADD COLUMN consent_address INTEGER DEFAULT 0");
+                    System.out.println("[DataInitializer] Added 'consent_address' column to users table");
+                }
+                if (!hasColumn(metaData, "users", "consent_phone")) {
+                    stmt.execute("ALTER TABLE users ADD COLUMN consent_phone INTEGER DEFAULT 0");
+                    System.out.println("[DataInitializer] Added 'consent_phone' column to users table");
+                }
+                if (!hasColumn(metaData, "users", "loyalty_consent")) {
+                    stmt.execute("ALTER TABLE users ADD COLUMN loyalty_consent INTEGER DEFAULT 0");
+                    System.out.println("[DataInitializer] Added 'loyalty_consent' column to users table");
+                }
+                if (!hasColumn(metaData, "orders", "admin_approval_status")) {
+                    stmt.execute("ALTER TABLE orders ADD COLUMN admin_approval_status TEXT DEFAULT 'APPROVED'");
+                    System.out.println("[DataInitializer] Added 'admin_approval_status' column to orders table");
+                }
+                stmt.execute("UPDATE orders SET admin_approval_status = 'APPROVED' WHERE admin_approval_status IS NULL OR admin_approval_status = ''");
+            }
+        } catch (Exception e) {
+            System.err.println("[DataInitializer] Error ensuring consent/admin approval columns: " + e.getMessage());
+        }
         
         // Update existing users' approvalStatus if null
         try {
@@ -303,6 +334,17 @@ public class DataInitializer implements CommandLineRunner {
                 }
             });
         }
+    }
+
+    private boolean hasColumn(DatabaseMetaData metaData, String tableName, String columnName) throws Exception {
+        try (ResultSet columns = metaData.getColumns(null, null, tableName, null)) {
+            while (columns.next()) {
+                if (columnName.equalsIgnoreCase(columns.getString("COLUMN_NAME"))) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 }
 

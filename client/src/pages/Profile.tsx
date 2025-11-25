@@ -20,6 +20,7 @@ interface ReservedOrder {
   delivery_address: string;
   total_price: number;
   status: string;
+  admin_approval_status?: string;
 }
 
 const Profile: React.FC = () => {
@@ -190,6 +191,28 @@ const Profile: React.FC = () => {
     return labels[status] || status;
   };
 
+  const getApprovalLabel = (status?: string) => {
+    const normalized = (status || '').toUpperCase();
+    switch (normalized) {
+      case 'APPROVED':
+        return '관리자 승인 완료';
+      case 'REJECTED':
+        return '관리자 반려';
+      case 'CANCELLED':
+        return '고객 취소';
+      default:
+        return '관리자 승인 대기';
+    }
+  };
+
+  const getApprovalClass = (status?: string) => {
+    const normalized = (status || '').toUpperCase();
+    if (normalized === 'APPROVED') return 'approved';
+    if (normalized === 'REJECTED') return 'rejected';
+    if (normalized === 'CANCELLED') return 'cancelled';
+    return 'pending';
+  };
+
   const handlePasswordChange = async () => {
     setPasswordError('');
     
@@ -272,6 +295,13 @@ const Profile: React.FC = () => {
 
   const showTerms = () => {
     alert('이용약관\n\n제1조 (목적)\n본 약관은 미스터 대박이 제공하는 서비스의 이용과 관련하여 회사와 이용자 간의 권리, 의무 및 책임사항을 규정함을 목적으로 합니다.\n\n제2조 (정의)\n1. "서비스"란 회사가 제공하는 디너 배달 서비스를 의미합니다.\n2. "이용자"란 본 약관에 동의하고 서비스를 이용하는 회원 및 비회원을 의미합니다.\n\n제3조 (약관의 효력 및 변경)\n1. 본 약관은 서비스 화면에 게시하거나 기타의 방법으로 이용자에게 공지함으로써 효력이 발생합니다.\n2. 회사는 필요한 경우 관련 법령을 위배하지 않는 범위에서 본 약관을 변경할 수 있습니다.');
+  };
+
+  const handleReorder = (order: ReservedOrder, e?: React.MouseEvent<HTMLButtonElement>) => {
+    if (e) {
+      e.stopPropagation();
+    }
+    navigate('/order', { state: { reorderOrder: order } });
   };
 
   return (
@@ -403,6 +433,28 @@ const Profile: React.FC = () => {
                         </div>
                       </div>
                     </div>
+                    <div className="card">
+                      <h3 className="card-title">개인정보 동의 현황</h3>
+                      <ul className="consent-list">
+                        <li>
+                          <span>이름 사용</span>
+                          <strong>{user?.consentName ? '동의' : '비동의'}</strong>
+                        </li>
+                        <li>
+                          <span>주소 저장</span>
+                          <strong>{user?.consentAddress ? '동의' : '비동의'}</strong>
+                        </li>
+                        <li>
+                          <span>연락처 알림</span>
+                          <strong>{user?.consentPhone ? '동의' : '비동의'}</strong>
+                        </li>
+                      </ul>
+                      <div className={`loyalty-message ${user?.loyaltyConsent ? 'success' : 'muted'}`}>
+                        {user?.loyaltyConsent
+                          ? '단골 할인 안내 동의 완료! 배달 완료 5회 이상부터 10% 할인 혜택이 적용됩니다.'
+                          : '단골 할인 혜택을 받으려면 "단골 할인 안내 동의" 설정이 필요합니다.'}
+                      </div>
+                    </div>
                   </>
                 ) : (
                   <div className="card">
@@ -450,9 +502,14 @@ const Profile: React.FC = () => {
                               {new Date(order.created_at).toLocaleDateString('ko-KR')}
                             </span>
                           </div>
-                          <span className={`status-badge-modern status-${order.status}`}>
-                            {getStatusLabel(order.status)}
-                          </span>
+                          <div className="order-status-group">
+                            <span className={`approval-badge ${getApprovalClass(order.admin_approval_status)}`}>
+                              {getApprovalLabel(order.admin_approval_status)}
+                            </span>
+                            <span className={`status-badge-modern status-${order.status}`}>
+                              {getStatusLabel(order.status)}
+                            </span>
+                          </div>
                         </div>
 
                         <div className="order-card-body">
@@ -474,20 +531,25 @@ const Profile: React.FC = () => {
                           </div>
                         </div>
 
-                        {order.status !== 'delivered' && order.status !== 'cancelled' && (
-                          <div className="order-action">
-                            <button
-                              className="btn btn-primary"
-                              style={{ width: '100%', marginTop: '12px' }}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                navigate(`/delivery/${order.id}`);
-                              }}
-                            >
-                              배달 현황 보기
-                            </button>
-                          </div>
-                        )}
+                        <div className="order-action" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '12px' }}>
+                          <button
+                            className="btn btn-primary"
+                            style={{ flex: 1, minWidth: '140px' }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/delivery/${order.id}`);
+                            }}
+                          >
+                            주문 상세
+                          </button>
+                          <button
+                            className="btn btn-outline"
+                            style={{ flex: 1, minWidth: '140px' }}
+                            onClick={(e) => handleReorder(order, e)}
+                          >
+                            재주문
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>

@@ -163,6 +163,16 @@
   font-weight: 700;
 }
 
+.order-page .item-tag {
+  padding: 4px 10px;
+  background: var(--primary-light);
+  color: var(--primary-color);
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid var(--primary-color);
+}
+
 .order-item {
   display: flex;
   justify-content: space-between;
@@ -275,4 +285,114 @@
 .order-form .form-group input:focus,
 .order-form .form-group textarea:focus {
   border-color: var(--primary-color);
+}
+
+.order-page .info-banner {
+  max-width: 800px;
+  margin: 16px auto;
+  padding: 14px 18px;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.order-page .info-banner.approval {
+  border-color: rgba(255, 193, 7, 0.4);
+  background: rgba(255, 193, 7, 0.1);
+  color: #e2a400;
+}
+
+.order-page .info-banner.card {
+  border-color: rgba(212, 175, 55, 0.4);
+  background: rgba(212, 175, 55, 0.12);
+  color: #d4af37;
+}
+
+.order-page .info-banner.success {
+  border-color: rgba(76, 175, 80, 0.4);
+  background: rgba(76, 175, 80, 0.12);
+  color: #4caf50;
+}
+
+.previous-orders-panel {
+  max-width: 900px;
+  margin: 24px auto;
+  padding: 20px;
+  background: var(--white);
+  border-radius: 16px;
+  border: 1px solid var(--border-color);
+}
+
+.previous-orders-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.previous-order-card {
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 16px;
+  background: var(--background-light);
+}
+
+.previous-order-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+  margin-bottom: 8px;
+  color: var(--text-primary);
+}
+
+.previous-order-body p {
+  margin: 0 0 10px 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.previous-order-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.previous-order-actions {
+  margin-top: 12px;
+  text-align: right;
+}
+
+.card-info-block {
+  background: #2a2a2a;
+  border: 1px solid #d4af37;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.consent-check {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+  font-size: 13px;
+}
+
+.consent-check label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #fff;
+}
+
+.btn-outline {
+  background: transparent;
+  border: 1px dashed var(--primary-color);
+  color: var(--primary-color);
+}
+
+.btn-outline:hover {
+  background: rgba(212, 175, 55, 0.15);
 }

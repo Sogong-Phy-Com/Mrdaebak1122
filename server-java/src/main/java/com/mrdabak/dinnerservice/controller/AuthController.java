@@ -189,6 +189,10 @@ public class AuthController {
             userMap.put("phone", user.getPhone());
             userMap.put("role", user.getRole());
             userMap.put("approvalStatus", user.getApprovalStatus());
+            userMap.put("consentName", Boolean.TRUE.equals(user.getConsentName()));
+            userMap.put("consentAddress", Boolean.TRUE.equals(user.getConsentAddress()));
+            userMap.put("consentPhone", Boolean.TRUE.equals(user.getConsentPhone()));
+            userMap.put("loyaltyConsent", Boolean.TRUE.equals(user.getLoyaltyConsent()));
             // 카드 정보는 마지막 4자리만 반환 (보안)
             if (user.getCardNumber() != null && user.getCardNumber().length() > 4) {
                 userMap.put("cardNumber", "****-****-****-" + user.getCardNumber().substring(user.getCardNumber().length() - 4));

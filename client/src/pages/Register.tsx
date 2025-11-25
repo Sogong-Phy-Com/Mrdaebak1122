@@ -12,7 +12,11 @@ const Register: React.FC = () => {
     phone: '',
     role: 'customer',
     securityQuestion: '',
-    securityAnswer: ''
+    securityAnswer: '',
+    consentName: false,
+    consentAddress: false,
+    consentPhone: false,
+    loyaltyConsent: false
   });
   const [error, setError] = useState('');
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
@@ -20,10 +24,18 @@ const Register: React.FC = () => {
   const navigate = useNavigate();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
+    const { name, value } = e.target;
+    if (e.target instanceof HTMLInputElement && e.target.type === 'checkbox') {
+      setFormData({
+        ...formData,
+        [name]: e.target.checked
+      });
+    } else {
+      setFormData({
+        ...formData,
+        [name]: value
+      });
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -39,7 +51,13 @@ const Register: React.FC = () => {
         formData.phone,
         formData.role,
         formData.securityQuestion,
-        formData.securityAnswer
+        formData.securityAnswer,
+        {
+          consentName: formData.consentName,
+          consentAddress: formData.consentAddress,
+          consentPhone: formData.consentPhone,
+          loyaltyConsent: formData.loyaltyConsent
+        }
       );
       // Show welcome modal first
       setShowWelcomeModal(true);
@@ -61,6 +79,9 @@ const Register: React.FC = () => {
           </button>
         </div>
         <h1>회원가입</h1>
+        <div className="info-banner small">
+          개인정보 이용 동의 여부에 따라 제공되는 서비스가 일부 달라질 수 있습니다. 동의하지 않아도 회원가입은 가능합니다.
+        </div>
         <form onSubmit={handleSubmit} className="register-form">
           <div className="form-group">
             <label>이메일</label>
@@ -158,6 +179,48 @@ const Register: React.FC = () => {
               required
               placeholder="답변을 입력하세요"
             />
+          </div>
+          <div className="consent-panel">
+            <h3>개인정보 사용 동의</h3>
+            <label className="consent-item">
+              <input
+                type="checkbox"
+                name="consentName"
+                checked={formData.consentName}
+                onChange={handleChange}
+              />
+              이름 보관 및 VIP 맞춤 안내에 동의합니다.
+            </label>
+            <label className="consent-item">
+              <input
+                type="checkbox"
+                name="consentAddress"
+                checked={formData.consentAddress}
+                onChange={handleChange}
+              />
+              주소 기반 예약/배달 최적화에 동의합니다.
+            </label>
+            <label className="consent-item">
+              <input
+                type="checkbox"
+                name="consentPhone"
+                checked={formData.consentPhone}
+                onChange={handleChange}
+              />
+              연락처를 활용한 알림 수신에 동의합니다.
+            </label>
+            <label className="consent-item highlight">
+              <input
+                type="checkbox"
+                name="loyaltyConsent"
+                checked={formData.loyaltyConsent}
+                onChange={handleChange}
+              />
+              단골 할인 안내 및 주문 이력 기반 혜택 제공에 동의합니다.
+            </label>
+            <div className="loyalty-note">
+              동의 시 동일 계정으로 배달 완료 5회 이상부터 10% 단골 할인 혜택이 자동 적용됩니다.
+            </div>
           </div>
           {error && <div className="error">{error}</div>}
           <button type="submit" className="btn btn-primary">회원가입</button>

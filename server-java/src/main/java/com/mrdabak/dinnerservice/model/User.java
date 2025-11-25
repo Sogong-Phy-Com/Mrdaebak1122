@@ -32,6 +32,18 @@ public class User {
     @Column(nullable = false)
     private String phone;
 
+    @Column(name = "consent_name")
+    private Boolean consentName = Boolean.FALSE;
+
+    @Column(name = "consent_address")
+    private Boolean consentAddress = Boolean.FALSE;
+
+    @Column(name = "consent_phone")
+    private Boolean consentPhone = Boolean.FALSE;
+
+    @Column(name = "loyalty_consent")
+    private Boolean loyaltyConsent = Boolean.FALSE;
+
     @Column(nullable = false)
     private String role = "customer";
 

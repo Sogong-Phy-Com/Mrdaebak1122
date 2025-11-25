@@ -24,16 +24,19 @@ public class OrderService {
     private final MenuItemRepository menuItemRepository;
     private final InventoryService inventoryService;
     private final DeliverySchedulingService deliverySchedulingService;
+    private final UserRepository userRepository;
 
     public OrderService(OrderRepository orderRepository, OrderItemRepository orderItemRepository,
                        DinnerTypeRepository dinnerTypeRepository, MenuItemRepository menuItemRepository,
-                       InventoryService inventoryService, DeliverySchedulingService deliverySchedulingService) {
+                       InventoryService inventoryService, DeliverySchedulingService deliverySchedulingService,
+                       UserRepository userRepository) {
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
         this.dinnerTypeRepository = dinnerTypeRepository;
         this.menuItemRepository = menuItemRepository;
         this.inventoryService = inventoryService;
         this.deliverySchedulingService = deliverySchedulingService;
+        this.userRepository = userRepository;
     }
 
     public Order createOrder(Long userId, OrderRequest request) {
@@ -100,6 +103,9 @@ public class OrderService {
         DinnerType dinner = dinnerTypeRepository.findById(request.getDinnerTypeId())
                 .orElseThrow(() -> new RuntimeException("유효하지 않은 디너 타입입니다."));
 
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
+
         // Validate serving style for Champagne Feast
         if (dinner.getName().contains("샴페인") && !request.getServingStyle().equals("grand") && !request.getServingStyle().equals("deluxe")) {
             throw new RuntimeException("샴페인 축제 디너는 그랜드 또는 디럭스 스타일만 주문 가능합니다.");
@@ -138,11 +144,12 @@ public class OrderService {
         // DeliverySchedulingService.DeliveryAssignmentPlan assignmentPlan =
         //         deliverySchedulingService.prepareAssignment(request.getDeliveryAddress(), deliveryDateTime);
 
-        // Apply loyalty discount (10% for returning customers) - read from order database
-        long orderCount = orderRepository.findByUserIdOrderByCreatedAtDesc(userId).stream()
-                .filter(o -> "paid".equals(o.getPaymentStatus()))
+        List<Order> previousOrders = orderRepository.findByUserIdOrderByCreatedAtDesc(userId);
+        long deliveredOrders = previousOrders.stream()
+                .filter(o -> "delivered".equalsIgnoreCase(o.getStatus()))
                 .count();
-        if (orderCount > 0) {
+        boolean loyaltyEligible = Boolean.TRUE.equals(user.getLoyaltyConsent()) && deliveredOrders >= 5;
+        if (loyaltyEligible) {
             totalPrice = totalPrice * 0.9;
         }
 
@@ -156,6 +163,7 @@ public class OrderService {
         order.setTotalPrice((int) Math.round(totalPrice));
         order.setPaymentStatus("pending");
         order.setPaymentMethod(request.getPaymentMethod());
+        order.setAdminApprovalStatus("PENDING");
 
         // 주문 생성 시 직원 자동 할당 제거 - 관리자가 나중에 할당하도록 함
         // 주문은 하나만 생성되며, 직원 할당은 관리자가 스케줄 관리에서 할당
@@ -311,6 +319,9 @@ public class OrderService {
         // Update order status (order database)
         try {
             order.setStatus("cancelled");
+            if (!"REJECTED".equalsIgnoreCase(order.getAdminApprovalStatus())) {
+                order.setAdminApprovalStatus("CANCELLED");
+            }
             Order cancelledOrder = orderRepository.save(order);
             System.out.println("[OrderService] 주문 " + orderId + "가 취소되었습니다. (재고: " + 
                     (inventoryCancelled ? "취소됨" : "실패") + ", 스케줄: " + 
@@ -444,6 +455,9 @@ public class OrderService {
             order.setTotalPrice(finalPrice);
         }
 
+        order.setAdminApprovalStatus("PENDING");
+        order.setCookingEmployeeId(null);
+        order.setDeliveryEmployeeId(null);
         orderRepository.save(order);
 
         return order;

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 import TopLogo from '../components/TopLogo';
@@ -32,9 +32,22 @@ interface ServingStyle {
   description: string;
 }
 
+interface PreviousOrder {
+  id: number;
+  dinner_name: string;
+  dinner_type_id: number;
+  serving_style: string;
+  delivery_time: string;
+  delivery_address: string;
+  total_price: number;
+  status: string;
+  items: { menu_item_id: number; quantity: number; name?: string }[];
+}
+
 const Order: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const modifyOrderId = searchParams.get('modify');
   const [isModifying, setIsModifying] = useState(false);
@@ -64,6 +77,11 @@ const Order: React.FC = () => {
   const [orderPassword, setOrderPassword] = useState('');
   const [userCardInfo, setUserCardInfo] = useState<any>(null);
   const [pendingOrderData, setPendingOrderData] = useState<any>(null);
+  const [previousOrders, setPreviousOrders] = useState<PreviousOrder[]>([]);
+  const [orderAlert, setOrderAlert] = useState('');
+  const [agreeCardUse, setAgreeCardUse] = useState(false);
+  const [agreePolicy, setAgreePolicy] = useState(false);
+  const [prefillingOrder, setPrefillingOrder] = useState(false);
 
   useEffect(() => {
     fetchDinners();
@@ -73,6 +91,7 @@ const Order: React.FC = () => {
       fetchOrderForModification(Number(modifyOrderId));
     }
     fetchUserCardInfo();
+    fetchPreviousOrders();
   }, [modifyOrderId]);
 
   const fetchUserCardInfo = async () => {
@@ -88,18 +107,63 @@ const Order: React.FC = () => {
     }
   };
 
-  useEffect(() => {
-    if (selectedDinner) {
-      const dinner = dinners.find(d => d.id === selectedDinner);
-      if (dinner) {
-        const items = dinner.menu_items.map(item => ({
-          menu_item_id: item.id,
-          quantity: 1
-        }));
-        setOrderItems(items);
+  const fetchPreviousOrders = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+      const response = await axios.get(`${API_URL}/orders`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (Array.isArray(response.data)) {
+        setPreviousOrders(response.data.slice(0, 5));
       }
+    } catch (err) {
+      console.error('이전 주문 조회 실패:', err);
     }
-  }, [selectedDinner, dinners]);
+  };
+
+  const applyReorderData = (order: PreviousOrder) => {
+    setPrefillingOrder(true);
+    setIsModifying(false);
+    setSelectedDinner(order.dinner_type_id);
+    setSelectedStyle(order.serving_style);
+    setDeliveryAddress(order.delivery_address);
+    setUseMyAddress(order.delivery_address === user?.address);
+    if (order.items && order.items.length > 0) {
+      setOrderItems(order.items.map(item => ({
+        menu_item_id: item.menu_item_id,
+        quantity: item.quantity
+      })));
+    }
+    setOrderAlert(`주문 #${order.id} 정보를 불러왔습니다. 새로운 날짜와 시간을 선택한 뒤 주문을 확정해주세요.`);
+  };
+
+  useEffect(() => {
+    if (!selectedDinner) {
+      return;
+    }
+    if (prefillingOrder) {
+      setPrefillingOrder(false);
+      return;
+    }
+    const dinner = dinners.find(d => d.id === selectedDinner);
+    if (dinner) {
+      const items = dinner.menu_items.map(item => ({
+        menu_item_id: item.id,
+        quantity: 1
+      }));
+      setOrderItems(items);
+    }
+  }, [selectedDinner, dinners, prefillingOrder]);
+
+  useEffect(() => {
+    const state: any = location.state;
+    if (state && state.reorderOrder) {
+      applyReorderData(state.reorderOrder);
+      navigate(location.pathname + location.search, { replace: true, state: {} });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location]);
 
   // Generate years (current year to next year)
   const years = Array.from({ length: 2 }, (_, i) => new Date().getFullYear() + i);
@@ -564,12 +628,14 @@ const Order: React.FC = () => {
         });
 
         console.log('[주문 수정] 성공:', response.data);
-        alert('주문이 수정되었습니다.');
+        alert('주문이 수정되었습니다. 관리자 승인 후 직원에게 전달됩니다.');
         setLoading(false);
         setIsSubmitting(false);
         setShowOrderConfirmation(false);
         setOrderPassword('');
         setPendingOrderData(null);
+        setAgreeCardUse(false);
+        setAgreePolicy(false);
         navigate('/orders');
       } else {
         // Create new order - 한 번만 호출되도록 보장
@@ -611,16 +677,20 @@ const Order: React.FC = () => {
         setShowOrderConfirmation(false);
         setOrderPassword('');
         setPendingOrderData(null);
+        setAgreeCardUse(false);
+        setAgreePolicy(false);
         
         // 주문 생성 성공 후 즉시 리다이렉트하여 추가 호출 방지
         if (orderId) {
           // 제출 ID를 null로 설정하여 추가 제출 완전 차단
           orderSubmissionRef.current = null;
+          alert('주문이 접수되었습니다. 관리자 승인 후 직원에게 전달됩니다.');
           navigate(`/delivery/${orderId}`, { replace: true });
         } else {
           // orderId가 없어도 주문은 성공했을 수 있으므로 주문 목록으로 이동
           console.warn('[주문 생성] orderId를 찾을 수 없지만 주문은 성공했습니다:', response.data);
           orderSubmissionRef.current = null;
+          alert('주문이 접수되었습니다. 관리자 승인 후 직원에게 전달됩니다.');
           navigate('/orders', { replace: true });
         }
       }
@@ -976,6 +1046,53 @@ const Order: React.FC = () => {
           )}
         </form>
       </div>
+      <div className="info-banner approval">
+        모든 주문은 관리자 승인 후 직원에게 전달됩니다. 변경 및 취소 요청 또한 관리자 승인 후 확정됩니다.
+      </div>
+      <div className="info-banner card">
+        결제는 등록된 카드로만 가능하며, 주문 확정 시 비밀번호와 결제 동의가 필요합니다.
+      </div>
+      {orderAlert && (
+        <div className="info-banner success">
+          {orderAlert}
+        </div>
+      )}
+
+      {previousOrders.length > 0 && (
+        <div className="previous-orders-panel">
+          <h3>이전 주문 빠른 선택</h3>
+          <div className="previous-orders-grid">
+            {previousOrders.slice(0, 3).map(order => (
+              <div key={order.id} className="previous-order-card">
+                <div className="previous-order-header">
+                  <div>
+                    <strong>#{order.id}</strong> {order.dinner_name}
+                  </div>
+                  <span>{new Date(order.delivery_time).toLocaleDateString('ko-KR')}</span>
+                </div>
+                <div className="previous-order-body">
+                  <p>{order.delivery_address}</p>
+                  <div className="previous-order-items">
+                    {order.items.slice(0, 2).map(item => (
+                      <span key={`${order.id}-${item.menu_item_id}`} className="item-tag">
+                        {item.name || `항목 ${item.menu_item_id}`} x{item.quantity}
+                      </span>
+                    ))}
+                    {order.items.length > 2 && (
+                      <span className="item-tag">+{order.items.length - 2}개</span>
+                    )}
+                  </div>
+                </div>
+                <div className="previous-order-actions">
+                  <button className="btn btn-outline" onClick={() => applyReorderData(order)}>
+                    불러오기
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* 주문 확인 모달 */}
       {showOrderConfirmation && pendingOrderData && (
@@ -994,6 +1111,8 @@ const Order: React.FC = () => {
           setShowOrderConfirmation(false);
           setOrderPassword('');
           setPendingOrderData(null);
+          setAgreeCardUse(false);
+          setAgreePolicy(false);
         }}>
           <div style={{
             background: '#1a1a1a',
@@ -1053,6 +1172,31 @@ const Order: React.FC = () => {
               </div>
             </div>
 
+          <div className="card-info-block" style={{ marginBottom: '20px' }}>
+            <h3 style={{ color: '#d4af37', marginBottom: '10px' }}>카드 결제 정보</h3>
+            <p style={{ marginBottom: '8px' }}>
+              카드 번호: {userCardInfo?.cardNumber || '등록된 카드가 없습니다'}
+            </p>
+            <div className="consent-check">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={agreeCardUse}
+                  onChange={(e) => setAgreeCardUse(e.target.checked)}
+                />
+                등록된 카드로 결제하는 것에 동의합니다.
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={agreePolicy}
+                  onChange={(e) => setAgreePolicy(e.target.checked)}
+                />
+                주문 변경 및 취소는 관리자 승인 후 확정됨을 이해했습니다.
+              </label>
+            </div>
+          </div>
+
             <div style={{ marginBottom: '20px' }}>
               <label style={{ display: 'block', marginBottom: '10px', color: '#FFD700' }}>
                 주문 확정을 위해 비밀번호를 입력해주세요
@@ -1082,6 +1226,8 @@ const Order: React.FC = () => {
                   setShowOrderConfirmation(false);
                   setOrderPassword('');
                   setPendingOrderData(null);
+                  setAgreeCardUse(false);
+                  setAgreePolicy(false);
                 }}
                 style={{ flex: 1 }}
               >
@@ -1090,7 +1236,7 @@ const Order: React.FC = () => {
               <button
                 className="btn btn-primary"
                 onClick={handleConfirmOrder}
-                disabled={!orderPassword || loading}
+                disabled={!orderPassword || loading || !agreeCardUse || !agreePolicy}
                 style={{ flex: 1 }}
               >
                 {loading ? '주문 처리 중...' : '주문 확정'}

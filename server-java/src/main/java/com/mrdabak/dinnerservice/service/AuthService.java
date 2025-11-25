@@ -44,6 +44,10 @@ public class AuthService {
         user.setRole(role);
         user.setSecurityQuestion(request.getSecurityQuestion());
         user.setSecurityAnswer(request.getSecurityAnswer());
+        user.setConsentName(Boolean.TRUE.equals(request.getConsentName()));
+        user.setConsentAddress(Boolean.TRUE.equals(request.getConsentAddress()));
+        user.setConsentPhone(Boolean.TRUE.equals(request.getConsentPhone()));
+        user.setLoyaltyConsent(Boolean.TRUE.equals(request.getLoyaltyConsent()));
         
         // Set approval status: customer is auto-approved, employee/admin need approval
         if (role.equals("customer")) {

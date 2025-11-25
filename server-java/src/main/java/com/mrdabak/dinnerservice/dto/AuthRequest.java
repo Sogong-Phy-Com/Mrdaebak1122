@@ -21,5 +21,9 @@ public class AuthRequest {
     private String role; // customer, employee, admin
     private String securityQuestion; // For password recovery
     private String securityAnswer; // For password recovery
+    private Boolean consentName;
+    private Boolean consentAddress;
+    private Boolean consentPhone;
+    private Boolean loyaltyConsent;
 }
 

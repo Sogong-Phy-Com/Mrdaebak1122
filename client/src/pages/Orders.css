@@ -199,6 +199,56 @@
   margin-top: 12px;
 }
 
+.order-status-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-end;
+}
+
+.approval-badge {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  border: 1px solid var(--border-color);
+}
+
+.approval-badge.pending {
+  background: rgba(255, 193, 7, 0.15);
+  border-color: rgba(255, 193, 7, 0.4);
+  color: #ffb300;
+}
+
+.approval-badge.approved {
+  background: rgba(76, 175, 80, 0.15);
+  border-color: rgba(76, 175, 80, 0.4);
+  color: #4caf50;
+}
+
+.approval-badge.rejected {
+  background: rgba(211, 47, 47, 0.1);
+  border-color: rgba(211, 47, 47, 0.4);
+  color: var(--error);
+}
+
+.approval-badge.cancelled {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: var(--text-light);
+}
+
+.btn-outline {
+  background: transparent;
+  border: 1px dashed var(--primary-color);
+  color: var(--primary-color);
+}
+
+.btn-outline:hover {
+  background: rgba(212, 175, 55, 0.15);
+}
+
 .loading {
   text-align: center;
   padding: 60px 20px;
@@ -213,4 +263,13 @@
   border-radius: 8px;
   margin-bottom: 20px;
   border-left: 4px solid var(--error);
+}
+
+.orders-page .info-banner.warning {
+  background: rgba(255, 193, 7, 0.1);
+  border: 1px solid rgba(255, 193, 7, 0.4);
+  color: #e2a400;
+  padding: 14px 16px;
+  border-radius: 10px;
+  font-size: 14px;
 }

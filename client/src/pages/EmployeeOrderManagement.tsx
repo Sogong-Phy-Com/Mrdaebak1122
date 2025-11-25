@@ -34,6 +34,7 @@ interface Order {
   cooking_employee_name?: string;
   delivery_employee_name?: string;
   items: OrderItem[];
+  admin_approval_status?: string;
 }
 
 const EmployeeOrderManagement: React.FC = () => {

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import axios from 'axios';
 
 interface User {
@@ -14,13 +14,34 @@ interface User {
   cardCvv?: string;
   cardHolderName?: string;
   hasCard?: boolean;
+  consentName?: boolean;
+  consentAddress?: boolean;
+  consentPhone?: boolean;
+  loyaltyConsent?: boolean;
+}
+
+interface RegisterOptions {
+  consentName?: boolean;
+  consentAddress?: boolean;
+  consentPhone?: boolean;
+  loyaltyConsent?: boolean;
 }
 
 interface AuthContextType {
   user: User | null;
   token: string | null;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, name: string, address: string, phone: string, role?: string, securityQuestion?: string, securityAnswer?: string) => Promise<void>;
+  register: (
+    email: string,
+    password: string,
+    name: string,
+    address: string,
+    phone: string,
+    role?: string,
+    securityQuestion?: string,
+    securityAnswer?: string,
+    options?: RegisterOptions
+  ) => Promise<void>;
   logout: () => void;
   updateUser: (updatedUser: User) => void;
   loading: boolean;
@@ -36,6 +57,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const logout = useCallback(() => {
+    setToken(null);
+    setUser(null);
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    delete axios.defaults.headers.common['Authorization'];
+  }, []);
+
+  const fetchCurrentUser = useCallback(async (tokenOverride?: string) => {
+    const activeToken = tokenOverride || token || localStorage.getItem('token');
+    if (!activeToken) {
+      return;
+    }
+    try {
+      const response = await axios.get(`${API_URL}/auth/me`, {
+        headers: {
+          Authorization: `Bearer ${activeToken}`
+        }
+      });
+      setUser(response.data);
+      localStorage.setItem('user', JSON.stringify(response.data));
+    } catch (error) {
+      console.error('[AuthContext] 사용자 정보 조회 실패:', error);
+      logout();
+    }
+  }, [logout, token]);
+
   useEffect(() => {
     const storedToken = localStorage.getItem('token');
     const storedUser = localStorage.getItem('user');
@@ -43,16 +91,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     console.log('[AuthContext] 초기화 - 토큰:', storedToken ? `존재 (길이: ${storedToken.length})` : '없음');
     console.log('[AuthContext] 초기화 - 사용자:', storedUser ? '존재' : '없음');
 
-    if (storedToken && storedUser) {
+    if (storedToken) {
       setToken(storedToken);
-      setUser(JSON.parse(storedUser));
       axios.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
       console.log('[AuthContext] axios 기본 헤더에 토큰 설정 완료');
-    } else {
-      console.log('[AuthContext] 토큰 또는 사용자 정보가 없어서 axios 헤더를 설정하지 않음');
+      if (storedUser) {
+        setUser(JSON.parse(storedUser));
+      }
+      fetchCurrentUser(storedToken).finally(() => setLoading(false));
+      return;
     }
+    console.log('[AuthContext] 토큰 또는 사용자 정보가 없어서 axios 헤더를 설정하지 않음');
     setLoading(false);
-  }, []);
+  }, [fetchCurrentUser]);
 
   const login = async (email: string, password: string) => {
     try {
@@ -66,6 +117,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.setItem('token', newToken);
         localStorage.setItem('user', JSON.stringify(newUser));
         axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
+        await fetchCurrentUser(newToken);
       } else {
         // 승인 대기 상태
         throw new Error(message || '회원가입이 완료되었습니다. 관리자 승인 후 로그인할 수 있습니다.');
@@ -76,7 +128,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const register = async (email: string, password: string, name: string, address: string, phone: string, role?: string, securityQuestion?: string, securityAnswer?: string) => {
+  const register = async (
+    email: string,
+    password: string,
+    name: string,
+    address: string,
+    phone: string,
+    role?: string,
+    securityQuestion?: string,
+    securityAnswer?: string,
+    options?: RegisterOptions
+  ) => {
     try {
       const response = await axios.post(`${API_URL}/auth/register`, {
         email,
@@ -86,26 +148,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         phone,
         role: role || 'customer',
         securityQuestion: securityQuestion || '',
-        securityAnswer: securityAnswer || ''
+        securityAnswer: securityAnswer || '',
+        consentName: options?.consentName ?? false,
+        consentAddress: options?.consentAddress ?? false,
+        consentPhone: options?.consentPhone ?? false,
+        loyaltyConsent: options?.loyaltyConsent ?? false
       });
       const { token: newToken, user: newUser } = response.data;
       
-      setToken(newToken);
-      setUser(newUser);
-      localStorage.setItem('token', newToken);
-      localStorage.setItem('user', JSON.stringify(newUser));
-      axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
+      if (newToken) {
+        setToken(newToken);
+        setUser(newUser);
+        localStorage.setItem('token', newToken);
+        localStorage.setItem('user', JSON.stringify(newUser));
+        axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
+        await fetchCurrentUser(newToken);
+      } else {
+        setUser(newUser);
+      }
     } catch (error: any) {
       throw new Error(error.response?.data?.error || 'Registration failed');
     }
-  };
-
-  const logout = () => {
-    setToken(null);
-    setUser(null);
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    delete axios.defaults.headers.common['Authorization'];
   };
 
   const updateUser = (updatedUser: User) => {

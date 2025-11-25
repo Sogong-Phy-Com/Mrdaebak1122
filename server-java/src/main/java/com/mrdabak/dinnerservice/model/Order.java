@@ -50,6 +50,9 @@ public class Order {
     @Column(name = "delivery_employee_id")
     private Long deliveryEmployeeId;
 
+    @Column(name = "admin_approval_status")
+    private String adminApprovalStatus = "PENDING";
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 

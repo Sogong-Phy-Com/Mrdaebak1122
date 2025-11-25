@@ -17,6 +17,7 @@ interface Order {
   status: string;
   payment_status: string;
   created_at: string;
+  admin_approval_status?: string;
 }
 
 const DeliveryStatus: React.FC = () => {
@@ -73,6 +74,28 @@ const DeliveryStatus: React.FC = () => {
     return steps;
   };
 
+  const getApprovalLabel = (status?: string) => {
+    const normalized = (status || '').toUpperCase();
+    switch (normalized) {
+      case 'APPROVED':
+        return '관리자 승인 완료';
+      case 'REJECTED':
+        return '관리자 반려';
+      case 'CANCELLED':
+        return '고객 취소';
+      default:
+        return '승인 대기';
+    }
+  };
+
+  const getApprovalClass = (status?: string) => {
+    const normalized = (status || '').toUpperCase();
+    if (normalized === 'APPROVED') return 'approved';
+    if (normalized === 'REJECTED') return 'rejected';
+    if (normalized === 'CANCELLED') return 'cancelled';
+    return 'pending';
+  };
+
   const getCurrentStepIndex = () => {
     const steps = getStatusSteps();
     return steps.findIndex(step => step.key === order?.status);
@@ -112,9 +135,16 @@ const DeliveryStatus: React.FC = () => {
           <div className="order-info-card">
             <div className="order-header">
               <h2>주문 #{order.id}</h2>
-              <span className={`status-badge status-${order.status}`}>
-                {steps[currentStepIndex]?.label || order.status}
-              </span>
+              <div className="order-status-group">
+                {order.admin_approval_status && (
+                  <span className={`approval-badge ${getApprovalClass(order.admin_approval_status)}`}>
+                    {getApprovalLabel(order.admin_approval_status)}
+                  </span>
+                )}
+                <span className={`status-badge status-${order.status}`}>
+                  {steps[currentStepIndex]?.label || order.status}
+                </span>
+              </div>
             </div>
             <div className="order-details">
               <div className="detail-item">
@@ -137,6 +167,12 @@ const DeliveryStatus: React.FC = () => {
               </div>
             </div>
           </div>
+
+          {order.admin_approval_status && order.admin_approval_status.toUpperCase() !== 'APPROVED' && (
+            <div className="info-banner warning" style={{ marginBottom: '20px' }}>
+              관리자 승인 대기 중입니다. 승인 완료 후 작업이 시작됩니다.
+            </div>
+          )}
 
           {/* 배달 진행 상황 */}
           <div className="delivery-timeline">

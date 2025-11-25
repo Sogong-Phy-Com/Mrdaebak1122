@@ -28,6 +28,7 @@ interface Order {
   payment_status: string;
   created_at: string;
   items: OrderItem[];
+  admin_approval_status?: string;
 }
 
 const Orders: React.FC = () => {
@@ -110,6 +111,47 @@ const Orders: React.FC = () => {
     return labels[style] || style;
   };
 
+  const getApprovalLabel = (status?: string) => {
+    const normalized = (status || '').toUpperCase();
+    switch (normalized) {
+      case 'APPROVED':
+        return '관리자 승인 완료';
+      case 'REJECTED':
+        return '관리자 반려';
+      case 'CANCELLED':
+        return '고객 취소';
+      default:
+        return '관리자 승인 대기';
+    }
+  };
+
+  const getApprovalClass = (status?: string) => {
+    const normalized = (status || '').toUpperCase();
+    if (normalized === 'APPROVED') return 'approved';
+    if (normalized === 'REJECTED') return 'rejected';
+    if (normalized === 'CANCELLED') return 'cancelled';
+    return 'pending';
+  };
+
+  const canModify = (order: Order) =>
+    order.status === 'pending' && (order.admin_approval_status || '').toUpperCase() === 'APPROVED';
+
+  const canCancel = (order: Order) =>
+    order.status !== 'delivered' && order.status !== 'cancelled';
+
+  const handleReorder = (order: Order, e?: React.MouseEvent<HTMLButtonElement>) => {
+    if (e) {
+      e.stopPropagation();
+    }
+    navigate('/order', { state: { reorderOrder: order } });
+  };
+
+  const pendingApprovalCount = orders.filter(order =>
+    order.admin_approval_status &&
+    order.admin_approval_status.toUpperCase() !== 'APPROVED' &&
+    order.status !== 'cancelled'
+  ).length;
+
   const calculateDaysUntilDelivery = (deliveryTime: string): number => {
     const delivery = new Date(deliveryTime);
     const now = new Date();
@@ -175,6 +217,10 @@ const Orders: React.FC = () => {
   };
 
   const handleModifyOrder = (order: Order) => {
+    if (!canModify(order)) {
+      alert('관리자 승인 완료 후에만 주문을 수정할 수 있습니다.');
+      return;
+    }
     const daysUntil = calculateDaysUntilDelivery(order.delivery_time);
     const fee = calculateModifyFee(order);
     
@@ -217,6 +263,11 @@ const Orders: React.FC = () => {
               {error}
             </div>
           )}
+          {pendingApprovalCount > 0 && (
+            <div className="info-banner warning" style={{ marginBottom: '20px' }}>
+              관리자 승인 대기 중인 주문 {pendingApprovalCount}건이 있습니다. 승인 완료 후에만 직원에게 전달됩니다.
+            </div>
+          )}
 
           {orders.length === 0 ? (
             <div className="no-orders">
@@ -238,9 +289,14 @@ const Orders: React.FC = () => {
                         {new Date(order.created_at).toLocaleDateString('ko-KR')}
                       </span>
                     </div>
-                    <span className={`status-badge-modern ${getStatusClass(order.status)}`}>
-                      {getStatusLabel(order.status)}
-                    </span>
+                    <div className="order-status-group">
+                      <span className={`approval-badge ${getApprovalClass(order.admin_approval_status)}`}>
+                        {getApprovalLabel(order.admin_approval_status)}
+                      </span>
+                      <span className={`status-badge-modern ${getStatusClass(order.status)}`}>
+                        {getStatusLabel(order.status)}
+                      </span>
+                    </div>
                   </div>
 
                   <div className="order-card-body">
@@ -276,41 +332,51 @@ const Orders: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="order-action" style={{ display: 'flex', gap: '10px', marginTop: '12px' }}>
-                    {order.status !== 'delivered' && order.status !== 'cancelled' && (
-                      <>
-                        <button
-                          className="btn btn-primary"
-                          style={{ flex: 1 }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(`/delivery/${order.id}`);
-                          }}
-                        >
-                          배달 현황 보기
-                        </button>
-                        <button
-                          className="btn btn-secondary"
-                          style={{ flex: 1 }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleCancelOrder(order);
-                          }}
-                        >
-                          주문 취소
-                        </button>
-                        <button
-                          className="btn btn-secondary"
-                          style={{ flex: 1 }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleModifyOrder(order);
-                          }}
-                        >
-                          주문 수정
-                        </button>
-                      </>
-                    )}
+                  <div className="order-action" style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginTop: '12px' }}>
+                    <button
+                      className="btn btn-primary"
+                      style={{ flex: 1, minWidth: '140px' }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/delivery/${order.id}`);
+                      }}
+                    >
+                      {order.status === 'delivered' || order.status === 'cancelled' ? '주문 상세 보기' : '배달 현황 보기'}
+                    </button>
+                    <button
+                      className="btn btn-secondary"
+                      style={{ flex: 1, minWidth: '140px' }}
+                      disabled={!canCancel(order)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (canCancel(order)) {
+                          handleCancelOrder(order);
+                        }
+                      }}
+                    >
+                      주문 취소
+                    </button>
+                    <button
+                      className="btn btn-secondary"
+                      style={{ flex: 1, minWidth: '140px' }}
+                      disabled={!canModify(order)}
+                      title={!canModify(order) && order.status === 'pending' ? '관리자 승인 완료 후 수정 가능합니다.' : undefined}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (canModify(order)) {
+                          handleModifyOrder(order);
+                        }
+                      }}
+                    >
+                      주문 수정
+                    </button>
+                    <button
+                      className="btn btn-outline"
+                      style={{ flex: 1, minWidth: '140px' }}
+                      onClick={(e) => handleReorder(order, e)}
+                    >
+                      재주문
+                    </button>
                   </div>
                 </div>
               ))}

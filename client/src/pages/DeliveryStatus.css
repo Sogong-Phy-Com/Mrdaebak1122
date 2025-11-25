@@ -40,6 +40,44 @@
   border-bottom: 2px solid var(--border-color);
 }
 
+.order-status-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.approval-badge {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid var(--border-color);
+}
+
+.approval-badge.pending {
+  background: rgba(255, 193, 7, 0.15);
+  border-color: rgba(255, 193, 7, 0.4);
+  color: #ffb300;
+}
+
+.approval-badge.approved {
+  background: rgba(76, 175, 80, 0.15);
+  border-color: rgba(76, 175, 80, 0.4);
+  color: #4caf50;
+}
+
+.approval-badge.rejected {
+  background: rgba(211, 47, 47, 0.1);
+  border-color: rgba(211, 47, 47, 0.4);
+  color: var(--error);
+}
+
+.approval-badge.cancelled {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-light);
+}
+
 .order-header h2 {
   font-size: 20px;
   font-weight: 700;
@@ -209,6 +247,15 @@
 
 .timeline-line.completed {
   background: var(--primary-color);
+}
+
+.delivery-status-page .info-banner.warning {
+  background: rgba(255, 193, 7, 0.12);
+  border: 1px solid rgba(255, 193, 7, 0.4);
+  color: #e2a400;
+  padding: 12px;
+  border-radius: 12px;
+  font-size: 14px;
 }
 
 .estimated-time {

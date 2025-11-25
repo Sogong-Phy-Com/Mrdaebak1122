@@ -12,6 +12,7 @@ import com.mrdabak.dinnerservice.service.InventoryService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -58,13 +59,27 @@ public class EmployeeController {
     }
 
     @GetMapping("/orders")
-    public ResponseEntity<List<Map<String, Object>>> getOrders(@RequestParam(required = false) String status) {
+    public ResponseEntity<List<Map<String, Object>>> getOrders(
+            @RequestParam(required = false) String status,
+            Authentication authentication) {
+        if (authentication == null || authentication.getAuthorities() == null) {
+            return ResponseEntity.status(401).build();
+        }
+        boolean isAdmin = authentication.getAuthorities().stream()
+                .anyMatch(auth -> "ROLE_ADMIN".equals(auth.getAuthority()));
+
         // Get all orders (no date filtering)
         List<Order> orders;
         if (status != null && !status.isEmpty()) {
             orders = orderRepository.findByStatus(status);
         } else {
             orders = orderRepository.findAll();
+        }
+
+        if (!isAdmin) {
+            orders = orders.stream()
+                    .filter(order -> "APPROVED".equalsIgnoreCase(order.getAdminApprovalStatus()))
+                    .toList();
         }
 
         List<Map<String, Object>> orderDtos = orders.stream().map(order -> {
@@ -81,6 +96,7 @@ public class EmployeeController {
             orderMap.put("created_at", order.getCreatedAt());
             orderMap.put("cooking_employee_id", order.getCookingEmployeeId());
             orderMap.put("delivery_employee_id", order.getDeliveryEmployeeId());
+            orderMap.put("admin_approval_status", order.getAdminApprovalStatus());
             
             // Add employee names if assigned
             if (order.getCookingEmployeeId() != null) {

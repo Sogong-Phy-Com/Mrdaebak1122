@@ -169,6 +169,49 @@
   font-weight: 500;
 }
 
+.consent-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.consent-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.consent-list li:last-child {
+  border-bottom: none;
+}
+
+.consent-list strong {
+  color: var(--text-primary);
+}
+
+.loyalty-message {
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 10px;
+  font-size: 13px;
+}
+
+.loyalty-message.success {
+  background: rgba(76, 175, 80, 0.15);
+  color: #4caf50;
+  border: 1px solid rgba(76, 175, 80, 0.4);
+}
+
+.loyalty-message.muted {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-secondary);
+  border: 1px dashed var(--border-color);
+}
+
 .reserved-orders-list {
   display: flex;
   flex-direction: column;
@@ -254,6 +297,44 @@
   border-bottom: 1px solid var(--border-color);
 }
 
+.order-status-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-end;
+}
+
+.approval-badge {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid var(--border-color);
+}
+
+.approval-badge.pending {
+  background: rgba(255, 193, 7, 0.15);
+  border-color: rgba(255, 193, 7, 0.4);
+  color: #ffb300;
+}
+
+.approval-badge.approved {
+  background: rgba(76, 175, 80, 0.15);
+  border-color: rgba(76, 175, 80, 0.4);
+  color: #4caf50;
+}
+
+.approval-badge.rejected {
+  background: rgba(211, 47, 47, 0.1);
+  border-color: rgba(211, 47, 47, 0.4);
+  color: var(--error);
+}
+
+.approval-badge.cancelled {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-light);
+}
+
 .orders-section .order-card-title h3 {
   font-size: 18px;
   font-weight: 700;
@@ -315,6 +396,16 @@
   font-size: 16px;
   width: 20px;
   text-align: center;
+}
+
+.btn-outline {
+  background: transparent;
+  border: 1px dashed var(--primary-color);
+  color: var(--primary-color);
+}
+
+.btn-outline:hover {
+  background: rgba(212, 175, 55, 0.1);
 }
 
 .orders-section .info-text {

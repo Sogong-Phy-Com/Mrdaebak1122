@@ -410,6 +410,63 @@ public class AdminController {
         }
     }
 
+    @PostMapping("/orders/{orderId}/approve")
+    public ResponseEntity<?> approveOrder(@PathVariable Long orderId) {
+        try {
+            Order order = orderRepository.findById(orderId)
+                    .orElseThrow(() -> new RuntimeException("주문을 찾을 수 없습니다."));
+            if ("cancelled".equalsIgnoreCase(order.getStatus())) {
+                return ResponseEntity.badRequest().body(Map.of("error", "취소된 주문은 승인할 수 없습니다."));
+            }
+            if ("delivered".equalsIgnoreCase(order.getStatus())) {
+                return ResponseEntity.badRequest().body(Map.of("error", "이미 배달 완료된 주문입니다."));
+            }
+            if ("APPROVED".equalsIgnoreCase(order.getAdminApprovalStatus())) {
+                return ResponseEntity.ok(Map.of(
+                        "message", "이미 승인된 주문입니다.",
+                        "order_id", order.getId()
+                ));
+            }
+            order.setAdminApprovalStatus("APPROVED");
+            orderRepository.save(order);
+            return ResponseEntity.ok(Map.of(
+                    "message", "주문이 승인되었습니다.",
+                    "order_id", order.getId()
+            ));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", "주문 승인 중 오류가 발생했습니다: " + e.getMessage()));
+        }
+    }
+
+    @PostMapping("/orders/{orderId}/reject")
+    public ResponseEntity<?> rejectOrder(
+            @PathVariable Long orderId,
+            Authentication authentication,
+            @RequestBody(required = false) Map<String, String> requestBody
+    ) {
+        try {
+            if (authentication == null || authentication.getName() == null) {
+                return ResponseEntity.status(401).body(Map.of("error", "인증이 필요합니다."));
+            }
+            Long adminId = Long.parseLong(authentication.getName());
+            Order cancelledOrder = orderService.cancelOrder(orderId, adminId);
+            cancelledOrder.setAdminApprovalStatus("REJECTED");
+            orderRepository.save(cancelledOrder);
+            String reason = requestBody != null ? requestBody.getOrDefault("reason", "") : "";
+            return ResponseEntity.ok(Map.of(
+                    "message", "주문이 반려되었습니다.",
+                    "order_id", cancelledOrder.getId(),
+                    "reason", reason
+            ));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", "주문 반려 중 오류가 발생했습니다: " + e.getMessage()));
+        }
+    }
+
     @GetMapping("/schedule/assignments")
     public ResponseEntity<?> getScheduleAssignments(@RequestParam String date) {
         try {

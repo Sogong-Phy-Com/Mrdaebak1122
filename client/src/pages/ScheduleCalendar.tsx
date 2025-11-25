@@ -43,6 +43,7 @@ interface Order {
   cooking_employee_name?: string;
   delivery_employee_name?: string;
   items?: OrderItem[];
+  admin_approval_status?: string;
 }
 
 interface User {
@@ -256,7 +257,10 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({ type: propType }) =
             return false;
           }
         });
-        setOrders(filteredOrders);
+        const approvedOnly = filteredOrders.filter((order: Order) =>
+          (order.admin_approval_status || '').toUpperCase() === 'APPROVED'
+        );
+        setOrders(approvedOnly);
       } else {
         setOrders([]);
       }
