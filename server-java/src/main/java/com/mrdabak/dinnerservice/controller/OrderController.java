@@ -22,6 +22,9 @@ public class OrderController {
     
     // 중복 주문 생성 방지를 위한 임시 저장소 (요청 ID 기반)
     private final java.util.concurrent.ConcurrentHashMap<String, Long> pendingOrders = new java.util.concurrent.ConcurrentHashMap<>();
+    
+    // 사용자별 마지막 주문 시간 추적 (50초 제한)
+    private final java.util.concurrent.ConcurrentHashMap<Long, Long> userLastOrderTime = new java.util.concurrent.ConcurrentHashMap<>();
 
     private final OrderService orderService;
     private final OrderItemRepository orderItemRepository;
@@ -190,6 +193,20 @@ public class OrderController {
             
             Long userId = Long.parseLong(authentication.getName());
             
+            // 같은 계정으로 50초 이내에 하나의 주문만 가능하도록 제한
+            long currentTime = System.currentTimeMillis();
+            Long lastOrderTime = userLastOrderTime.get(userId);
+            if (lastOrderTime != null) {
+                long timeSinceLastOrder = currentTime - lastOrderTime;
+                if (timeSinceLastOrder < 50000) { // 50초 미만
+                    long remainingSeconds = (50000 - timeSinceLastOrder) / 1000;
+                    System.out.println("[주문 생성 API] 중복 주문 방지 - 마지막 주문으로부터 " + timeSinceLastOrder + "ms 경과, " + remainingSeconds + "초 후 가능");
+                    return ResponseEntity.status(429).body(Map.of(
+                            "error", "같은 계정으로 50초 이내에는 하나의 주문만 가능합니다. " + remainingSeconds + "초 후 다시 시도해주세요."
+                    ));
+                }
+            }
+            
             // Validate request
             if (request.getDinnerTypeId() == null) {
                 return ResponseEntity.badRequest().body(Map.of("error", "Dinner type is required"));
@@ -207,8 +224,7 @@ public class OrderController {
                 return ResponseEntity.badRequest().body(Map.of("error", "Order items are required"));
             }
             
-            // 중복 주문 생성 방지: Request ID 또는 동일한 요청이 10초 이내에 들어오면 거부
-            long currentTime = System.currentTimeMillis();
+            // 중복 주문 생성 방지: Request ID 또는 동일한 요청이 50초 이내에 들어오면 거부
             String requestKey;
             
             if (requestId != null && !requestId.trim().isEmpty()) {
@@ -231,9 +247,9 @@ public class OrderController {
                 ));
             }
             
-            // 추가 검증: 최근 10초 이내에 동일한 사용자가 동일한 주문을 생성했는지 확인
+            // 추가 검증: 최근 50초 이내에 동일한 사용자가 주문을 생성했는지 확인
             String baseRequestKey = userId + "|" + request.getDeliveryTime() + "|" + request.getDeliveryAddress();
-            long tenSecondsAgo = currentTime - 10000;
+            long fiftySecondsAgo = currentTime - 50000;
             for (Map.Entry<String, Long> entry : pendingOrders.entrySet()) {
                 if (entry.getKey().startsWith(baseRequestKey + "|")) {
                     // 키에서 타임스탬프 추출
@@ -241,7 +257,7 @@ public class OrderController {
                     if (parts.length >= 4) {
                         try {
                             long entryTime = Long.parseLong(parts[3]);
-                            if (entryTime > tenSecondsAgo) {
+                            if (entryTime > fiftySecondsAgo) {
                                 System.out.println("[주문 생성 API] 중복 요청 감지 (기본 키) - 요청 키: " + entry.getKey() + ", 기존 주문 ID: " + entry.getValue());
                                 return ResponseEntity.status(409).body(Map.of(
                                         "error", "동일한 주문이 이미 처리 중입니다.",
@@ -254,6 +270,9 @@ public class OrderController {
                     }
                 }
             }
+            
+            // 사용자별 마지막 주문 시간 업데이트
+            userLastOrderTime.put(userId, currentTime);
             
             // pendingOrders에 추가 (처리 시작 표시)
             pendingOrders.put(requestKey, -1L); // -1은 처리 중임을 나타냄
@@ -271,7 +290,7 @@ public class OrderController {
             System.out.println("[주문 생성 API] Request ID: " + (requestId != null ? requestId : "없음"));
             System.out.println("[주문 생성 API] 주문은 1개만 생성되었습니다.");
             
-            // 주문 생성 완료 후 pendingOrders 업데이트 및 10초 후에 제거
+            // 주문 생성 완료 후 pendingOrders 업데이트 및 50초 후에 제거
             pendingOrders.put(requestKey, order.getId());
             new java.util.Timer().schedule(new java.util.TimerTask() {
                 @Override
@@ -279,7 +298,19 @@ public class OrderController {
                     pendingOrders.remove(requestKey);
                     System.out.println("[주문 생성 API] 중복 방지 키 제거: " + requestKey);
                 }
-            }, 10000); // 10초로 단축
+            }, 50000); // 50초
+            
+            // 사용자별 마지막 주문 시간도 50초 후에 제거 (선택적)
+            new java.util.Timer().schedule(new java.util.TimerTask() {
+                @Override
+                public void run() {
+                    Long storedTime = userLastOrderTime.get(userId);
+                    if (storedTime != null && storedTime.equals(currentTime)) {
+                        userLastOrderTime.remove(userId);
+                        System.out.println("[주문 생성 API] 사용자 " + userId + "의 주문 제한 해제");
+                    }
+                }
+            }, 50000); // 50초
             
             return ResponseEntity.status(201).body(Map.of(
                     "message", "Order created successfully",

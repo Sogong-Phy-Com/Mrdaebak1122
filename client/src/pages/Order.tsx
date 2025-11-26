@@ -656,18 +656,47 @@ const Order: React.FC = () => {
           _request_id: submissionId // 중복 방지를 위한 고유 ID
         };
         
-        const response = await axios.post(`${API_URL}/orders`, orderData, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'X-Request-ID': submissionId // 헤더에도 추가
+        let response;
+        try {
+          response = await axios.post(`${API_URL}/orders`, orderData, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'X-Request-ID': submissionId // 헤더에도 추가
+            }
+          });
+        } catch (err: any) {
+          // 429 에러 처리 (50초 제한)
+          if (err.response?.status === 429) {
+            const errorMsg = err.response?.data?.error || '같은 계정으로 50초 이내에는 하나의 주문만 가능합니다.';
+            alert(errorMsg);
+            setLoading(false);
+            setIsSubmitting(false);
+            setShowOrderConfirmation(false);
+            setOrderPassword('');
+            orderSubmissionRef.current = null;
+            return;
           }
-        });
+          // 409 에러 처리 (중복 주문)
+          if (err.response?.status === 409) {
+            const errorMsg = err.response?.data?.error || '동일한 주문이 이미 처리 중입니다.';
+            alert(errorMsg);
+            setLoading(false);
+            setIsSubmitting(false);
+            setShowOrderConfirmation(false);
+            setOrderPassword('');
+            orderSubmissionRef.current = null;
+            return;
+          }
+          throw err;
+        }
 
         console.log('[주문 생성] 성공:', response.data);
         
         // 제출 ID 확인 (다른 제출이 이미 완료되었으면 중단)
         if (orderSubmissionRef.current !== submissionId) {
           console.log('[주문 생성] 다른 제출이 이미 완료되었습니다. 중단합니다.');
+          setLoading(false);
+          setIsSubmitting(false);
           return;
         }
         
@@ -685,12 +714,16 @@ const Order: React.FC = () => {
         if (orderId) {
           // 제출 ID를 null로 설정하여 추가 제출 완전 차단
           orderSubmissionRef.current = null;
+          setIsSubmitting(false);
+          setLoading(false);
           alert('주문이 접수되었습니다. 관리자 승인 후 직원에게 전달됩니다.');
           navigate(`/delivery/${orderId}`, { replace: true });
         } else {
           // orderId가 없어도 주문은 성공했을 수 있으므로 주문 목록으로 이동
           console.warn('[주문 생성] orderId를 찾을 수 없지만 주문은 성공했습니다:', response.data);
           orderSubmissionRef.current = null;
+          setIsSubmitting(false);
+          setLoading(false);
           alert('주문이 접수되었습니다. 관리자 승인 후 직원에게 전달됩니다.');
           navigate('/orders', { replace: true });
         }
@@ -698,6 +731,12 @@ const Order: React.FC = () => {
     } catch (err: any) {
       console.error('[주문 생성] 실패');
       console.error('[주문 생성] 에러:', err);
+      
+      // 429 또는 409 에러는 이미 처리됨
+      if (err.response?.status === 429 || err.response?.status === 409) {
+        return;
+      }
+      
       // 에러 발생 시 제출 ID 초기화
       orderSubmissionRef.current = null;
       setLoading(false);
