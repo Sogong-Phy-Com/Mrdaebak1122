@@ -134,8 +134,16 @@ const Orders: React.FC = () => {
     return 'pending';
   };
 
-  const canModify = (order: Order) =>
-    order.status === 'pending' && (order.admin_approval_status || '').toUpperCase() === 'APPROVED';
+  const canModify = (order: Order) => {
+    if (order.status !== 'pending' && order.status !== 'cooking') {
+      return false;
+    }
+    // 배달 시간 3시간 전까지만 수정 가능
+    const delivery = new Date(order.delivery_time);
+    const now = new Date();
+    const hoursUntilDelivery = (delivery.getTime() - now.getTime()) / (1000 * 60 * 60);
+    return hoursUntilDelivery >= 3;
+  };
 
   const canCancel = (order: Order) =>
     order.status !== 'delivered' && order.status !== 'cancelled';

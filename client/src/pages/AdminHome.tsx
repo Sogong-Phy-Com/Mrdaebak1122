@@ -26,7 +26,7 @@ const AdminHome: React.FC = () => {
 
   return (
     <div className="admin-home">
-      <TopLogo />
+      <TopLogo showBackButton={false} />
       <div className="home-content">
         <div className="home-grid admin-grid">
           <div className="grid-item grid-item-1">
@@ -35,25 +35,31 @@ const AdminHome: React.FC = () => {
               <p>관리자 페이지입니다</p>
             </div>
           </div>
-          <div className="grid-item grid-item-2" onClick={handleInventory}>
+          <div className="grid-item grid-item-2" onClick={handleOrderManagement}>
+            <div className="grid-item-content">
+              <div className="grid-icon">📋</div>
+              <h3>주문 관리</h3>
+            </div>
+          </div>
+          <div className="grid-item grid-item-3" onClick={handleInventory}>
             <div className="grid-item-content">
               <div className="grid-icon">📦</div>
               <h3>재고 관리</h3>
             </div>
           </div>
-          <div className="grid-item grid-item-3" onClick={() => navigate('/admin/schedule-management')}>
+          <div className="grid-item grid-item-4" onClick={() => navigate('/admin/schedule-management')}>
             <div className="grid-item-content">
               <div className="grid-icon">📅</div>
               <h3>스케줄 캘린더</h3>
             </div>
           </div>
-          <div className="grid-item grid-item-4" onClick={handleAccountManagement}>
+          <div className="grid-item grid-item-5" onClick={handleAccountManagement}>
             <div className="grid-item-content">
               <div className="grid-icon">👥</div>
               <h3>계정 관리</h3>
             </div>
           </div>
-          <div className="grid-item grid-item-5" onClick={() => navigate('/profile')}>
+          <div className="grid-item grid-item-6" onClick={() => navigate('/profile')}>
             <div className="grid-item-content">
               <div className="grid-icon">👤</div>
               <h3>내정보</h3>

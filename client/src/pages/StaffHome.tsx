@@ -18,7 +18,7 @@ const StaffHome: React.FC = () => {
 
   return (
     <div className="staff-home">
-      <TopLogo />
+      <TopLogo showBackButton={false} />
       <div className="home-content">
         <div className="home-grid employee-grid">
           <div className="grid-item grid-item-1">

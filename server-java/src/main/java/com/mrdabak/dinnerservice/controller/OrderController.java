@@ -207,7 +207,7 @@ public class OrderController {
                 return ResponseEntity.badRequest().body(Map.of("error", "Order items are required"));
             }
             
-            // 중복 주문 생성 방지: Request ID 또는 동일한 요청이 30초 이내에 들어오면 거부
+            // 중복 주문 생성 방지: Request ID 또는 동일한 요청이 10초 이내에 들어오면 거부
             long currentTime = System.currentTimeMillis();
             String requestKey;
             
@@ -216,32 +216,47 @@ public class OrderController {
                 requestKey = userId + "|" + requestId.trim();
                 System.out.println("[주문 생성 API] Request ID 사용: " + requestId);
             } else {
-                // Request ID가 없으면 기존 방식 사용 (타임스탬프 포함)
-                requestKey = userId + "|" + request.getDeliveryTime() + "|" + request.getDeliveryAddress() + "|" + (currentTime / 30000); // 30초 단위로 그룹화
+                // Request ID가 없으면 더 정확한 키 생성 (밀리초 단위)
+                requestKey = userId + "|" + request.getDeliveryTime() + "|" + request.getDeliveryAddress() + "|" + currentTime;
                 System.out.println("[주문 생성 API] Request ID 없음, 타임스탬프 기반 키 사용: " + requestKey);
             }
             
+            // 먼저 pendingOrders에서 확인
             Long existingOrderId = pendingOrders.get(requestKey);
             if (existingOrderId != null) {
                 System.out.println("[주문 생성 API] 중복 요청 감지 - 요청 키: " + requestKey + ", 기존 주문 ID: " + existingOrderId);
-                System.out.println("[주문 생성 API] 현재 시간: " + currentTime);
                 return ResponseEntity.status(409).body(Map.of(
                         "error", "동일한 주문이 이미 처리 중입니다.",
                         "order_id", existingOrderId
                 ));
             }
             
-            // 추가 검증: 최근 30초 이내에 동일한 사용자가 동일한 주문을 생성했는지 확인
+            // 추가 검증: 최근 10초 이내에 동일한 사용자가 동일한 주문을 생성했는지 확인
             String baseRequestKey = userId + "|" + request.getDeliveryTime() + "|" + request.getDeliveryAddress();
+            long tenSecondsAgo = currentTime - 10000;
             for (Map.Entry<String, Long> entry : pendingOrders.entrySet()) {
                 if (entry.getKey().startsWith(baseRequestKey + "|")) {
-                    System.out.println("[주문 생성 API] 중복 요청 감지 (기본 키) - 요청 키: " + entry.getKey() + ", 기존 주문 ID: " + entry.getValue());
-                    return ResponseEntity.status(409).body(Map.of(
-                            "error", "동일한 주문이 이미 처리 중입니다.",
-                            "order_id", entry.getValue()
-                    ));
+                    // 키에서 타임스탬프 추출
+                    String[] parts = entry.getKey().split("\\|");
+                    if (parts.length >= 4) {
+                        try {
+                            long entryTime = Long.parseLong(parts[3]);
+                            if (entryTime > tenSecondsAgo) {
+                                System.out.println("[주문 생성 API] 중복 요청 감지 (기본 키) - 요청 키: " + entry.getKey() + ", 기존 주문 ID: " + entry.getValue());
+                                return ResponseEntity.status(409).body(Map.of(
+                                        "error", "동일한 주문이 이미 처리 중입니다.",
+                                        "order_id", entry.getValue()
+                                ));
+                            }
+                        } catch (NumberFormatException e) {
+                            // 타임스탬프 파싱 실패 시 무시
+                        }
+                    }
                 }
             }
+            
+            // pendingOrders에 추가 (처리 시작 표시)
+            pendingOrders.put(requestKey, -1L); // -1은 처리 중임을 나타냄
             
             System.out.println("[주문 생성 API] 주문 서비스 호출 전 - 사용자 ID: " + userId);
             System.out.println("[주문 생성 API] 스레드: " + threadId);
@@ -256,7 +271,7 @@ public class OrderController {
             System.out.println("[주문 생성 API] Request ID: " + (requestId != null ? requestId : "없음"));
             System.out.println("[주문 생성 API] 주문은 1개만 생성되었습니다.");
             
-            // 주문 생성 완료 후 30초 후에 임시 저장소에서 제거
+            // 주문 생성 완료 후 pendingOrders 업데이트 및 10초 후에 제거
             pendingOrders.put(requestKey, order.getId());
             new java.util.Timer().schedule(new java.util.TimerTask() {
                 @Override
@@ -264,7 +279,7 @@ public class OrderController {
                     pendingOrders.remove(requestKey);
                     System.out.println("[주문 생성 API] 중복 방지 키 제거: " + requestKey);
                 }
-            }, 30000);
+            }, 10000); // 10초로 단축
             
             return ResponseEntity.status(201).body(Map.of(
                     "message", "Order created successfully",

@@ -10,7 +10,7 @@ const CustomerHome: React.FC = () => {
 
   return (
     <div className="home-page">
-      <TopLogo />
+      <TopLogo showBackButton={false} />
       <div className="home-content">
         <div className="home-grid customer-grid">
           <div className="grid-item grid-item-1" onClick={() => navigate('/')}>

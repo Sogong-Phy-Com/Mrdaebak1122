@@ -613,7 +613,7 @@ const Order: React.FC = () => {
       }
 
       if (isModifying && modifyOrderId) {
-        // Modify existing order
+        // Modify existing order - 기존 주문 취소 후 새 주문 생성
         const response = await axios.post(`${API_URL}/orders/${modifyOrderId}/modify`, {
           dinner_type_id: pendingOrderData.dinner_type_id,
           serving_style: pendingOrderData.serving_style,
@@ -623,7 +623,8 @@ const Order: React.FC = () => {
           payment_method: 'card'
         }, {
           headers: {
-            'Authorization': `Bearer ${token}`
+            'Authorization': `Bearer ${token}`,
+            'X-Request-ID': submissionId
           }
         });
 

@@ -387,80 +387,37 @@ public class OrderService {
             throw new RuntimeException("이 주문을 수정할 권한이 없습니다.");
         }
 
-        // pending 상태인 주문만 수정 가능
-        if (!"pending".equals(order.getStatus())) {
-            throw new RuntimeException("주문 수정은 주문 접수 상태에서만 가능합니다.");
+        // 배달 시간 확인 - 조리 3시간 전까지만 수정 가능
+        LocalDateTime deliveryDateTime = parseDeliveryTime(request.getDeliveryTime());
+        LocalDateTime now = LocalDateTime.now();
+        long hoursUntilDelivery = java.time.Duration.between(now, deliveryDateTime).toHours();
+        
+        if (hoursUntilDelivery < 3) {
+            throw new RuntimeException("주문 수정은 배달 시간 3시간 전까지만 가능합니다.");
         }
 
-        // 기존 가격 저장
-        int oldPrice = order.getTotalPrice();
-
-        // 배달 시간 업데이트
-        if (request.getDeliveryTime() != null && !request.getDeliveryTime().isEmpty()) {
-            order.setDeliveryTime(request.getDeliveryTime());
+        // 기존 주문 취소 처리 (재귀 호출 방지를 위해 직접 처리)
+        order.setStatus("cancelled");
+        order.setAdminApprovalStatus("CANCELLED");
+        
+        // 재고 예약 취소
+        try {
+            inventoryService.releaseReservationsForOrder(orderId);
+        } catch (Exception e) {
+            System.err.println("[OrderService] 재고 예약 취소 실패: " + e.getMessage());
         }
-
-        // 배달 주소 업데이트
-        if (request.getDeliveryAddress() != null && !request.getDeliveryAddress().isEmpty()) {
-            order.setDeliveryAddress(request.getDeliveryAddress());
+        
+        // 배달 스케줄 취소
+        try {
+            deliverySchedulingService.cancelScheduleForOrder(orderId);
+        } catch (Exception e) {
+            System.err.println("[OrderService] 배달 스케줄 취소 실패: " + e.getMessage());
         }
-
-        // 주문 항목 업데이트
-        if (request.getItems() != null && !request.getItems().isEmpty()) {
-            // 기존 주문 항목 삭제
-            orderItemRepository.deleteByOrderId(orderId);
-
-            // 새 주문 항목 추가
-            for (OrderItemDto itemDto : request.getItems()) {
-                OrderItem orderItem = new OrderItem();
-                orderItem.setOrderId(orderId);
-                orderItem.setMenuItemId(itemDto.getMenuItemId());
-                orderItem.setQuantity(itemDto.getQuantity());
-                orderItemRepository.save(orderItem);
-            }
-
-            // 가격 재계산
-            DinnerType dinner = dinnerTypeRepository.findById(order.getDinnerTypeId())
-                    .orElseThrow(() -> new RuntimeException("디너 타입을 찾을 수 없습니다."));
-
-            Map<String, Double> styleMultipliers = Map.of(
-                    "simple", 1.0,
-                    "grand", 1.3,
-                    "deluxe", 1.6
-            );
-            double basePrice = dinner.getBasePrice() * styleMultipliers.getOrDefault(order.getServingStyle(), 1.0);
-
-            // 항목 가격 추가
-            double itemsPrice = 0;
-            for (OrderItemDto item : request.getItems()) {
-                MenuItem menuItem = menuItemRepository.findById(item.getMenuItemId())
-                        .orElseThrow(() -> new RuntimeException("메뉴 항목을 찾을 수 없습니다: " + item.getMenuItemId()));
-                itemsPrice += menuItem.getPrice() * item.getQuantity();
-            }
-
-            double totalPrice = basePrice + itemsPrice;
-
-            // 단골 고객 할인 (10%)
-            List<Order> previousOrders = orderRepository.findByUserIdOrderByCreatedAtDesc(userId);
-            if (previousOrders.stream().anyMatch(o -> "paid".equals(o.getPaymentStatus()))) {
-                totalPrice = totalPrice * 0.9;
-            }
-
-            // 수정 수수료 계산 (변경된 금액의 10%)
-            int newPrice = (int) Math.round(totalPrice);
-            int priceDifference = Math.abs(newPrice - oldPrice);
-            int modificationFee = (int) Math.round(priceDifference * 0.1);
-            int finalPrice = newPrice + modificationFee;
-
-            order.setTotalPrice(finalPrice);
-        }
-
-        order.setAdminApprovalStatus("PENDING");
-        order.setCookingEmployeeId(null);
-        order.setDeliveryEmployeeId(null);
+        
         orderRepository.save(order);
-
-        return order;
+        
+        // 새 주문 생성 (관리자 승인 필요)
+        return createOrderInternal(userId, request);
     }
 
     private LocalDateTime parseDeliveryTime(String deliveryTime) {
