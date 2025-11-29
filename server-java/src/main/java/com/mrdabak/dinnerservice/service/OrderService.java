@@ -51,41 +51,42 @@ public class OrderService {
                 try {
                     return createOrderWithTransaction(userId, request);
                 } catch (Exception e) {
-                String errorMessage = e.getMessage() != null ? e.getMessage().toLowerCase() : "";
-                String causeMessage = "";
-                if (e.getCause() != null && e.getCause().getMessage() != null) {
-                    causeMessage = e.getCause().getMessage().toLowerCase();
-                }
-                
-                // Check for various SQLite lock errors
-                boolean isLocked = errorMessage.contains("database is locked") 
-                    || errorMessage.contains("sqlite_busy")
-                    || errorMessage.contains("sqlite_busy_snapshot")
-                    || causeMessage.contains("database is locked")
-                    || causeMessage.contains("sqlite_busy")
-                    || causeMessage.contains("sqlite_busy_snapshot");
-                
-                if (isLocked && retryCount < maxRetries - 1) {
-                    retryCount++;
-                    long delay = baseDelay * (long) Math.pow(2, retryCount - 1); // Exponential backoff: 100ms, 200ms, 400ms, 800ms...
-                    System.out.println("[OrderService] Database locked (SQLITE_BUSY_SNAPSHOT), retrying... (" + retryCount + "/" + maxRetries + ") after " + delay + "ms");
-                    try {
-                        Thread.sleep(delay);
-                    } catch (InterruptedException ie) {
-                        Thread.currentThread().interrupt();
-                        throw new RuntimeException("Order creation interrupted", ie);
+                    String errorMessage = e.getMessage() != null ? e.getMessage().toLowerCase() : "";
+                    String causeMessage = "";
+                    if (e.getCause() != null && e.getCause().getMessage() != null) {
+                        causeMessage = e.getCause().getMessage().toLowerCase();
                     }
-                } else {
-                    // Not a lock error or max retries reached
-                    if (isLocked) {
-                        throw new RuntimeException("Failed to create order after " + maxRetries + " retries due to database lock", e);
+                    
+                    // Check for various SQLite lock errors
+                    boolean isLocked = errorMessage.contains("database is locked") 
+                        || errorMessage.contains("sqlite_busy")
+                        || errorMessage.contains("sqlite_busy_snapshot")
+                        || causeMessage.contains("database is locked")
+                        || causeMessage.contains("sqlite_busy")
+                        || causeMessage.contains("sqlite_busy_snapshot");
+                    
+                    if (isLocked && retryCount < maxRetries - 1) {
+                        retryCount++;
+                        long delay = baseDelay * (long) Math.pow(2, retryCount - 1); // Exponential backoff: 100ms, 200ms, 400ms, 800ms...
+                        System.out.println("[OrderService] Database locked (SQLITE_BUSY_SNAPSHOT), retrying... (" + retryCount + "/" + maxRetries + ") after " + delay + "ms");
+                        try {
+                            Thread.sleep(delay);
+                        } catch (InterruptedException ie) {
+                            Thread.currentThread().interrupt();
+                            throw new RuntimeException("Order creation interrupted", ie);
+                        }
                     } else {
-                        throw e;
+                        // Not a lock error or max retries reached
+                        if (isLocked) {
+                            throw new RuntimeException("Failed to create order after " + maxRetries + " retries due to database lock", e);
+                        } else {
+                            throw e;
+                        }
                     }
                 }
             }
+            throw new RuntimeException("Failed to create order after " + maxRetries + " retries");
         }
-        throw new RuntimeException("Failed to create order after " + maxRetries + " retries");
     }
     
     @Transactional(transactionManager = "orderTransactionManager", rollbackFor = Exception.class)
