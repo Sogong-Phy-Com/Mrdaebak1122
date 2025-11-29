@@ -25,6 +25,9 @@ public class OrderController {
     
     // 사용자별 마지막 주문 시간 추적 (50초 제한)
     private final java.util.concurrent.ConcurrentHashMap<Long, Long> userLastOrderTime = new java.util.concurrent.ConcurrentHashMap<>();
+    
+    // 사용자별 주문 생성 락 (동시 주문 완전 차단)
+    private final java.util.concurrent.ConcurrentHashMap<Long, Object> userOrderLocks = new java.util.concurrent.ConcurrentHashMap<>();
 
     private final OrderService orderService;
     private final OrderItemRepository orderItemRepository;
@@ -148,7 +151,7 @@ public class OrderController {
     }
 
     @PostMapping
-    public synchronized ResponseEntity<?> createOrder(
+    public ResponseEntity<?> createOrder(
             @Valid @RequestBody OrderRequest request, 
             Authentication authentication,
             @RequestHeader(value = "X-Request-ID", required = false) String requestId) {
@@ -193,130 +196,145 @@ public class OrderController {
             
             Long userId = Long.parseLong(authentication.getName());
             
-            // 같은 계정으로 50초 이내에 하나의 주문만 가능하도록 제한
-            long currentTime = System.currentTimeMillis();
-            Long lastOrderTime = userLastOrderTime.get(userId);
-            if (lastOrderTime != null) {
-                long timeSinceLastOrder = currentTime - lastOrderTime;
-                if (timeSinceLastOrder < 50000) { // 50초 미만
-                    long remainingSeconds = (50000 - timeSinceLastOrder) / 1000;
-                    System.out.println("[주문 생성 API] 중복 주문 방지 - 마지막 주문으로부터 " + timeSinceLastOrder + "ms 경과, " + remainingSeconds + "초 후 가능");
-                    return ResponseEntity.status(429).body(Map.of(
-                            "error", "같은 계정으로 50초 이내에는 하나의 주문만 가능합니다. " + remainingSeconds + "초 후 다시 시도해주세요."
+            // 사용자별 락 객체 가져오기 (없으면 생성)
+            Object userLock = userOrderLocks.computeIfAbsent(userId, k -> new Object());
+            
+            // 사용자별 락을 사용하여 동시 주문 완전 차단 (최초 주문 포함)
+            synchronized (userLock) {
+                // 같은 계정으로 50초 이내에 하나의 주문만 가능하도록 제한
+                long currentTime = System.currentTimeMillis();
+                Long lastOrderTime = userLastOrderTime.get(userId);
+                if (lastOrderTime != null) {
+                    long timeSinceLastOrder = currentTime - lastOrderTime;
+                    if (timeSinceLastOrder < 50000) { // 50초 미만
+                        long remainingSeconds = (50000 - timeSinceLastOrder) / 1000;
+                        System.out.println("[주문 생성 API] 중복 주문 방지 - 마지막 주문으로부터 " + timeSinceLastOrder + "ms 경과, " + remainingSeconds + "초 후 가능");
+                        return ResponseEntity.status(429).body(Map.of(
+                                "error", "같은 계정으로 50초 이내에는 하나의 주문만 가능합니다. " + remainingSeconds + "초 후 다시 시도해주세요."
+                        ));
+                    }
+                }
+                
+                // 사용자별 마지막 주문 시간을 즉시 업데이트 (다른 요청이 들어오기 전에 차단)
+                userLastOrderTime.put(userId, currentTime);
+            
+                // Validate request
+                if (request.getDinnerTypeId() == null) {
+                    return ResponseEntity.badRequest().body(Map.of("error", "Dinner type is required"));
+                }
+                if (request.getServingStyle() == null || request.getServingStyle().isEmpty()) {
+                    return ResponseEntity.badRequest().body(Map.of("error", "Serving style is required"));
+                }
+                if (request.getDeliveryTime() == null || request.getDeliveryTime().isEmpty()) {
+                    return ResponseEntity.badRequest().body(Map.of("error", "Delivery time is required"));
+                }
+                if (request.getDeliveryAddress() == null || request.getDeliveryAddress().isEmpty()) {
+                    return ResponseEntity.badRequest().body(Map.of("error", "Delivery address is required"));
+                }
+                if (request.getItems() == null || request.getItems().isEmpty()) {
+                    return ResponseEntity.badRequest().body(Map.of("error", "Order items are required"));
+                }
+                
+                // 중복 주문 생성 방지: Request ID 또는 동일한 요청이 50초 이내에 들어오면 거부
+                String requestKey;
+                
+                if (requestId != null && !requestId.trim().isEmpty()) {
+                    // Request ID가 있으면 이를 사용 (프론트엔드에서 전송한 고유 ID)
+                    requestKey = userId + "|" + requestId.trim();
+                    System.out.println("[주문 생성 API] Request ID 사용: " + requestId);
+                } else {
+                    // Request ID가 없으면 더 정확한 키 생성 (밀리초 단위)
+                    requestKey = userId + "|" + request.getDeliveryTime() + "|" + request.getDeliveryAddress() + "|" + currentTime;
+                    System.out.println("[주문 생성 API] Request ID 없음, 타임스탬프 기반 키 사용: " + requestKey);
+                }
+                
+                // 먼저 pendingOrders에서 확인
+                Long existingOrderId = pendingOrders.get(requestKey);
+                if (existingOrderId != null && existingOrderId != -1L) {
+                    System.out.println("[주문 생성 API] 중복 요청 감지 - 요청 키: " + requestKey + ", 기존 주문 ID: " + existingOrderId);
+                    return ResponseEntity.status(409).body(Map.of(
+                            "error", "동일한 주문이 이미 처리 중입니다.",
+                            "order_id", existingOrderId
                     ));
                 }
-            }
-            
-            // Validate request
-            if (request.getDinnerTypeId() == null) {
-                return ResponseEntity.badRequest().body(Map.of("error", "Dinner type is required"));
-            }
-            if (request.getServingStyle() == null || request.getServingStyle().isEmpty()) {
-                return ResponseEntity.badRequest().body(Map.of("error", "Serving style is required"));
-            }
-            if (request.getDeliveryTime() == null || request.getDeliveryTime().isEmpty()) {
-                return ResponseEntity.badRequest().body(Map.of("error", "Delivery time is required"));
-            }
-            if (request.getDeliveryAddress() == null || request.getDeliveryAddress().isEmpty()) {
-                return ResponseEntity.badRequest().body(Map.of("error", "Delivery address is required"));
-            }
-            if (request.getItems() == null || request.getItems().isEmpty()) {
-                return ResponseEntity.badRequest().body(Map.of("error", "Order items are required"));
-            }
-            
-            // 중복 주문 생성 방지: Request ID 또는 동일한 요청이 50초 이내에 들어오면 거부
-            String requestKey;
-            
-            if (requestId != null && !requestId.trim().isEmpty()) {
-                // Request ID가 있으면 이를 사용 (프론트엔드에서 전송한 고유 ID)
-                requestKey = userId + "|" + requestId.trim();
-                System.out.println("[주문 생성 API] Request ID 사용: " + requestId);
-            } else {
-                // Request ID가 없으면 더 정확한 키 생성 (밀리초 단위)
-                requestKey = userId + "|" + request.getDeliveryTime() + "|" + request.getDeliveryAddress() + "|" + currentTime;
-                System.out.println("[주문 생성 API] Request ID 없음, 타임스탬프 기반 키 사용: " + requestKey);
-            }
-            
-            // 먼저 pendingOrders에서 확인
-            Long existingOrderId = pendingOrders.get(requestKey);
-            if (existingOrderId != null) {
-                System.out.println("[주문 생성 API] 중복 요청 감지 - 요청 키: " + requestKey + ", 기존 주문 ID: " + existingOrderId);
-                return ResponseEntity.status(409).body(Map.of(
-                        "error", "동일한 주문이 이미 처리 중입니다.",
-                        "order_id", existingOrderId
-                ));
-            }
-            
-            // 추가 검증: 최근 50초 이내에 동일한 사용자가 주문을 생성했는지 확인
-            String baseRequestKey = userId + "|" + request.getDeliveryTime() + "|" + request.getDeliveryAddress();
-            long fiftySecondsAgo = currentTime - 50000;
-            for (Map.Entry<String, Long> entry : pendingOrders.entrySet()) {
-                if (entry.getKey().startsWith(baseRequestKey + "|")) {
-                    // 키에서 타임스탬프 추출
-                    String[] parts = entry.getKey().split("\\|");
-                    if (parts.length >= 4) {
-                        try {
-                            long entryTime = Long.parseLong(parts[3]);
-                            if (entryTime > fiftySecondsAgo) {
-                                System.out.println("[주문 생성 API] 중복 요청 감지 (기본 키) - 요청 키: " + entry.getKey() + ", 기존 주문 ID: " + entry.getValue());
-                                return ResponseEntity.status(409).body(Map.of(
-                                        "error", "동일한 주문이 이미 처리 중입니다.",
-                                        "order_id", entry.getValue()
-                                ));
+                
+                // 처리 중인 주문 확인 (-1L은 처리 중임을 나타냄)
+                if (existingOrderId != null && existingOrderId == -1L) {
+                    System.out.println("[주문 생성 API] 동일한 주문이 이미 처리 중입니다 - 요청 키: " + requestKey);
+                    return ResponseEntity.status(409).body(Map.of(
+                            "error", "동일한 주문이 이미 처리 중입니다. 잠시 후 다시 시도해주세요."
+                    ));
+                }
+                
+                // 추가 검증: 최근 50초 이내에 동일한 사용자가 주문을 생성했는지 확인
+                String baseRequestKey = userId + "|" + request.getDeliveryTime() + "|" + request.getDeliveryAddress();
+                long fiftySecondsAgo = currentTime - 50000;
+                for (Map.Entry<String, Long> entry : pendingOrders.entrySet()) {
+                    if (entry.getKey().startsWith(baseRequestKey + "|")) {
+                        // 키에서 타임스탬프 추출
+                        String[] parts = entry.getKey().split("\\|");
+                        if (parts.length >= 4) {
+                            try {
+                                long entryTime = Long.parseLong(parts[3]);
+                                if (entryTime > fiftySecondsAgo) {
+                                    System.out.println("[주문 생성 API] 중복 요청 감지 (기본 키) - 요청 키: " + entry.getKey() + ", 기존 주문 ID: " + entry.getValue());
+                                    return ResponseEntity.status(409).body(Map.of(
+                                            "error", "동일한 주문이 이미 처리 중입니다.",
+                                            "order_id", entry.getValue()
+                                    ));
+                                }
+                            } catch (NumberFormatException e) {
+                                // 타임스탬프 파싱 실패 시 무시
                             }
-                        } catch (NumberFormatException e) {
-                            // 타임스탬프 파싱 실패 시 무시
                         }
                     }
                 }
-            }
+                
+                // pendingOrders에 추가 (처리 시작 표시) - 락 내부에서 즉시 추가
+                pendingOrders.put(requestKey, -1L); // -1은 처리 중임을 나타냄
             
-            // 사용자별 마지막 주문 시간 업데이트
-            userLastOrderTime.put(userId, currentTime);
-            
-            // pendingOrders에 추가 (처리 시작 표시)
-            pendingOrders.put(requestKey, -1L); // -1은 처리 중임을 나타냄
-            
-            System.out.println("[주문 생성 API] 주문 서비스 호출 전 - 사용자 ID: " + userId);
-            System.out.println("[주문 생성 API] 스레드: " + threadId);
-            System.out.println("[주문 생성 API] Request ID: " + (requestId != null ? requestId : "없음"));
-            System.out.println("[주문 생성 API] 배달 시간: " + request.getDeliveryTime());
-            System.out.println("[주문 생성 API] 배달 주소: " + request.getDeliveryAddress());
-            
-            Order order = orderService.createOrder(userId, request);
-            
-            System.out.println("[주문 생성 API] 주문 서비스 호출 완료 - 주문 ID: " + order.getId());
-            System.out.println("[주문 생성 API] 스레드: " + threadId);
-            System.out.println("[주문 생성 API] Request ID: " + (requestId != null ? requestId : "없음"));
-            System.out.println("[주문 생성 API] 주문은 1개만 생성되었습니다.");
-            
-            // 주문 생성 완료 후 pendingOrders 업데이트 및 50초 후에 제거
-            pendingOrders.put(requestKey, order.getId());
-            new java.util.Timer().schedule(new java.util.TimerTask() {
-                @Override
-                public void run() {
-                    pendingOrders.remove(requestKey);
-                    System.out.println("[주문 생성 API] 중복 방지 키 제거: " + requestKey);
-                }
-            }, 50000); // 50초
-            
-            // 사용자별 마지막 주문 시간도 50초 후에 제거 (선택적)
-            new java.util.Timer().schedule(new java.util.TimerTask() {
-                @Override
-                public void run() {
-                    Long storedTime = userLastOrderTime.get(userId);
-                    if (storedTime != null && storedTime.equals(currentTime)) {
-                        userLastOrderTime.remove(userId);
-                        System.out.println("[주문 생성 API] 사용자 " + userId + "의 주문 제한 해제");
+                System.out.println("[주문 생성 API] 주문 서비스 호출 전 - 사용자 ID: " + userId);
+                System.out.println("[주문 생성 API] 스레드: " + threadId);
+                System.out.println("[주문 생성 API] Request ID: " + (requestId != null ? requestId : "없음"));
+                System.out.println("[주문 생성 API] 배달 시간: " + request.getDeliveryTime());
+                System.out.println("[주문 생성 API] 배달 주소: " + request.getDeliveryAddress());
+                
+                Order order = orderService.createOrder(userId, request);
+                
+                System.out.println("[주문 생성 API] 주문 서비스 호출 완료 - 주문 ID: " + order.getId());
+                System.out.println("[주문 생성 API] 스레드: " + threadId);
+                System.out.println("[주문 생성 API] Request ID: " + (requestId != null ? requestId : "없음"));
+                System.out.println("[주문 생성 API] 주문은 1개만 생성되었습니다.");
+                
+                // 주문 생성 완료 후 pendingOrders 업데이트 및 50초 후에 제거
+                pendingOrders.put(requestKey, order.getId());
+                new java.util.Timer().schedule(new java.util.TimerTask() {
+                    @Override
+                    public void run() {
+                        pendingOrders.remove(requestKey);
+                        System.out.println("[주문 생성 API] 중복 방지 키 제거: " + requestKey);
                     }
-                }
-            }, 50000); // 50초
-            
-            return ResponseEntity.status(201).body(Map.of(
-                    "message", "Order created successfully",
-                    "order_id", order.getId(),
-                    "total_price", order.getTotalPrice()
-            ));
+                }, 50000); // 50초
+                
+                // 사용자별 마지막 주문 시간도 50초 후에 제거 (선택적)
+                final long finalCurrentTime = currentTime;
+                new java.util.Timer().schedule(new java.util.TimerTask() {
+                    @Override
+                    public void run() {
+                        Long storedTime = userLastOrderTime.get(userId);
+                        if (storedTime != null && storedTime.equals(finalCurrentTime)) {
+                            userLastOrderTime.remove(userId);
+                            System.out.println("[주문 생성 API] 사용자 " + userId + "의 주문 제한 해제");
+                        }
+                    }
+                }, 50000); // 50초
+                
+                return ResponseEntity.status(201).body(Map.of(
+                        "message", "Order created successfully",
+                        "order_id", order.getId(),
+                        "total_price", order.getTotalPrice()
+                ));
+            } // synchronized 블록 종료
         } catch (NumberFormatException e) {
             return ResponseEntity.status(401).body(Map.of("error", "Invalid user ID"));
         } catch (RuntimeException e) {

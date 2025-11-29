@@ -156,6 +156,7 @@ public class InventoryService {
             }
 
             // Mark reservations as consumed and deduct from current stock (조리 시작 시 재고 소진)
+            // consumed=true로 설정하면 이번주 예약 수량에서 자동으로 제외됨 (sumWeeklyReservedByMenuItemId는 consumed=false만 포함)
             int count = 0;
             for (InventoryReservation reservation : reservations) {
                 reservation.setConsumed(true);
@@ -171,9 +172,11 @@ public class InventoryService {
                 
                 System.out.println("[InventoryService] 주문 " + orderId + " - 메뉴 아이템 " + reservation.getMenuItemId() + 
                     " 재고 " + quantityToDeduct + "개 차감 (현재 보유량: " + currentCapacity + " -> " + newCapacity + ")");
+                System.out.println("[InventoryService] 주문 " + orderId + " - 메뉴 아이템 " + reservation.getMenuItemId() + 
+                    " consumed=true로 설정되어 이번주 예약 수량에서 자동 차감됨");
                 count++;
             }
-            System.out.println("[InventoryService] 주문 " + orderId + "의 재고 예약 " + count + "개가 소진되었습니다.");
+            System.out.println("[InventoryService] 주문 " + orderId + "의 재고 예약 " + count + "개가 소진되었습니다. (이번주 예약 수량에서도 차감됨)");
         } catch (Exception e) {
             System.err.println("[InventoryService] 재고 소진 중 오류 발생: " + e.getMessage());
             e.printStackTrace();
