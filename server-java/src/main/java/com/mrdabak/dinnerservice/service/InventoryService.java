@@ -208,10 +208,12 @@ public class InventoryService {
         }
 
         // Now get all inventories (including newly created ones)
-        // Calculate weekly reserved (this week's reservations)
+        // Calculate weekly reserved (this week's reservations - Sunday to Saturday)
         LocalDate today = LocalDate.now();
-        LocalDate weekStart = today.with(java.time.DayOfWeek.MONDAY);
-        LocalDate weekEnd = weekStart.plusWeeks(1);
+        // 일요일을 주의 시작으로 설정 (일요일 = 0, 월요일 = 1, ..., 토요일 = 6)
+        int dayOfWeek = today.getDayOfWeek().getValue() % 7; // 일요일=0, 월요일=1, ..., 토요일=6
+        LocalDate weekStart = today.minusDays(dayOfWeek); // 이번 주 일요일
+        LocalDate weekEnd = weekStart.plusWeeks(1); // 다음 주 일요일 (토요일까지 포함)
         LocalDateTime weekStartDateTime = LocalDateTime.of(weekStart, LocalTime.MIN);
         LocalDateTime weekEndDateTime = LocalDateTime.of(weekEnd, LocalTime.MIN);
         
