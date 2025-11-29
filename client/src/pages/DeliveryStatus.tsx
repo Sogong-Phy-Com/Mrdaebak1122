@@ -122,15 +122,10 @@ const DeliveryStatus: React.FC = () => {
 
   return (
     <div className="delivery-status-page">
-      <TopLogo />
+      <TopLogo showBackButton={true} />
 
       <div className="page-content">
         <div className="container">
-          <div style={{ marginBottom: '20px' }}>
-            <button onClick={() => navigate('/orders')} className="btn btn-secondary">
-              ← 주문 내역으로
-            </button>
-          </div>
           {/* 주문 정보 카드 */}
           <div className="order-info-card">
             <div className="order-header">

@@ -403,13 +403,8 @@ const AdminScheduleManagement: React.FC = () => {
 
   return (
     <div className="admin-dashboard">
-      <TopLogo showBackButton={false} />
+      <TopLogo showBackButton={true} />
       <div className="container">
-        <div style={{ marginBottom: '20px' }}>
-          <button onClick={() => navigate('/')} className="btn btn-secondary">
-            ← 홈으로
-          </button>
-        </div>
 
         <h2>스케줄 관리 / 주문 관리</h2>
         {error && <div className="error">{error}</div>}

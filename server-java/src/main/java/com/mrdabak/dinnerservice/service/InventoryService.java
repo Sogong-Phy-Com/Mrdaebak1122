@@ -64,6 +64,10 @@ public class InventoryService {
         return new InventoryReservationPlan(window, aggregated, deliveryTime);
     }
 
+    public List<InventoryReservation> getReservationsByOrderId(Long orderId) {
+        return inventoryReservationRepository.findByOrderId(orderId);
+    }
+
     @Transactional("inventoryTransactionManager")
     public void commitReservations(Long orderId, InventoryReservationPlan plan) {
         if (orderId == null) {
@@ -423,6 +427,7 @@ public class InventoryService {
         LocalDate deliveryDate = deliveryTime.toLocalDate();
         LocalDateTime start = LocalDateTime.of(deliveryDate, LocalTime.MIN); // 00:00:00
         LocalDateTime end = LocalDateTime.of(deliveryDate, LocalTime.MAX); // 23:59:59.999999999
+        System.out.println("[InventoryService] resolveWindow - deliveryTime: " + deliveryTime + ", windowStart: " + start + ", windowEnd: " + end);
         return new RestockWindow(start, end);
     }
 

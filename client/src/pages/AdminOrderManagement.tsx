@@ -227,13 +227,8 @@ const AdminOrderManagement: React.FC = () => {
 
   return (
     <div className="admin-dashboard">
-      <TopLogo showBackButton={false} />
+      <TopLogo showBackButton={true} />
       <div className="container">
-        <div style={{ marginBottom: '20px' }}>
-          <button onClick={() => navigate('/')} className="btn btn-secondary">
-            ← 홈으로
-          </button>
-        </div>
 
         <div className="admin-section">
           <h2>주문 관리 및 작업 할당</h2>

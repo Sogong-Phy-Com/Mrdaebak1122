@@ -803,14 +803,9 @@ const Order: React.FC = () => {
 
   return (
     <div className="order-page">
-      <TopLogo showBackButton={false} />
+      <TopLogo showBackButton={true} />
 
       <div className="container">
-        <div style={{ marginBottom: '20px' }}>
-          <button onClick={() => navigate('/')} className="btn btn-secondary">
-            ← 홈으로
-          </button>
-        </div>
         <h2>{isModifying ? '주문 수정' : '주문하기'}</h2>
 
         <div className="voice-section">

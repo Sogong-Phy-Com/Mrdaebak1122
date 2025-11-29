@@ -17,6 +17,8 @@ import com.mrdabak.dinnerservice.service.JwtService;
 import com.mrdabak.dinnerservice.service.DeliverySchedulingService;
 import com.mrdabak.dinnerservice.service.TravelTimeEstimator;
 import com.mrdabak.dinnerservice.service.OrderService;
+import com.mrdabak.dinnerservice.service.InventoryService;
+import com.mrdabak.dinnerservice.dto.OrderItemDto;
 import com.mrdabak.dinnerservice.model.DeliverySchedule;
 import com.mrdabak.dinnerservice.repository.schedule.DeliveryScheduleRepository;
 import com.mrdabak.dinnerservice.repository.schedule.EmployeeWorkAssignmentRepository;
@@ -50,6 +52,7 @@ public class AdminController {
     private final OrderItemRepository orderItemRepository;
     private final DinnerTypeRepository dinnerTypeRepository;
     private final MenuItemRepository menuItemRepository;
+    private final InventoryService inventoryService;
 
     public AdminController(UserRepository userRepository, PasswordEncoder passwordEncoder, 
                           JwtService jwtService, OrderRepository orderRepository,
@@ -60,7 +63,8 @@ public class AdminController {
                           OrderService orderService,
                           OrderItemRepository orderItemRepository,
                           DinnerTypeRepository dinnerTypeRepository,
-                          MenuItemRepository menuItemRepository) {
+                          MenuItemRepository menuItemRepository,
+                          InventoryService inventoryService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
@@ -73,6 +77,7 @@ public class AdminController {
         this.orderItemRepository = orderItemRepository;
         this.dinnerTypeRepository = dinnerTypeRepository;
         this.menuItemRepository = menuItemRepository;
+        this.inventoryService = inventoryService;
     }
 
     @PostMapping("/create-employee")
@@ -429,6 +434,36 @@ public class AdminController {
             }
             order.setAdminApprovalStatus("APPROVED");
             orderRepository.save(order);
+            
+            // 주문 승인 시 재고 예약 생성 (이번주 예약 수량에 추가)
+            try {
+                // 기존 재고 예약이 있는지 확인
+                List<com.mrdabak.dinnerservice.model.InventoryReservation> existingReservations = 
+                    inventoryService.getReservationsByOrderId(orderId);
+                
+                if (existingReservations.isEmpty()) {
+                    // 재고 예약이 없으면 생성
+                    List<OrderItem> orderItems = orderItemRepository.findByOrderId(orderId);
+                    if (!orderItems.isEmpty()) {
+                        java.time.LocalDateTime deliveryDateTime = java.time.LocalDateTime.parse(order.getDeliveryTime());
+                        List<OrderItemDto> itemDtos = orderItems.stream()
+                            .map(item -> new OrderItemDto(item.getMenuItemId(), item.getQuantity()))
+                            .collect(java.util.stream.Collectors.toList());
+                        
+                        InventoryService.InventoryReservationPlan reservationPlan = 
+                            inventoryService.prepareReservations(itemDtos, deliveryDateTime);
+                        inventoryService.commitReservations(orderId, reservationPlan);
+                        System.out.println("[AdminController] 주문 " + orderId + " 승인 시 재고 예약 생성 완료 (이번주 예약 수량에 추가됨)");
+                    }
+                } else {
+                    System.out.println("[AdminController] 주문 " + orderId + "는 이미 재고 예약이 있습니다. (예약 수: " + existingReservations.size() + ")");
+                }
+            } catch (Exception e) {
+                System.err.println("[AdminController] 주문 승인 시 재고 예약 생성 실패: " + e.getMessage());
+                e.printStackTrace();
+                // 재고 예약 실패해도 주문 승인은 성공으로 처리
+            }
+            
             return ResponseEntity.ok(Map.of(
                     "message", "주문이 승인되었습니다.",
                     "order_id", order.getId()
