@@ -550,11 +550,12 @@ public class AdminController {
             return ResponseEntity.badRequest().body(Map.of("error", "잘못된 입력: " + e.getMessage()));
         } catch (Exception e) {
             System.err.println("[AdminController] 할당 저장 실패: " + e.getMessage());
+            System.err.println("[AdminController] 예외 타입: " + e.getClass().getName());
             e.printStackTrace();
             // 예외 메시지가 너무 짧거나 의미 없는 경우 더 자세한 정보 제공
             String errorMessage = e.getMessage();
-            if (errorMessage == null || errorMessage.length() < 3) {
-                errorMessage = "알 수 없는 오류가 발생했습니다. 자세한 내용은 서버 로그를 확인하세요.";
+            if (errorMessage == null || errorMessage.trim().isEmpty() || errorMessage.length() < 3) {
+                errorMessage = "직원 할당 저장 중 오류가 발생했습니다. (" + e.getClass().getSimpleName() + ")";
             }
             return ResponseEntity.status(500).body(Map.of("error", "직원 할당 저장 실패: " + errorMessage));
         }

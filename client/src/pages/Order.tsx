@@ -492,6 +492,14 @@ const Order: React.FC = () => {
     console.log('[주문 생성] isSubmitting:', isSubmitting);
     console.log('[주문 생성] loading:', loading);
     
+    // 중복 제출 방지 - 즉시 체크
+    if (loading || isSubmitting || orderSubmissionRef.current) {
+      console.log('[주문 생성] 이미 제출 중입니다. 중복 제출 방지 (즉시 반환)');
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+    
     setError('');
 
     if (!selectedDinner) {
@@ -546,10 +554,11 @@ const Order: React.FC = () => {
       return;
     }
 
-    // 중복 제출 방지
+    // 중복 제출 방지 - 두 번째 체크 (이미 위에서 체크했지만 추가 보호)
     if (loading || isSubmitting || orderSubmissionRef.current) {
-      console.log('[주문 생성] 이미 제출 중입니다. 중복 제출 방지');
+      console.log('[주문 생성] 이미 제출 중입니다. 중복 제출 방지 (두 번째 체크)');
       e.preventDefault();
+      e.stopPropagation();
       return;
     }
 
@@ -814,7 +823,11 @@ const Order: React.FC = () => {
           )}
         </div>
 
-        <form onSubmit={handleSubmit} className="order-form">
+        <form onSubmit={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          handleSubmit(e);
+        }} className="order-form">
           <div className="form-group">
             <label>디너 선택</label>
             <div className="dinner-grid">
