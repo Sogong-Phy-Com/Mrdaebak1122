@@ -39,54 +39,50 @@ public class OrderService {
         this.userRepository = userRepository;
     }
 
-    @org.springframework.transaction.annotation.Transactional
     public Order createOrder(Long userId, OrderRequest request) {
-        // 중복 주문 방지를 위해 동기화 블록 사용
-        synchronized (this) {
-            int maxRetries = 10;
-            int retryCount = 0;
-            long baseDelay = 100; // Start with 100ms
-            
-            while (retryCount < maxRetries) {
-                try {
-                    return createOrderWithTransaction(userId, request);
-                } catch (Exception e) {
-                    String errorMessage = e.getMessage() != null ? e.getMessage().toLowerCase() : "";
-                    String causeMessage = "";
-                    if (e.getCause() != null && e.getCause().getMessage() != null) {
-                        causeMessage = e.getCause().getMessage().toLowerCase();
+        int maxRetries = 10;
+        int retryCount = 0;
+        long baseDelay = 100; // Start with 100ms
+        
+        while (retryCount < maxRetries) {
+            try {
+                return createOrderWithTransaction(userId, request);
+            } catch (Exception e) {
+                String errorMessage = e.getMessage() != null ? e.getMessage().toLowerCase() : "";
+                String causeMessage = "";
+                if (e.getCause() != null && e.getCause().getMessage() != null) {
+                    causeMessage = e.getCause().getMessage().toLowerCase();
+                }
+                
+                // Check for various SQLite lock errors
+                boolean isLocked = errorMessage.contains("database is locked") 
+                    || errorMessage.contains("sqlite_busy")
+                    || errorMessage.contains("sqlite_busy_snapshot")
+                    || causeMessage.contains("database is locked")
+                    || causeMessage.contains("sqlite_busy")
+                    || causeMessage.contains("sqlite_busy_snapshot");
+                
+                if (isLocked && retryCount < maxRetries - 1) {
+                    retryCount++;
+                    long delay = baseDelay * (long) Math.pow(2, retryCount - 1); // Exponential backoff: 100ms, 200ms, 400ms, 800ms...
+                    System.out.println("[OrderService] Database locked (SQLITE_BUSY_SNAPSHOT), retrying... (" + retryCount + "/" + maxRetries + ") after " + delay + "ms");
+                    try {
+                        Thread.sleep(delay);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        throw new RuntimeException("Order creation interrupted", ie);
                     }
-                    
-                    // Check for various SQLite lock errors
-                    boolean isLocked = errorMessage.contains("database is locked") 
-                        || errorMessage.contains("sqlite_busy")
-                        || errorMessage.contains("sqlite_busy_snapshot")
-                        || causeMessage.contains("database is locked")
-                        || causeMessage.contains("sqlite_busy")
-                        || causeMessage.contains("sqlite_busy_snapshot");
-                    
-                    if (isLocked && retryCount < maxRetries - 1) {
-                        retryCount++;
-                        long delay = baseDelay * (long) Math.pow(2, retryCount - 1); // Exponential backoff: 100ms, 200ms, 400ms, 800ms...
-                        System.out.println("[OrderService] Database locked (SQLITE_BUSY_SNAPSHOT), retrying... (" + retryCount + "/" + maxRetries + ") after " + delay + "ms");
-                        try {
-                            Thread.sleep(delay);
-                        } catch (InterruptedException ie) {
-                            Thread.currentThread().interrupt();
-                            throw new RuntimeException("Order creation interrupted", ie);
-                        }
+                } else {
+                    // Not a lock error or max retries reached
+                    if (isLocked) {
+                        throw new RuntimeException("Failed to create order after " + maxRetries + " retries due to database lock", e);
                     } else {
-                        // Not a lock error or max retries reached
-                        if (isLocked) {
-                            throw new RuntimeException("Failed to create order after " + maxRetries + " retries due to database lock", e);
-                        } else {
-                            throw e;
-                        }
+                        throw e;
                     }
                 }
             }
-            throw new RuntimeException("Failed to create order after " + maxRetries + " retries");
         }
+        throw new RuntimeException("Failed to create order after " + maxRetries + " retries");
     }
     
     @Transactional(transactionManager = "orderTransactionManager", rollbackFor = Exception.class)
@@ -141,10 +137,8 @@ public class OrderService {
 
         double totalPrice = basePrice + itemsPrice;
 
-        // 주문 생성 시 재고 예약 생성하지 않음 - 관리자 승인 시에만 생성
-        // 재고 예약은 주문 승인 시 AdminController에서 생성됨
-        // InventoryService.InventoryReservationPlan inventoryPlan =
-        //         inventoryService.prepareReservations(request.getItems(), deliveryDateTime);
+        InventoryService.InventoryReservationPlan inventoryPlan =
+                inventoryService.prepareReservations(request.getItems(), deliveryDateTime);
         
         // 주문 생성 시 자동 배달 스케줄 할당 제거 - 관리자가 나중에 할당하도록 함
         // DeliverySchedulingService.DeliveryAssignmentPlan assignmentPlan =
@@ -169,8 +163,6 @@ public class OrderService {
         order.setTotalPrice((int) Math.round(totalPrice));
         order.setPaymentStatus("pending");
         order.setPaymentMethod(request.getPaymentMethod());
-        // 주문 생성 시 관리자 승인 대기 상태로 설정
-        order.setAdminApprovalStatus("PENDING");
         order.setAdminApprovalStatus("PENDING");
 
         // 주문 생성 시 직원 자동 할당 제거 - 관리자가 나중에 할당하도록 함
@@ -222,9 +214,29 @@ public class OrderService {
             orderItemRepository.save(orderItem);
         }
 
-        // 주문 생성 시 재고 예약 생성하지 않음 - 관리자 승인 시에만 생성
-        // 재고 예약은 주문 승인 시 AdminController에서 생성됨
-        System.out.println("[OrderService] 주문 생성 완료 - 재고 예약은 관리자 승인 시 생성됩니다. (주문 ID: " + savedOrder.getId() + ")");
+        boolean inventoryCommitted = false;
+        try {
+            inventoryService.commitReservations(savedOrder.getId(), inventoryPlan);
+            inventoryCommitted = true;
+            // 주문 생성 시 자동 배달 스케줄 할당 제거 - 관리자가 나중에 할당하도록 함
+            // deliverySchedulingService.commitAssignment(savedOrder.getId(), assignmentPlan);
+        } catch (RuntimeException e) {
+            // Rollback in reverse order
+            try {
+                if (inventoryCommitted) {
+                    inventoryService.releaseReservationsForOrder(savedOrder.getId());
+                }
+            } catch (Exception rollbackEx) {
+                System.err.println("[OrderService] Failed to rollback inventory: " + rollbackEx.getMessage());
+            }
+            try {
+                orderItemRepository.deleteByOrderId(savedOrder.getId());
+                orderRepository.deleteById(savedOrder.getId());
+            } catch (Exception rollbackEx) {
+                System.err.println("[OrderService] Failed to rollback order: " + rollbackEx.getMessage());
+            }
+            throw new RuntimeException("주문 생성에 실패했습니다: " + e.getMessage(), e);
+        }
 
         return savedOrder;
     }
@@ -375,18 +387,13 @@ public class OrderService {
             throw new RuntimeException("이 주문을 수정할 권한이 없습니다.");
         }
 
-        // 주문 상태 확인 - 조리 시작 전까지만 수정 가능
-        if (!"pending".equalsIgnoreCase(order.getStatus())) {
-            throw new RuntimeException("조리 시작 후에는 주문을 수정할 수 없습니다.");
-        }
-        
-        // 배달 시간 확인 - 도착시간 5시간 전까지만 수정 가능
+        // 배달 시간 확인 - 조리 3시간 전까지만 수정 가능
         LocalDateTime deliveryDateTime = parseDeliveryTime(request.getDeliveryTime());
         LocalDateTime now = LocalDateTime.now();
         long hoursUntilDelivery = java.time.Duration.between(now, deliveryDateTime).toHours();
         
-        if (hoursUntilDelivery < 5) {
-            throw new RuntimeException("주문 수정은 배달 시간 5시간 전까지만 가능합니다.");
+        if (hoursUntilDelivery < 3) {
+            throw new RuntimeException("주문 수정은 배달 시간 3시간 전까지만 가능합니다.");
         }
 
         // 기존 주문 취소 처리 (재귀 호출 방지를 위해 직접 처리)

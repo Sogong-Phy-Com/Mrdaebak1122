@@ -1,11 +1,12 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import PrivateRoute from './components/PrivateRoute';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
 import CustomerHome from './pages/CustomerHome';
+import VoiceOrderPage from './pages/VoiceOrderPage';
 import StaffHome from './pages/StaffHome';
 import AdminHome from './pages/AdminHome';
 import PendingApproval from './pages/PendingApproval';
@@ -25,17 +26,7 @@ import { useAuth } from './contexts/AuthContext';
 import './App.css';
 
 function HomeRouter() {
-  const { user, loading } = useAuth();
-  
-  // 로딩 중이면 대기
-  if (loading) {
-    return <div>Loading...</div>;
-  }
-  
-  // 사용자가 없으면 로그인 페이지로 리다이렉트
-  if (!user) {
-    return <Navigate to="/login" replace />;
-  }
+  const { user } = useAuth();
   
   // 승인 대기 상태의 직원/관리자는 승인 대기 화면으로
   if (user?.approvalStatus === 'pending') {
@@ -63,13 +54,25 @@ function App() {
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route
             path="/"
-            element={<HomeRouter />}
+            element={
+              <PrivateRoute>
+                <HomeRouter />
+              </PrivateRoute>
+            }
           />
           <Route
             path="/order"
             element={
               <PrivateRoute>
                 <Order />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/voice-order"
+            element={
+              <PrivateRoute>
+                <VoiceOrderPage />
               </PrivateRoute>
             }
           />

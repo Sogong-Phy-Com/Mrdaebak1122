@@ -492,14 +492,6 @@ const Order: React.FC = () => {
     console.log('[주문 생성] isSubmitting:', isSubmitting);
     console.log('[주문 생성] loading:', loading);
     
-    // 중복 제출 방지 - 즉시 체크
-    if (loading || isSubmitting || orderSubmissionRef.current) {
-      console.log('[주문 생성] 이미 제출 중입니다. 중복 제출 방지 (즉시 반환)');
-      e.preventDefault();
-      e.stopPropagation();
-      return;
-    }
-    
     setError('');
 
     if (!selectedDinner) {
@@ -554,11 +546,10 @@ const Order: React.FC = () => {
       return;
     }
 
-    // 중복 제출 방지 - 두 번째 체크 (이미 위에서 체크했지만 추가 보호)
+    // 중복 제출 방지
     if (loading || isSubmitting || orderSubmissionRef.current) {
-      console.log('[주문 생성] 이미 제출 중입니다. 중복 제출 방지 (두 번째 체크)');
+      console.log('[주문 생성] 이미 제출 중입니다. 중복 제출 방지');
       e.preventDefault();
-      e.stopPropagation();
       return;
     }
 
@@ -577,12 +568,6 @@ const Order: React.FC = () => {
   };
 
   const handleConfirmOrder = async () => {
-    // 중복 제출 방지 - 즉시 체크
-    if (loading || isSubmitting || orderSubmissionRef.current) {
-      console.log('[주문 생성] handleConfirmOrder - 이미 제출 중입니다. 중복 제출 방지');
-      return;
-    }
-
     if (!orderPassword) {
       alert('비밀번호를 입력해주세요.');
       return;
@@ -803,9 +788,14 @@ const Order: React.FC = () => {
 
   return (
     <div className="order-page">
-      <TopLogo showBackButton={true} />
+      <TopLogo />
 
       <div className="container">
+        <div style={{ marginBottom: '20px' }}>
+          <button onClick={() => navigate('/')} className="btn btn-secondary">
+            ← 홈으로
+          </button>
+        </div>
         <h2>{isModifying ? '주문 수정' : '주문하기'}</h2>
 
         <div className="voice-section">
@@ -824,11 +814,7 @@ const Order: React.FC = () => {
           )}
         </div>
 
-        <form onSubmit={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          handleSubmit(e);
-        }} className="order-form">
+        <form onSubmit={handleSubmit} className="order-form">
           <div className="form-group">
             <label>디너 선택</label>
             <div className="dinner-grid">

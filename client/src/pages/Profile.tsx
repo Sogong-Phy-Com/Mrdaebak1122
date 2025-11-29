@@ -306,10 +306,15 @@ const Profile: React.FC = () => {
 
   return (
     <div className="profile-page">
-      <TopLogo showBackButton={true} />
+      <TopLogo />
 
       <div className="page-content">
         <div className="container">
+          <div style={{ marginBottom: '20px' }}>
+            <button onClick={() => navigate('/')} className="btn btn-secondary">
+              ← 홈으로
+            </button>
+          </div>
           {/* 프로필 헤더 */}
           <div className="profile-header">
             <div className="profile-avatar">
@@ -404,15 +409,7 @@ const Profile: React.FC = () => {
                         <button
                           className="btn btn-primary"
                           style={{ width: '100%' }}
-                          onClick={() => {
-                            // 모달 열 때 상태 초기화
-                            setCardPassword('');
-                            setCardNumber('');
-                            setCardExpiry('');
-                            setCardCvv('');
-                            setCardHolderName('');
-                            setShowCardModal(true);
-                          }}
+                          onClick={() => setShowCardModal(true)}
                         >
                           {userCardInfo?.hasCard ? '카드 정보 변경' : '카드 정보 등록'}
                         </button>
@@ -697,14 +694,7 @@ const Profile: React.FC = () => {
 
       {/* 카드 정보 입력 모달 */}
       {showCardModal && (
-        <div className="modal-overlay" onClick={() => {
-          setShowCardModal(false);
-          setCardPassword('');
-          setCardNumber('');
-          setCardExpiry('');
-          setCardCvv('');
-          setCardHolderName('');
-        }}>
+        <div className="modal-overlay" onClick={() => setShowCardModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px' }}>
             <h3>카드 정보 {userCardInfo?.hasCard ? '변경' : '등록'}</h3>
             <p style={{ color: '#FFD700', marginBottom: '20px' }}>카드 정보를 {userCardInfo?.hasCard ? '변경' : '등록'}하려면 비밀번호를 입력해주세요.</p>
@@ -715,16 +705,6 @@ const Profile: React.FC = () => {
                 value={cardPassword}
                 onChange={(e) => setCardPassword(e.target.value)}
                 placeholder="비밀번호를 입력하세요"
-                autoFocus
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && cardPassword) {
-                    // Enter 키로 다음 필드로 이동하지 않고, 비밀번호 입력 후 자동으로 활성화
-                    const nextInput = e.currentTarget.parentElement?.nextElementSibling?.querySelector('input');
-                    if (nextInput && cardPassword) {
-                      nextInput.focus();
-                    }
-                  }
-                }}
               />
             </div>
             <div className="form-group">
@@ -739,14 +719,6 @@ const Profile: React.FC = () => {
                 placeholder="1234 5678 9012 3456"
                 disabled={!cardPassword}
                 maxLength={16}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && cardPassword && cardNumber.length >= 16) {
-                    const nextInput = e.currentTarget.parentElement?.nextElementSibling?.querySelector('input');
-                    if (nextInput) {
-                      nextInput.focus();
-                    }
-                  }
-                }}
               />
             </div>
             <div style={{ display: 'flex', gap: '12px' }}>
@@ -809,29 +781,24 @@ const Profile: React.FC = () => {
                   return;
                 }
                 if (!cardNumber || cardNumber.length < 16) {
-                  alert('카드 번호를 올바르게 입력해주세요. (16자리)');
+                  alert('카드 번호를 올바르게 입력해주세요.');
                   return;
                 }
                 if (!cardExpiry || cardExpiry.length < 5) {
-                  alert('만료일을 올바르게 입력해주세요. (MM/YY 형식)');
+                  alert('만료일을 올바르게 입력해주세요.');
                   return;
                 }
                 if (!cardCvv || cardCvv.length < 3) {
-                  alert('CVV를 올바르게 입력해주세요. (3자리)');
+                  alert('CVV를 올바르게 입력해주세요.');
                   return;
                 }
-                if (!cardHolderName || cardHolderName.trim() === '') {
+                if (!cardHolderName) {
                   alert('카드 소유자 이름을 입력해주세요.');
                   return;
                 }
 
                 try {
                   const token = localStorage.getItem('token');
-                  if (!token) {
-                    alert('로그인이 필요합니다.');
-                    return;
-                  }
-
                   // Verify password first
                   await axios.post(`${API_URL}/auth/verify-password`, {
                     password: cardPassword
@@ -841,10 +808,10 @@ const Profile: React.FC = () => {
 
                   // Update card information
                   await axios.put(`${API_URL}/auth/update-card`, {
-                    cardNumber: cardNumber.trim(),
-                    cardExpiry: cardExpiry.trim(),
-                    cardCvv: cardCvv.trim(),
-                    cardHolderName: cardHolderName.trim()
+                    cardNumber: cardNumber,
+                    cardExpiry: cardExpiry,
+                    cardCvv: cardCvv,
+                    cardHolderName: cardHolderName
                   }, {
                     headers: { 'Authorization': `Bearer ${token}` }
                   });
@@ -857,19 +824,14 @@ const Profile: React.FC = () => {
                   setCardCvv('');
                   setCardHolderName('');
                   await fetchUserCardInfo();
-                  if (user) {
-                    updateUser({ ...user, hasCard: true });
-                  }
                 } catch (err: any) {
                   if (err.response?.status === 401) {
                     alert('비밀번호가 올바르지 않습니다.');
-                    setCardPassword('');
                   } else {
-                    const errorMsg = err.response?.data?.error || '카드 정보 저장에 실패했습니다.';
-                    alert(errorMsg);
+                    alert('카드 정보 저장에 실패했습니다.');
                   }
                 }
-              }} disabled={!cardPassword || !cardNumber || !cardExpiry || !cardCvv || !cardHolderName}>
+              }} disabled={!cardPassword}>
                 {userCardInfo?.hasCard ? '변경' : '등록'}
               </button>
             </div>

@@ -64,10 +64,6 @@ public class InventoryService {
         return new InventoryReservationPlan(window, aggregated, deliveryTime);
     }
 
-    public List<InventoryReservation> getReservationsByOrderId(Long orderId) {
-        return inventoryReservationRepository.findByOrderId(orderId);
-    }
-
     @Transactional("inventoryTransactionManager")
     public void commitReservations(Long orderId, InventoryReservationPlan plan) {
         if (orderId == null) {
@@ -159,25 +155,11 @@ public class InventoryService {
                 return;
             }
 
-            // 이번주 예약 수량 계산을 위한 날짜 범위 (조리 시작 전)
-            LocalDate today = LocalDate.now();
-            int dayOfWeek = today.getDayOfWeek().getValue() % 7;
-            LocalDate weekStart = today.minusDays(dayOfWeek);
-            LocalDate weekEnd = weekStart.plusWeeks(1);
-            LocalDateTime weekStartDateTime = LocalDateTime.of(weekStart, LocalTime.MIN);
-            LocalDateTime weekEndDateTime = LocalDateTime.of(weekEnd, LocalTime.MIN);
-
             // Mark reservations as consumed and deduct from current stock (조리 시작 시 재고 소진)
-            // consumed=true로 설정하면 이번주 예약 수량에서 자동으로 제외됨 (sumWeeklyReservedByMenuItemId는 consumed=false만 포함)
             int count = 0;
             for (InventoryReservation reservation : reservations) {
-                // 조리 시작 전 이번주 예약 수량 확인
-                Integer weeklyReservedBefore = inventoryReservationRepository
-                    .sumWeeklyReservedByMenuItemId(reservation.getMenuItemId(), weekStartDateTime, weekEndDateTime);
-                
-                // consumed=true로 설정하여 이번주 예약 수량에서 제외
                 reservation.setConsumed(true);
-                inventoryReservationRepository.saveAndFlush(reservation);
+                inventoryReservationRepository.save(reservation);
                 
                 // 현재 보유량에서 차감
                 MenuInventory inventory = getInventory(reservation.getMenuItemId());
@@ -185,20 +167,13 @@ public class InventoryService {
                 int quantityToDeduct = reservation.getQuantity() != null ? reservation.getQuantity() : 0;
                 int newCapacity = Math.max(0, currentCapacity - quantityToDeduct);
                 inventory.setCapacityPerWindow(newCapacity);
-                menuInventoryRepository.saveAndFlush(inventory);
-                
-                // 조리 시작 후 이번주 예약 수량 확인 (consumed=false만 포함하므로 차감되었는지 확인)
-                Integer weeklyReservedAfter = inventoryReservationRepository
-                    .sumWeeklyReservedByMenuItemId(reservation.getMenuItemId(), weekStartDateTime, weekEndDateTime);
+                menuInventoryRepository.save(inventory);
                 
                 System.out.println("[InventoryService] 주문 " + orderId + " - 메뉴 아이템 " + reservation.getMenuItemId() + 
                     " 재고 " + quantityToDeduct + "개 차감 (현재 보유량: " + currentCapacity + " -> " + newCapacity + ")");
-                System.out.println("[InventoryService] 주문 " + orderId + " - 메뉴 아이템 " + reservation.getMenuItemId() + 
-                    " 이번주 예약 수량: " + (weeklyReservedBefore != null ? weeklyReservedBefore : 0) + " -> " + 
-                    (weeklyReservedAfter != null ? weeklyReservedAfter : 0) + " (차감됨)");
                 count++;
             }
-            System.out.println("[InventoryService] 주문 " + orderId + "의 재고 예약 " + count + "개가 소진되었습니다. (이번주 예약 수량에서도 차감됨)");
+            System.out.println("[InventoryService] 주문 " + orderId + "의 재고 예약 " + count + "개가 소진되었습니다.");
         } catch (Exception e) {
             System.err.println("[InventoryService] 재고 소진 중 오류 발생: " + e.getMessage());
             e.printStackTrace();
@@ -233,12 +208,10 @@ public class InventoryService {
         }
 
         // Now get all inventories (including newly created ones)
-        // Calculate weekly reserved (this week's reservations - Sunday to Saturday)
+        // Calculate weekly reserved (this week's reservations)
         LocalDate today = LocalDate.now();
-        // 일요일을 주의 시작으로 설정 (일요일 = 0, 월요일 = 1, ..., 토요일 = 6)
-        int dayOfWeek = today.getDayOfWeek().getValue() % 7; // 일요일=0, 월요일=1, ..., 토요일=6
-        LocalDate weekStart = today.minusDays(dayOfWeek); // 이번 주 일요일
-        LocalDate weekEnd = weekStart.plusWeeks(1); // 다음 주 일요일 (토요일까지 포함)
+        LocalDate weekStart = today.with(java.time.DayOfWeek.MONDAY);
+        LocalDate weekEnd = weekStart.plusWeeks(1);
         LocalDateTime weekStartDateTime = LocalDateTime.of(weekStart, LocalTime.MIN);
         LocalDateTime weekEndDateTime = LocalDateTime.of(weekEnd, LocalTime.MIN);
         
@@ -427,7 +400,6 @@ public class InventoryService {
         LocalDate deliveryDate = deliveryTime.toLocalDate();
         LocalDateTime start = LocalDateTime.of(deliveryDate, LocalTime.MIN); // 00:00:00
         LocalDateTime end = LocalDateTime.of(deliveryDate, LocalTime.MAX); // 23:59:59.999999999
-        System.out.println("[InventoryService] resolveWindow - deliveryTime: " + deliveryTime + ", windowStart: " + start + ", windowEnd: " + end);
         return new RestockWindow(start, end);
     }
 

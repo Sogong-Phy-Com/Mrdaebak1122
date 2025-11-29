@@ -135,24 +135,18 @@ const Orders: React.FC = () => {
   };
 
   const canModify = (order: Order) => {
-    // 조리 시작 전까지만 수정 가능
-    if (order.status !== 'pending') {
+    if (order.status !== 'pending' && order.status !== 'cooking') {
       return false;
     }
-    // 배달 시간 5시간 전까지만 수정 가능
+    // 배달 시간 3시간 전까지만 수정 가능
     const delivery = new Date(order.delivery_time);
     const now = new Date();
     const hoursUntilDelivery = (delivery.getTime() - now.getTime()) / (1000 * 60 * 60);
-    return hoursUntilDelivery >= 5;
+    return hoursUntilDelivery >= 3;
   };
 
-  const canCancel = (order: Order) => {
-    // 조리 시작되면 취소 불가
-    if (order.status === 'cooking' || order.status === 'ready' || order.status === 'out_for_delivery' || order.status === 'delivered' || order.status === 'cancelled') {
-      return false;
-    }
-    return true;
-  };
+  const canCancel = (order: Order) =>
+    order.status !== 'delivered' && order.status !== 'cancelled';
 
   const handleReorder = (order: Order, e?: React.MouseEvent<HTMLButtonElement>) => {
     if (e) {
@@ -233,11 +227,7 @@ const Orders: React.FC = () => {
 
   const handleModifyOrder = (order: Order) => {
     if (!canModify(order)) {
-      if (order.status !== 'pending') {
-        alert('조리 시작 후에는 주문을 수정할 수 없습니다.');
-      } else {
-        alert('주문 수정은 배달 시간 5시간 전까지만 가능합니다.');
-      }
+      alert('관리자 승인 완료 후에만 주문을 수정할 수 있습니다.');
       return;
     }
     const daysUntil = calculateDaysUntilDelivery(order.delivery_time);
@@ -268,10 +258,15 @@ const Orders: React.FC = () => {
 
   return (
     <div className="orders-page">
-      <TopLogo showBackButton={true} />
+      <TopLogo />
 
       <div className="page-content">
         <div className="container">
+          <div style={{ marginBottom: '20px' }}>
+            <button onClick={() => navigate('/')} className="btn btn-secondary">
+              ← 홈으로
+            </button>
+          </div>
           {error && (
             <div className="error">
               {error}

@@ -341,28 +341,9 @@ const AdminScheduleManagement: React.FC = () => {
       }
     } catch (err: any) {
       console.error('할당 저장 실패:', err);
-      // 500 에러가 발생해도 할당은 성공했을 수 있으므로 에러를 무시하고 성공으로 처리
-      if (err.response?.status === 500) {
-        console.warn('서버 에러 발생했지만 할당은 저장되었을 수 있습니다. 성공으로 처리합니다.');
-        try {
-          // 할당 정보 다시 불러오기 시도
-          setLoadingAssignments(true);
-          await fetchDayAssignments();
-          alert('직원 할당이 저장되었습니다.');
-          setSelectedDate(null);
-        } catch (fetchErr) {
-          // 할당 정보를 불러오지 못해도 할당 자체는 성공했을 수 있음
-          alert('직원 할당이 저장되었습니다.');
-          setSelectedDate(null);
-        } finally {
-          setLoadingAssignments(false);
-        }
-      } else {
-        // 500이 아닌 다른 에러는 정상적으로 처리
-        const errorMessage = err.response?.data?.error || err.message || '할당 저장에 실패했습니다.';
-        setError(errorMessage);
-        // alert는 표시하지 않음 (사용자 요청)
-      }
+      const errorMessage = err.response?.data?.error || err.message || '할당 저장에 실패했습니다.';
+      setError(errorMessage);
+      alert('할당 저장에 실패했습니다: ' + errorMessage);
     } finally {
       setLoading(false);
     }
@@ -403,8 +384,13 @@ const AdminScheduleManagement: React.FC = () => {
 
   return (
     <div className="admin-dashboard">
-      <TopLogo showBackButton={true} />
+      <TopLogo />
       <div className="container">
+        <div style={{ marginBottom: '20px' }}>
+          <button onClick={() => navigate('/')} className="btn btn-secondary">
+            ← 홈으로
+          </button>
+        </div>
 
         <h2>스케줄 관리 / 주문 관리</h2>
         {error && <div className="error">{error}</div>}
