@@ -178,8 +178,13 @@ const EmployeeOrderManagement: React.FC = () => {
 
   return (
     <div className="employee-dashboard">
-      <TopLogo showBackButton={true} />
+      <TopLogo showBackButton={false} />
       <div className="container">
+        <div style={{ marginBottom: '20px' }}>
+          <button onClick={() => navigate('/')} className="btn btn-secondary">
+            ← 홈으로
+          </button>
+        </div>
 
         <h2>스케줄 관리</h2>
 

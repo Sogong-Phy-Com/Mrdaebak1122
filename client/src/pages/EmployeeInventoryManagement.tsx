@@ -61,8 +61,13 @@ const EmployeeInventoryManagement: React.FC = () => {
 
   return (
     <div className="employee-dashboard">
-      <TopLogo showBackButton={true} />
+      <TopLogo showBackButton={false} />
       <div className="container">
+        <div style={{ marginBottom: '20px' }}>
+          <button onClick={() => navigate('/')} className="btn btn-secondary">
+            ← 홈으로
+          </button>
+        </div>
 
         <h2>재고 관리</h2>
         {error && <div className="error">{error}</div>}

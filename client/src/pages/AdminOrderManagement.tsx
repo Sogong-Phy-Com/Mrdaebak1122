@@ -227,7 +227,7 @@ const AdminOrderManagement: React.FC = () => {
 
   return (
     <div className="admin-dashboard">
-      <TopLogo showBackButton={true} />
+      <TopLogo showBackButton={false} />
       <div className="container">
 
         <div className="admin-section">

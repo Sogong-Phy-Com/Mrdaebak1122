@@ -595,6 +595,13 @@ const Order: React.FC = () => {
 
     // 고유한 제출 ID 생성
     const submissionId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    
+    // 제출 ID 설정 전에 다시 한 번 체크
+    if (orderSubmissionRef.current) {
+      console.log('[주문 생성] handleConfirmOrder - 다른 제출이 이미 진행 중입니다.');
+      return;
+    }
+    
     orderSubmissionRef.current = submissionId;
     
     setIsSubmitting(true);
@@ -803,9 +810,9 @@ const Order: React.FC = () => {
 
   return (
     <div className="order-page">
-      <TopLogo showBackButton={true} />
+      <TopLogo showBackButton={false} />
 
-      <div className="container">
+        <div className="container">
         <h2>{isModifying ? '주문 수정' : '주문하기'}</h2>
 
         <div className="voice-section">

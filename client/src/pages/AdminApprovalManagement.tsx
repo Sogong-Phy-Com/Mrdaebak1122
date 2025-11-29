@@ -80,8 +80,13 @@ const AdminApprovalManagement: React.FC = () => {
 
   return (
     <div className="admin-dashboard">
-      <TopLogo showBackButton={true} />
+      <TopLogo showBackButton={false} />
       <div className="container">
+        <div style={{ marginBottom: '20px' }}>
+          <button onClick={() => navigate('/')} className="btn btn-secondary">
+            ← 홈으로
+          </button>
+        </div>
 
         <div className="admin-section">
           <h2>승인 대기</h2>

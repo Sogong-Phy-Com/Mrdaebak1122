@@ -543,9 +543,12 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({ type: propType }) =
 
   return (
     <div className="schedule-calendar-page">
-      {showNavigation && <TopLogo showBackButton={true} />}
+      {showNavigation && <TopLogo />}
       {showNavigation && (
         <div style={{ marginBottom: '20px', paddingLeft: '20px', display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <button onClick={() => navigate('/employee/orders')} className="btn btn-secondary">
+            ← 스케줄 탭으로
+          </button>
           <div style={{ display: 'flex', gap: '10px' }}>
             <button
               className={`btn ${calendarType === 'schedule' ? 'btn-primary' : 'btn-secondary'}`}

@@ -306,10 +306,15 @@ const Profile: React.FC = () => {
 
   return (
     <div className="profile-page">
-      <TopLogo showBackButton={true} />
+      <TopLogo showBackButton={false} />
 
       <div className="page-content">
         <div className="container">
+          <div style={{ marginBottom: '20px' }}>
+            <button onClick={() => navigate('/')} className="btn btn-secondary">
+              ← 홈으로
+            </button>
+          </div>
           {/* 프로필 헤더 */}
           <div className="profile-header">
             <div className="profile-avatar">
