@@ -306,7 +306,7 @@ const Profile: React.FC = () => {
 
   return (
     <div className="profile-page">
-      <TopLogo />
+      <TopLogo showBackButton={false} />
 
       <div className="page-content">
         <div className="container">

@@ -227,17 +227,11 @@ const AdminOrderManagement: React.FC = () => {
 
   return (
     <div className="admin-dashboard">
-      <TopLogo />
+      <TopLogo showBackButton={false} />
       <div className="container">
         <div style={{ marginBottom: '20px' }}>
           <button onClick={() => navigate('/')} className="btn btn-secondary">
             ← 홈으로
-          </button>
-          <button onClick={() => navigate('/admin/inventory')} className="btn btn-primary" style={{ marginLeft: '10px' }}>
-            📦 재고 관리
-          </button>
-          <button onClick={() => navigate('/schedule')} className="btn btn-primary" style={{ marginLeft: '10px' }}>
-            📅 스케줄 캘린더
           </button>
         </div>
 

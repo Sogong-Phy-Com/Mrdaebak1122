@@ -577,6 +577,12 @@ const Order: React.FC = () => {
   };
 
   const handleConfirmOrder = async () => {
+    // 중복 제출 방지 - 즉시 체크
+    if (loading || isSubmitting || orderSubmissionRef.current) {
+      console.log('[주문 생성] handleConfirmOrder - 이미 제출 중입니다. 중복 제출 방지');
+      return;
+    }
+
     if (!orderPassword) {
       alert('비밀번호를 입력해주세요.');
       return;
@@ -797,7 +803,7 @@ const Order: React.FC = () => {
 
   return (
     <div className="order-page">
-      <TopLogo />
+      <TopLogo showBackButton={false} />
 
       <div className="container">
         <div style={{ marginBottom: '20px' }}>

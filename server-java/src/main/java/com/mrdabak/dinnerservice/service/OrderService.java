@@ -39,15 +39,18 @@ public class OrderService {
         this.userRepository = userRepository;
     }
 
+    @org.springframework.transaction.annotation.Transactional
     public Order createOrder(Long userId, OrderRequest request) {
-        int maxRetries = 10;
-        int retryCount = 0;
-        long baseDelay = 100; // Start with 100ms
-        
-        while (retryCount < maxRetries) {
-            try {
-                return createOrderWithTransaction(userId, request);
-            } catch (Exception e) {
+        // 중복 주문 방지를 위해 동기화 블록 사용
+        synchronized (this) {
+            int maxRetries = 10;
+            int retryCount = 0;
+            long baseDelay = 100; // Start with 100ms
+            
+            while (retryCount < maxRetries) {
+                try {
+                    return createOrderWithTransaction(userId, request);
+                } catch (Exception e) {
                 String errorMessage = e.getMessage() != null ? e.getMessage().toLowerCase() : "";
                 String causeMessage = "";
                 if (e.getCause() != null && e.getCause().getMessage() != null) {
