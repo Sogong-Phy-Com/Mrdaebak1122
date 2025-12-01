@@ -291,7 +291,9 @@ const VoiceOrderPage: React.FC = () => {
       recognition.onresult = (event: SpeechRecognitionEvent) => {
         let interimTranscript = '';
         
-        for (let i = event.resultIndex; i < event.results.length; i++) {
+        // resultIndex ????⑥뼵 ?곸슜
+        const resultIndex = (event as any).resultIndex ?? 0;
+        for (let i = resultIndex; i < event.results.length; i++) {
           const transcript = event.results[i][0].transcript;
           if (event.results[i].isFinal) {
             finalTranscript += transcript + ' ';
