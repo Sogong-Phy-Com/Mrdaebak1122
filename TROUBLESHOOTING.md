@@ -70,7 +70,13 @@ If you see a 429 error with "insufficient_quota":
 4. **Wait**: If it's a rate limit (not quota), wait a few minutes and try again
 
 Common causes:
+- **No payment method added** - Even if you set a budget, you MUST add a payment method to use the API
 - Free tier credits exhausted
-- No payment method added
 - Monthly spending limit reached
+- API key belongs to a different account than the one you're viewing
+
+**Important**: If you see $0 usage but still get "insufficient_quota" error:
+1. Check if you have a payment method added (not just a budget set)
+2. Verify the API key in Render matches the account you're viewing
+3. Try creating a new API key and updating it in Render
 
