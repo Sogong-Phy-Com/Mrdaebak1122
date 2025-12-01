@@ -178,7 +178,7 @@ const EmployeeOrderManagement: React.FC = () => {
 
   return (
     <div className="employee-dashboard">
-      <TopLogo showBackButton={false} />
+      <TopLogo />
       <div className="container">
         <div style={{ marginBottom: '20px' }}>
           <button onClick={() => navigate('/')} className="btn btn-secondary">

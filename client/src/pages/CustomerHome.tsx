@@ -25,6 +25,13 @@ const CustomerHome: React.FC = () => {
               <h3>주문하기</h3>
             </div>
           </div>
+            <div className="grid-item grid-item-voice" onClick={() => navigate('/voice-order')}>
+              <div className="grid-item-content">
+                <div className="grid-icon">🎙️</div>
+                <h3>음성 주문</h3>
+                <p className="grid-subtitle">Whisper + Qwen 상담원</p>
+              </div>
+            </div>
           <div className="grid-item grid-item-3" onClick={() => navigate('/orders')}>
             <div className="grid-item-content">
               <div className="grid-icon">📋</div>

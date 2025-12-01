@@ -6,6 +6,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
 import CustomerHome from './pages/CustomerHome';
+import VoiceOrderPage from './pages/VoiceOrderPage';
 import StaffHome from './pages/StaffHome';
 import AdminHome from './pages/AdminHome';
 import PendingApproval from './pages/PendingApproval';
@@ -64,6 +65,14 @@ function App() {
             element={
               <PrivateRoute>
                 <Order />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/voice-order"
+            element={
+              <PrivateRoute>
+                <VoiceOrderPage />
               </PrivateRoute>
             }
           />

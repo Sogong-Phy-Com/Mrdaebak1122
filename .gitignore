@@ -42,5 +42,12 @@ server-java/data/
 *.bak
 classdiagramcode.txt
 
+# Python / STT service
+stt-service/.venv/
+stt-service/tmp/
+stt-service/stt-service.log
+stt-service/__pycache__/
+
+
 # Old server (Node.js - replaced by Java)
 # server/ 폴더는 삭제됨

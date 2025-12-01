@@ -258,7 +258,7 @@ const Orders: React.FC = () => {
 
   return (
     <div className="orders-page">
-      <TopLogo showBackButton={false} />
+      <TopLogo />
 
       <div className="page-content">
         <div className="container">

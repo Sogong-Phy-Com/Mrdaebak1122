@@ -176,7 +176,7 @@ const AdminAccountManagement: React.FC = () => {
 
   return (
     <div className="admin-dashboard">
-      <TopLogo showBackButton={false} />
+      <TopLogo />
       <div className="container">
         <div style={{ marginBottom: '20px' }}>
           <button onClick={() => navigate('/')} className="btn btn-secondary">

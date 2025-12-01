@@ -330,21 +330,20 @@ const AdminScheduleManagement: React.FC = () => {
           retryCount++;
         }
         
-        // 검증 실패해도 할당 자체는 성공했을 수 있으므로 경고만 표시 (알람 제거)
+        // 검증 실패해도 할당 자체는 성공했을 수 있으므로 경고만 표시
         if (!assignmentVerified) {
           console.warn('할당 정보 검증 실패, 하지만 할당은 저장되었을 수 있습니다.');
-          // 알람 제거 - 할당은 성공했을 수 있으므로 조용히 처리
+          alert('직원 할당이 저장되었습니다. (검증 중 일시적인 문제가 발생했을 수 있습니다)');
           setSelectedDate(null);
         }
       } else {
-        // 할당 저장 실패 시에도 알람 제거 (에러는 setError로만 표시)
-        setError('할당 저장에 실패했습니다.');
+        throw new Error('할당 저장에 실패했습니다.');
       }
     } catch (err: any) {
       console.error('할당 저장 실패:', err);
       const errorMessage = err.response?.data?.error || err.message || '할당 저장에 실패했습니다.';
       setError(errorMessage);
-      // 알람 제거 - 에러는 화면에만 표시
+      alert('할당 저장에 실패했습니다: ' + errorMessage);
     } finally {
       setLoading(false);
     }
@@ -385,7 +384,7 @@ const AdminScheduleManagement: React.FC = () => {
 
   return (
     <div className="admin-dashboard">
-      <TopLogo showBackButton={false} />
+      <TopLogo />
       <div className="container">
         <div style={{ marginBottom: '20px' }}>
           <button onClick={() => navigate('/')} className="btn btn-secondary">
