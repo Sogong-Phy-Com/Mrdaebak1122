@@ -60,3 +60,17 @@ After deployment:
 - Make sure there are no spaces or special characters in the API key
 - Verify your OpenAI account has sufficient credits
 
+## 429 Error (Rate Limit / Quota Exceeded)
+
+If you see a 429 error with "insufficient_quota":
+
+1. **Check OpenAI Billing**: https://platform.openai.com/account/billing
+2. **Add Credits**: Go to "Payment methods" and add credits to your account
+3. **Check Usage**: Go to "Usage" to see your current usage and limits
+4. **Wait**: If it's a rate limit (not quota), wait a few minutes and try again
+
+Common causes:
+- Free tier credits exhausted
+- No payment method added
+- Monthly spending limit reached
+
