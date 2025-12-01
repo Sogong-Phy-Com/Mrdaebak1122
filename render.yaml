@@ -11,6 +11,12 @@ services:
         generateValue: true
       - key: PORT
         sync: false
+      - key: VOICE_LLM_API_KEY
+        sync: false
+      - key: VOICE_LLM_API_URL
+        value: https://api.openai.com/v1/chat/completions
+      - key: VOICE_LLM_MODEL
+        value: gpt-4o-mini
     healthCheckPath: /api/health
     plan: starter
 
