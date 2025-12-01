@@ -3,13 +3,11 @@ package com.mrdabak.dinnerservice.controller;
 import com.mrdabak.dinnerservice.model.User;
 import com.mrdabak.dinnerservice.repository.UserRepository;
 import com.mrdabak.dinnerservice.voice.VoiceOrderException;
-import com.mrdabak.dinnerservice.voice.client.SpeechToTextClient;
 import com.mrdabak.dinnerservice.voice.dto.VoiceMessageDto;
 import com.mrdabak.dinnerservice.voice.dto.VoiceOrderConfirmRequest;
 import com.mrdabak.dinnerservice.voice.dto.VoiceOrderConfirmResponse;
 import com.mrdabak.dinnerservice.voice.dto.VoiceOrderStartResponse;
 import com.mrdabak.dinnerservice.voice.dto.VoiceOrderSummaryDto;
-import com.mrdabak.dinnerservice.voice.dto.VoiceTranscriptionResponse;
 import com.mrdabak.dinnerservice.voice.dto.VoiceUtteranceRequest;
 import com.mrdabak.dinnerservice.voice.dto.VoiceUtteranceResponse;
 import com.mrdabak.dinnerservice.voice.model.VoiceConversationMessage;
@@ -28,7 +26,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -37,20 +34,17 @@ import java.util.List;
 public class VoiceOrderController {
 
     private final UserRepository userRepository;
-    private final SpeechToTextClient speechToTextClient;
     private final VoiceConversationService conversationService;
     private final VoiceOrderSummaryMapper summaryMapper;
     private final VoiceOrderSessionService sessionService;
     private final VoiceOrderCheckoutService checkoutService;
 
     public VoiceOrderController(UserRepository userRepository,
-                                SpeechToTextClient speechToTextClient,
                                 VoiceConversationService conversationService,
                                 VoiceOrderSummaryMapper summaryMapper,
                                 VoiceOrderSessionService sessionService,
                                 VoiceOrderCheckoutService checkoutService) {
         this.userRepository = userRepository;
-        this.speechToTextClient = speechToTextClient;
         this.conversationService = conversationService;
         this.summaryMapper = summaryMapper;
         this.sessionService = sessionService;
@@ -66,23 +60,6 @@ public class VoiceOrderController {
                 result.session().getSessionId(),
                 toMessageDtos(result.session().getVisibleMessages()),
                 summary));
-    }
-
-    @PostMapping(value = "/transcribe", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<VoiceTranscriptionResponse> transcribe(
-            Authentication authentication,
-            @RequestParam("sessionId") String sessionId,
-            @RequestParam("file") MultipartFile file) {
-        User user = resolveUser(authentication);
-        VoiceOrderSession session = sessionService.requireSession(sessionId);
-        ensureOwner(session, user.getId());
-        try {
-            byte[] audioBytes = file.getBytes();
-            String transcript = speechToTextClient.transcribe(audioBytes, file.getOriginalFilename());
-            return ResponseEntity.ok(new VoiceTranscriptionResponse(transcript));
-        } catch (Exception e) {
-            throw new VoiceOrderException("음성 파일을 처리할 수 없습니다.", e);
-        }
     }
 
     @PostMapping("/utterance")
